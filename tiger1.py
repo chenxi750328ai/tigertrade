@@ -951,12 +951,19 @@ def grid_trading_strategy():
 
 
 def boll1m_grid_strategy():
-    """1-minute Bollinger-based grid strategy (独立函数).
+    """1-minute Bollinger-based grid strategy (独立函数) — 优化过的开仓逻辑。
 
-    - 买入：当当前价格 <= 1 分钟布林下轨时买入 1 手（并据 ATR 设止损）
-    - 卖出：当有持仓且当前价格 >= 1 分钟布林中轨时卖出 1 手
+    场景区分：
+      - 震荡上行（osc_bull / osc_normal）: 在价格下探到下轨并出现反弹（last > prev）时开仓
+      - 震荡下行（osc_bear）或单边下跌（bear_trend / boll_divergence_down）: 只在价格从下轨回升并突破下轨时更为保守地开仓
+      - 单边上涨（bull_trend / boll_divergence_up）: 可在下探并出现反弹时较积极开仓
 
-    该函数不修改原有策略，供额外调度或测试使用。
+    具体规则（简化版实现）:
+      1. 在最近 3 根 1m K 线内出现价格 <= 下轨（dip_detected）;
+      2. 根据趋势类型要求不同的反弹确认（如 last > prev 或 last >= boll_lower）；
+      3. 通过风控后下单，止损按 ATR 计算。
+
+    卖出：当持仓且当前价格 >= 中轨时卖出 1 手。
     """
     global current_position
 
@@ -976,16 +983,53 @@ def boll1m_grid_strategy():
     price_current = indicators['1m']['close']
     atr = indicators['5m']['atr']
 
-    # Buy at lower band
-    if price_current is not None and boll_lower is not None and price_current <= boll_lower:
+    # Determine market regime
+    trend = judge_market_trend(indicators)
+
+    # Gather recent closes for dip/rebound detection
+    closes = None
+    try:
+        closes = df_1m['close'].dropna()
+    except Exception:
+        closes = pd.Series(dtype='float')
+
+    if len(closes) < 2:
+        print("⚠️ boll1m_grid_strategy: K线不足以判断反弹，跳过")
+        return
+
+    last = float(closes.iloc[-1])
+    prev = float(closes.iloc[-2]) if len(closes) >= 2 else None
+    prev3_min = float(closes.tail(3).min()) if len(closes) >= 1 else None
+
+    dip_detected = (boll_lower is not None and prev3_min is not None and prev3_min <= boll_lower)
+
+    # Buy decision: require dip then rebound; stricter in downtrends
+    buy_ok = False
+    if dip_detected and price_current is not None and boll_lower is not None:
+        if trend in ('osc_bull', 'osc_normal', 'bull_trend', 'boll_divergence_up'):
+            # moderate: any rebound (last > prev) is acceptable
+            if prev is not None and last > prev:
+                buy_ok = True
+        elif trend in ('osc_bear', 'bear_trend', 'boll_divergence_down'):
+            # conservative: require rebound that reaches at least back to lower band
+            if prev is not None and prev <= boll_lower and last >= boll_lower:
+                buy_ok = True
+        else:
+            # default to moderate behaviour
+            if prev is not None and last > prev:
+                buy_ok = True
+
+    if buy_ok:
         if check_risk_control(price_current, 'BUY'):
             stop_loss_price = price_current - STOP_LOSS_MULTIPLIER * (atr if atr else 0)
-            print(f"🔧 boll1m_grid_strategy: 触发买入 at {price_current:.2f} (boll_lower={boll_lower:.2f})")
+            print(f"🔧 boll1m_grid_strategy ({trend}): 发现回调+反弹，准备买入 at {price_current:.2f} (boll_lower={boll_lower:.2f})")
             place_tiger_order('BUY', 1, price_current, stop_loss_price)
         else:
             print("🔧 boll1m_grid_strategy: 风控阻止买入")
+    else:
+        print(f"🔧 boll1m_grid_strategy ({trend}): 未满足回调确认或未检测到dip（dip_detected={dip_detected}, last={last}, prev={prev}）")
 
-    # Sell at mid band when holding
+    # Sell at mid band when holding (unchanged)
     if current_position > 0 and price_current is not None and boll_mid is not None and price_current >= boll_mid:
         print(f"🔧 boll1m_grid_strategy: 触发卖出 at {price_current:.2f} (boll_mid={boll_mid:.2f})")
         place_tiger_order('SELL', 1, price_current)
@@ -1001,8 +1045,9 @@ if __name__ == "__main__":
     try:
         print("🚀 启动网格处理）...")
         while True:
-            grid_trading_strategy()
-            time.sleep(10)  # 
+            #grid_trading_strategy()
+            boll1m_grid_strategy()
+            time.sleep(20)  # 
     except KeyboardInterrupt:
         print("🛑 用户终止程序")
     except Exception as e:
