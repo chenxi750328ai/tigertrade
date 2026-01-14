@@ -950,6 +950,84 @@ def grid_trading_strategy():
             place_tiger_order('SELL', current_position, price_current)
 
 
+def grid_trading_strategy_pro1():
+    """Enhanced grid strategy variant (pro1):
+    - Adds a small buffer above `grid_lower` (based on ATR) to allow "near lower" entries
+    - Relaxes 1m RSI slightly
+    - Accepts momentum (last > prev) or volume spike as alternative confirmations
+    - Keeps `check_risk_control` as the final gate
+    """
+    global current_position
+
+    # Fetch market data
+    df_1m = get_kline_data([FUTURE_SYMBOL], '1min', count=30)
+    df_5m = get_kline_data([FUTURE_SYMBOL], '5min', count=50)
+    if df_1m.empty or df_5m.empty:
+        print("⚠️ 数据不足，跳过 grid_trading_strategy_pro1")
+        return
+
+    indicators = calculate_indicators(df_1m, df_5m)
+    if not indicators or '5m' not in indicators or '1m' not in indicators:
+        print("⚠️ 指标计算失败，跳过 grid_trading_strategy_pro1")
+        return
+
+    trend = judge_market_trend(indicators)
+    adjust_grid_interval(trend, indicators)
+
+    price_current = indicators['1m']['close']
+    rsi_1m = indicators['1m']['rsi']
+    rsi_5m = indicators['5m']['rsi']
+    atr = indicators['5m']['atr']
+
+    rsi_low_map = {
+        'boll_divergence_down': 15,
+        'osc_bear': 22,
+        'osc_bull': 55,
+        'bull_trend': 50,
+        'osc_normal': 25
+    }
+    rsi_low = rsi_low_map.get(trend, 25)
+
+    # 1) buffer above lower band (safe fallback when atr==0)
+    buffer = max(0.3 * (atr if atr else 0), 0.01)
+    near_lower = price_current <= (grid_lower + buffer)
+
+    # 2) relax RSI tolerance a bit
+    rsi_ok = False
+    try:
+        rsi_ok = (rsi_1m is not None) and (rsi_1m <= (rsi_low + 5))
+    except Exception:
+        rsi_ok = False
+
+    # 3) relaxed trend check
+    trend_check = (trend in ['osc_bull', 'bull_trend'] and rsi_5m > 45) or \
+                  (trend in ['osc_bear', 'boll_divergence_down'] and rsi_5m < 55)
+
+    # 4) momentum / volume backups
+    rebound = False
+    vol_ok = False
+    try:
+        closes = df_1m['close'].dropna()
+        last = float(closes.iloc[-1])
+        prev = float(closes.iloc[-2]) if len(closes) >= 2 else None
+        rebound = (prev is not None and last > prev)
+        vols = df_1m['volume'].dropna()
+        if len(vols) >= 6:
+            recent_mean = vols.iloc[-6:-1].mean()
+            vol_ok = vols.iloc[-1] > max(recent_mean * 1.2, 0)
+    except Exception:
+        rebound = False
+        vol_ok = False
+
+    # Final buy decision: near lower + rsi_ok + (trend_check or rebound or vol_ok)
+    if near_lower and rsi_ok and (trend_check or rebound or vol_ok) and check_risk_control(price_current, 'BUY'):
+        stop_loss_price = price_current - STOP_LOSS_MULTIPLIER * atr
+        print(f"🔧 grid_trading_strategy_pro1: 触发买入条件 near_lower={near_lower}, rsi_ok={rsi_ok}, trend_check={trend_check}, rebound={rebound}, vol_ok={vol_ok}")
+        place_tiger_order('BUY', 1, price_current, stop_loss_price)
+    else:
+        print(f"🔧 grid_trading_strategy_pro1: 未触发（near_lower={near_lower}, rsi_ok={rsi_ok}, trend_check={trend_check}, rebound={rebound}, vol_ok={vol_ok}）")
+
+
 def boll1m_grid_strategy():
     """1-minute Bollinger-based grid strategy (独立函数) — 优化过的开仓逻辑。
 
@@ -1046,8 +1124,9 @@ if __name__ == "__main__":
         print("🚀 启动网格处理）...")
         while True:
             #grid_trading_strategy()
-            boll1m_grid_strategy()
-            time.sleep(20)  # 
+            grid_trading_strategy_pro1()
+            #boll1m_grid_strategy()
+            time.sleep(10)  # 
     except KeyboardInterrupt:
         print("🛑 用户终止程序")
     except Exception as e:
