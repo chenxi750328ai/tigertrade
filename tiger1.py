@@ -169,6 +169,9 @@ def verify_api_connection():
 
         print(klines.head().to_string())
 
+        #place_tiger_order('BUY', 1, 91.63, 90)
+        #place_tiger_order('SELL', 1, 91.63, 90)
+
         return True
     except Exception as e:
         # 通用异常捕获，输出详细错误
@@ -947,6 +950,47 @@ def grid_trading_strategy():
             place_tiger_order('SELL', current_position, price_current)
 
 
+def boll1m_grid_strategy():
+    """1-minute Bollinger-based grid strategy (独立函数).
+
+    - 买入：当当前价格 <= 1 分钟布林下轨时买入 1 手（并据 ATR 设止损）
+    - 卖出：当有持仓且当前价格 >= 1 分钟布林中轨时卖出 1 手
+
+    该函数不修改原有策略，供额外调度或测试使用。
+    """
+    global current_position
+
+    # Fetch enough 1m bars for BOLL calculation
+    df_1m = get_kline_data([FUTURE_SYMBOL], '1min', count=max(30, GRID_BOLL_PERIOD + 5))
+    if df_1m.empty or len(df_1m) < GRID_BOLL_PERIOD:
+        print("⚠️ boll1m_grid_strategy: 数据不足，跳过")
+        return
+
+    indicators = calculate_indicators(df_1m, df_1m)
+    if '5m' not in indicators or '1m' not in indicators:
+        print("⚠️ boll1m_grid_strategy: 指标计算失败，跳过")
+        return
+
+    boll_lower = indicators['5m']['boll_lower']
+    boll_mid = indicators['5m']['boll_mid']
+    price_current = indicators['1m']['close']
+    atr = indicators['5m']['atr']
+
+    # Buy at lower band
+    if price_current is not None and boll_lower is not None and price_current <= boll_lower:
+        if check_risk_control(price_current, 'BUY'):
+            stop_loss_price = price_current - STOP_LOSS_MULTIPLIER * (atr if atr else 0)
+            print(f"🔧 boll1m_grid_strategy: 触发买入 at {price_current:.2f} (boll_lower={boll_lower:.2f})")
+            place_tiger_order('BUY', 1, price_current, stop_loss_price)
+        else:
+            print("🔧 boll1m_grid_strategy: 风控阻止买入")
+
+    # Sell at mid band when holding
+    if current_position > 0 and price_current is not None and boll_mid is not None and price_current >= boll_mid:
+        print(f"🔧 boll1m_grid_strategy: 触发卖出 at {price_current:.2f} (boll_mid={boll_mid:.2f})")
+        place_tiger_order('SELL', 1, price_current)
+
+
 # ====================== 主程序 ======================
 if __name__ == "__main__":
     # 1. 验证API连接
@@ -955,7 +999,7 @@ if __name__ == "__main__":
     
     # 2. 启动网格策略
     try:
-        print("🚀 启动SIL2603网格处理）...")
+        print("🚀 启动网格处理）...")
         while True:
             grid_trading_strategy()
             time.sleep(10)  # 
