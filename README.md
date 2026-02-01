@@ -6,7 +6,8 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Status: Active Development](https://img.shields.io/badge/status-active%20development-green.svg)]()
 
-**状态页（GitHub Pages）**：[docs/status.html](https://chenxi750328ai.github.io/tigertrade/status.html)
+**状态页（GitHub Pages）**：[docs/status.html](https://chenxi750328ai.github.io/tigertrade/status.html)  
+（需在仓库 **Settings → Pages** 里将 Source 选为 **GitHub Actions**，保存后由 workflow 自动部署。）
 
 ---
 
