@@ -6,133 +6,203 @@
   <meta http-equiv="refresh" content="60">
   <title>TigerTrade · 状态</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root { --bg: #0f1216; --card: #1a1f29; --accent: #f59e0b; --muted: #6b7280; --text: #e4e4e7; --ok: #22c55e; --wip: #eab308; }
+    :root {
+      --bg: #0d0f12;
+      --surface: #161a1f;
+      --border: rgba(255,255,255,0.06);
+      --accent: #f59e0b;
+      --text: #e5e7eb;
+      --text-muted: #9ca3af;
+      --ok: #34d399;
+      --wip: #fbbf24;
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: "Noto Sans SC", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 2rem; }
-    .container { max-width: 960px; margin: 0 auto; }
-    h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--accent); }
-    .sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 2rem; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
-    .card { background: var(--card); border-radius: 12px; padding: 1.25rem; border: 1px solid rgba(255,255,255,0.06); }
-    .card h2 { font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
-    .card .val { font-size: 1.2rem; font-weight: 600; color: var(--accent); }
-    .section { margin-bottom: 2rem; }
-    .section h2 { font-size: 1rem; color: var(--muted); margin-bottom: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.35rem; }
-    .section ul { list-style: none; }
-    .section li { padding: 0.35rem 0; color: var(--text); font-size: 0.95rem; }
-    .section li::before { content: "· "; color: var(--accent); }
-    .section a { color: var(--accent); text-decoration: none; }
-    .section a:hover { text-decoration: underline; }
-    .muted { color: var(--muted); font-size: 0.9rem; }
-    .badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 6px; font-size: 0.8rem; margin-right: 0.5rem; }
-    .badge-ok { background: rgba(34,197,94,0.2); color: var(--ok); }
-    .badge-wip { background: rgba(234,179,8,0.2); color: var(--wip); }
-    .badge-pend { background: rgba(107,114,128,0.3); color: var(--muted); }
-    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-    th, td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
-    th { color: var(--muted); font-weight: 600; }
+    body {
+      font-family: "Noto Sans SC", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1.5rem;
+      line-height: 1.6;
+      font-size: 15px;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; }
+
+    /* 头部 */
+    .hero {
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .hero h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 0.25rem;
+    }
+    .hero .meta {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    .pill {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.35rem 0.75rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .pill strong { color: var(--accent); font-weight: 600; }
+
+    /* 区块 */
+    .sec {
+      margin-bottom: 1.75rem;
+    }
+    .sec-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 0.6rem;
+    }
+    .sec-body {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+    }
+    .sec-body p, .sec-body li {
+      font-size: 0.9rem;
+      color: var(--text);
+      margin-bottom: 0.4rem;
+    }
+    .sec-body li:last-child { margin-bottom: 0; }
+    .sec-body ul { list-style: none; }
+    .sec-body a { color: var(--accent); text-decoration: none; }
+    .sec-body a:hover { text-decoration: underline; }
+    .sec-body code { font-size: 0.85em; background: rgba(0,0,0,0.25); padding: 0.15rem 0.35rem; border-radius: 4px; }
+
+    /* 开发表格 */
+    .dev-table { width: 100%; font-size: 0.85rem; border-collapse: collapse; }
+    .dev-table th, .dev-table td { padding: 0.5rem 0; text-align: left; border-bottom: 1px solid var(--border); }
+    .dev-table th { color: var(--text-muted); font-weight: 500; }
+    .dev-table tr:last-child td { border-bottom: 0; }
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    .badge-ok { background: rgba(52,211,153,0.15); color: var(--ok); }
+    .badge-wip { background: rgba(251,191,36,0.15); color: var(--wip); }
+
+    /* 特性列表：紧凑 */
+    .feat-list { display: grid; gap: 0.5rem; }
+    .feat-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+    }
+    .feat-item .badge { flex-shrink: 0; }
+
+    /* 维护与链接：合并为底部 */
+    .footer {
+      margin-top: 2rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .footer p { margin-bottom: 0.5rem; }
+    .footer a { color: var(--accent); text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+    .footer-links { margin-top: 0.75rem; }
+    .footer-links a { margin-right: 1rem; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>🐯 TigerTrade 状态</h1>
-    <p class="sub">最后更新: <span id="updated">--</span> · 每 60 秒自动刷新</p>
-
-    <div class="grid">
-      <div class="card"><h2>项目</h2><span class="val">TigerTrade</span></div>
-      <div class="card"><h2>状态</h2><span class="val">开发中</span></div>
-      <div class="card"><h2>目标</h2><span class="val">月盈利率 20%</span></div>
-      <div class="card"><h2>PL</h2><span class="val">陈老大</span></div>
-    </div>
-
-    <!-- 设计 -->
-    <div class="section">
-      <h2>📐 设计</h2>
-      <div class="card">
-        <ul>
-          <li><strong>架构</strong>：Tick 采集 → 原生特征 Transformer → 策略/回测 → 风控/下单；基于 AgentFuture 多 Agent 协作。</li>
-          <li><strong>文档</strong>：<a href="https://github.com/chenxi750328ai/tigertrade/blob/main/docs/架构分析_预测与下单的分离.md">架构分析</a>、<a href="https://github.com/chenxi750328ai/tigertrade/blob/main/docs/盈利目标和风险控制.md">盈利与风控</a>、<a href="https://github.com/chenxi750328ai/tigertrade/blob/main/docs/时段自适应策略使用说明.md">时段自适应策略</a>。</li>
-          <li><strong>数据</strong>：秒级 Tick、K 线分页与指标；<a href="https://github.com/chenxi750328ai/tigertrade/blob/main/docs/数据说明.md">数据说明</a>。</li>
-          <li><strong>手工订单</strong>：A/B/C 建仓、D 止损、E 止盈；<a href="https://github.com/chenxi750328ai/tigertrade/tree/main/shared_rag/best_practices">RAG 设计文档</a>。</li>
-        </ul>
+  <div class="wrap">
+    <header class="hero">
+      <h1>🐯 TigerTrade</h1>
+      <p class="meta">最后刷新 <span id="updated">--</span> · 每 60 秒自动刷新</p>
+      <div class="pills">
+        <span class="pill">项目 <strong>TigerTrade</strong></span>
+        <span class="pill">状态 <strong>开发中</strong></span>
+        <span class="pill">目标 <strong>月盈利率 20%</strong></span>
+        <span class="pill">PL <strong>陈老大</strong></span>
       </div>
-    </div>
+    </header>
 
-    <!-- 开发 -->
-    <div class="section">
-      <h2>🛠 开发</h2>
-      <div class="card">
-        <table>
+    <section class="sec">
+      <h2 class="sec-title">设计</h2>
+      <div class="sec-body">
+        <p>架构：Tick 采集 → 原生特征 Transformer → 策略/回测 → 风控/下单（AgentFuture 多 Agent 协作）。</p>
+        <p>文档：<a href="https://github.com/chenxi750328ai/tigertrade/blob/main/docs/架构分析_预测与下单的分离.md">架构</a>、<a href="https://github.com/chenxi750328ai/tigertrade/blob/main/docs/盈利目标和风险控制.md">风控</a>、<a href="https://github.com/chenxi750328ai/tigertrade/blob/main/docs/时段自适应策略使用说明.md">策略</a>、<a href="https://github.com/chenxi750328ai/tigertrade/blob/main/docs/数据说明.md">数据</a>、<a href="https://github.com/chenxi750328ai/tigertrade/tree/main/shared_rag/best_practices">RAG</a>。</p>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h2 class="sec-title">开发</h2>
+      <div class="sec-body">
+        <table class="dev-table">
           <thead><tr><th>模块</th><th>状态</th><th>说明</th></tr></thead>
           <tbody>
-            <tr><td>数据采集</td><td><span class="badge badge-ok">已完成</span></td><td>Tick 采集器、K 线、每 60 秒采集</td></tr>
-            <tr><td>原生特征 Transformer</td><td><span class="badge badge-wip">进行中</span></td><td>12 维输入、4 层 8 头、序列 128</td></tr>
-            <tr><td>MoE / 多模型</td><td><span class="badge badge-wip">进行中</span></td><td>多模型对比训练脚本就绪</td></tr>
+            <tr><td>数据采集</td><td><span class="badge badge-ok">已完成</span></td><td>Tick / K 线、60 秒采集</td></tr>
+            <tr><td>Transformer / MoE</td><td><span class="badge badge-wip">进行中</span></td><td>12 维、4 层 8 头、多模型对比</td></tr>
             <tr><td>策略与回测</td><td><span class="badge badge-wip">进行中</span></td><td>时段自适应、仓位/止损止盈</td></tr>
-            <tr><td>风控与下单</td><td><span class="badge badge-ok">已有</span></td><td>单笔/日亏损限制、OrderExecutor</td></tr>
-            <tr><td>手工订单模式</td><td><span class="badge badge-ok">已有</span></td><td>trigger/confirm/entry、stop_loss、take_profit</td></tr>
-            <tr><td>订单 LOG / API 失败记录</td><td><span class="badge badge-ok">已有</span></td><td>order_log.jsonl、api_failure_for_support.jsonl</td></tr>
+            <tr><td>风控与下单</td><td><span class="badge badge-ok">已有</span></td><td>单笔/日亏损、OrderExecutor</td></tr>
+            <tr><td>手工订单</td><td><span class="badge badge-ok">已有</span></td><td>A/B/C 建仓、D 止损、E 止盈</td></tr>
+            <tr><td>订单 LOG</td><td><span class="badge badge-ok">已有</span></td><td>order_log、api_failure 记录</td></tr>
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
 
-    <!-- 测试 -->
-    <div class="section">
-      <h2>🧪 测试</h2>
-      <div class="card">
-        <ul>
-          <li><strong>CI</strong>：<code>pytest tests/ -m "not real_api"</code>，回归防护（OrderExecutor 回退、tiger1 __main__ 冒烟）见 <a href="https://github.com/chenxi750328ai/tigertrade/blob/main/.github/workflows/ci.yml">ci.yml</a>。</li>
-          <li><strong>覆盖率</strong>：<code>pytest --cov=src</code>，目标关注关键模块；近期约 25%+。</li>
-          <li><strong>20h DEMO / 稳定性</strong>：<code>scripts/run_20h_demo.sh</code>、<code>scripts/cron_routine_monitor.sh</code>；DEMO 运行与多模型训练状态见 <code>logs/routine_monitor.log</code>。</li>
-          <li><strong>已知</strong>：DEMO 账户 API 非交易时段返回 1200 属券商限制，非代码错误。</li>
-        </ul>
+    <section class="sec">
+      <h2 class="sec-title">测试</h2>
+      <div class="sec-body">
+        <p>CI：<code>pytest tests/ -m "not real_api"</code>，回归防护见 <a href="https://github.com/chenxi750328ai/tigertrade/blob/main/.github/workflows/ci.yml">ci.yml</a>。覆盖率 <code>--cov=src</code>，近期约 25%+。</p>
+        <p>20h DEMO：<code>run_20h_demo.sh</code>、<code>cron_routine_monitor.sh</code>，状态见 <code>logs/routine_monitor.log</code>。DEMO 非交易时段 API 1200 为券商限制，非代码错误。</p>
       </div>
-    </div>
+    </section>
 
-    <!-- 主要特性进展 -->
-    <div class="section">
-      <h2>📈 主要特性进展</h2>
-      <div class="card">
-        <ul>
-          <li><span class="badge badge-ok">✓</span> <strong>秒级 Tick 与 K 线</strong>：采集、分页、指标就绪；真实数据已积累。</li>
-          <li><span class="badge badge-wip">○</span> <strong>Transformer / MoE 模型</strong>：训练脚本、多模型对比、特征发现路径已有；持续优化中。</li>
-          <li><span class="badge badge-wip">○</span> <strong>策略与回测</strong>：仓位/止损止盈、v6 等策略；回测框架与报告产出。</li>
-          <li><span class="badge badge-ok">✓</span> <strong>风控与下单</strong>：检查单笔/日亏损、OrderExecutor、手工订单与自动订单并发。</li>
-          <li><span class="badge badge-wip">○</span> <strong>收益率与算法优化</strong>：<code>optimize_algorithm_and_profitability.py</code> 等；目标月盈利率 20%。</li>
-          <li><span class="badge badge-ok">✓</span> <strong>协作与发布</strong>：陈老大/陈老二分工、江湖任务、RAG 例行清单；GitHub 推送与 Pages 状态页。</li>
-        </ul>
+    <section class="sec">
+      <h2 class="sec-title">主要特性进展</h2>
+      <div class="sec-body">
+        <div class="feat-list">
+          <div class="feat-item"><span class="badge badge-ok">✓</span> 秒级 Tick 与 K 线：采集、分页、指标就绪</div>
+          <div class="feat-item"><span class="badge badge-wip">○</span> Transformer / MoE：训练与多模型对比、持续优化</div>
+          <div class="feat-item"><span class="badge badge-wip">○</span> 策略与回测：仓位/止损止盈、v6、回测报告</div>
+          <div class="feat-item"><span class="badge badge-ok">✓</span> 风控与下单：单笔/日亏损、手工与自动并发</div>
+          <div class="feat-item"><span class="badge badge-wip">○</span> 收益率与算法优化：目标月盈利率 20%</div>
+          <div class="feat-item"><span class="badge badge-ok">✓</span> 协作与发布：陈老大/陈老二分工、江湖、Pages</div>
+        </div>
       </div>
-    </div>
+    </section>
 
-    <!-- 维护与负责 -->
-    <div class="section">
-      <h2>🔄 维护与负责</h2>
-      <div class="card">
-        <p><strong>谁刷新</strong>：本页内容为静态 HTML（<code>docs/status.html</code>），需人工/Agent 编辑并提交推送后，由 GitHub Pages 部署生效。「最后更新」显示为<strong>您访问页面时的本地时间</strong>，非内容实际修改时间。</p>
-        <p style="margin-top: 0.75rem;"><strong>负责成员</strong>：</p>
-        <ul>
-          <li><strong>陈老大</strong>（PL）：负责状态页内容更新与对外一致性；例行或大版本时更新设计/开发/测试/特性进展。</li>
-          <li><strong>陈老二</strong>：可被委托按任务更新（如测试结果、特性进展）；更新后回报陈老大。</li>
-        </ul>
-        <p style="margin-top: 0.75rem;"><strong>连接</strong>：<a href="https://github.com/chenxi750328ai/tigertrade/blob/main/docs/PL.md">PL 约定</a> · <a href="https://github.com/chenxi750328ai/tigertrade/blob/main/AGENT_TASKS.md">Agent 任务</a> · <a href="https://github.com/chenxi750328ai/tigertrade/blob/main/shared_rag/best_practices/陈老大陈老二协作分工_20260201.md">陈老大陈老二协作分工</a></p>
+    <footer class="footer">
+      <p><strong>维护</strong>：内容为静态 HTML，由陈老大（PL）负责更新，可委托陈老二按任务更新。「最后刷新」为访问时本地时间。</p>
+      <p><strong>负责</strong>：陈老大 · 陈老二（见 <a href="https://github.com/chenxi750328ai/tigertrade/blob/main/shared_rag/best_practices/陈老大陈老二协作分工_20260201.md">协作分工</a>）。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenxi750328ai/tigertrade">仓库</a>
+        <a href="https://github.com/chenxi750328ai/tigertrade/blob/main/README.md">README</a>
+        <a href="https://github.com/chenxi750328ai/tigertrade/blob/main/docs/PL.md">PL</a>
+        <a href="https://github.com/chenxi750328ai/tigertrade/blob/main/AGENT_TASKS.md">Agent 任务</a>
+        <a href="https://github.com/chenxi750328ai/tigertrade/tree/main/docs">文档</a>
+        <a href="https://github.com/chenxi750328ai/tigertrade/tree/main/shared_rag">RAG</a>
       </div>
-    </div>
-
-    <!-- 链接 -->
-    <div class="section">
-      <h2>链接</h2>
-      <div class="card">
-        <p><a href="https://github.com/chenxi750328ai/tigertrade">GitHub 仓库</a></p>
-        <p><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/README.md">README</a></p>
-        <p><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/docs/PL.md">PL 约定</a></p>
-        <p><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/AGENT_TASKS.md">Agent 任务</a></p>
-        <p><a href="https://github.com/chenxi750328ai/tigertrade/tree/main/docs">文档目录</a></p>
-        <p><a href="https://github.com/chenxi750328ai/tigertrade/tree/main/shared_rag">RAG 知识库</a></p>
-      </div>
-    </div>
+    </footer>
   </div>
   <script>document.getElementById('updated').textContent = new Date().toISOString().replace('T',' ').slice(0,19);</script>
 </body>
