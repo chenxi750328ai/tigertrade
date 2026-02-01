@@ -68,10 +68,13 @@ nohup.out
 # 运行时（手工订单等）
 run/
 
-# 临时文件
+# 临时文件与本地输出
 tmp/
 temp/
 *.tmp
+analysis/
+backtest_results/
+pytestdebug.log
 
 # API密钥和配置（敏感信息）
 openapicfg_dem/tiger_openapi_config.properties
