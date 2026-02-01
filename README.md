@@ -6,6 +6,8 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Status: Active Development](https://img.shields.io/badge/status-active%20development-green.svg)]()
 
+**状态页（GitHub Pages）**：[docs/status.html](https://chenxi750328ai.github.io/tigertrade/status.html)
+
 ---
 
 ## 📋 目录
@@ -31,7 +33,7 @@ TigerTrade是一个结合传统量化交易和现代深度学习的期货交易�
 
 **特点**: 
 - 利用AgentFuture的多Agent协作能力，实现数据采集、模型训练、策略回测的并行处理
-- 支持民主选举最优策略
+- 支持投票选举最优策略
 - Agent间共享交易洞察和市场发现
 
 ### 核心目标
