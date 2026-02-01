@@ -4,6 +4,14 @@
 
 ---
 
+## 📄 状态页（docs/status.html）
+
+- **谁刷新**：内容需编辑 <code>docs/status.html</code> 并提交推送，由 GitHub Pages 部署后生效；无自动拉取数据。
+- **负责成员**：**陈老大**（PL）负责内容更新与对外一致性；可委托**陈老二**按任务更新（如测试结果、特性进展），更新后回报。
+- **连接**：状态页底部已加「维护与负责」说明及 [PL 约定](docs/PL.md)、[Agent 任务](AGENT_TASKS.md)、[陈老大陈老二协作分工](shared_rag/best_practices/陈老大陈老二协作分工_20260201.md) 链接。
+
+---
+
 ## 📋 例行工作（必做，详见 RAG）
 
 执行「例行工作」时必须覆盖以下全部项，**不得遗漏**。完整说明见：`shared_rag/best_practices/例行工作清单_agent必读.md`
