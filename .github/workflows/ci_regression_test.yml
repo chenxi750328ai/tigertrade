@@ -1,0 +1,110 @@
+name: CI回归测试
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'scripts/run_moe_demo.py'
+      - 'src/tiger1.py'
+      - 'src/strategies/**'
+      - 'tests/**'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'scripts/run_moe_demo.py'
+      - 'src/tiger1.py'
+      - 'src/strategies/**'
+      - 'tests/**'
+
+jobs:
+  regression_test:
+    name: 回归测试
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v3
+    
+    - name: 设置Python环境
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: 安装依赖
+      run: |
+        pip install -q pytest pytest-cov
+        pip install -q pandas numpy torch
+        pip install -q unittest-xml-reporting
+    
+    - name: 运行基础功能测试
+      run: |
+        cd ${{ github.workspace }}/tigertrade || cd .
+        if [ -f tests/test_place_tiger_order.py ]; then
+          python -m pytest tests/test_place_tiger_order.py -v
+        else
+          echo "⚠️ test_place_tiger_order.py不存在，跳过"
+        fi
+    
+    - name: 运行真实下单逻辑测试
+      run: |
+        cd ${{ github.workspace }}/tigertrade || cd .
+        python tests/test_order_execution_real.py -v || python3 tests/test_order_execution_real.py -v
+    
+    - name: 运行执行器模块测试
+      run: |
+        cd ${{ github.workspace }}/tigertrade || cd .
+        python tests/test_executor_modules.py -v || python3 tests/test_executor_modules.py -v
+    
+    - name: 运行集成测试
+      run: |
+        cd ${{ github.workspace }}/tigertrade || cd .
+        python tests/test_run_moe_demo_integration.py || python3 tests/test_run_moe_demo_integration.py
+    
+    - name: 检查下单逻辑
+      run: |
+        cd ${{ github.workspace }}/tigertrade || cd .
+        python -c "
+        import sys
+        sys.path.insert(0, '.')
+        demo_file = 'scripts/run_moe_demo.py'
+        with open(demo_file, 'r') as f:
+            content = f.read()
+        
+        checks = {
+            'place_tiger_order调用': 'place_tiger_order' in content and not all(l.strip().startswith('#') for l in content.split('\\n') if 'place_tiger_order' in l),
+            '风控检查': 'check_risk_control' in content,
+            '买入执行逻辑': '执行买入' in content or '执行买入操作' in content,
+            '卖出执行逻辑': '执行卖出' in content or '执行卖出操作' in content,
+            '订单提交确认': '订单提交成功' in content or '下单成功' in content,
+        }
+        
+        failed = [k for k, v in checks.items() if not v]
+        if failed:
+            print(f'❌ 检查失败: {failed}')
+            sys.exit(1)
+        else:
+            print('✅ 所有检查通过')
+        "
+    
+    - name: 运行完整测试套件
+      run: |
+        cd ${{ github.workspace }}/tigertrade || cd .
+        if [ -f tests/test_tiger1_full_coverage.py ]; then
+          python -m pytest tests/test_tiger1_full_coverage.py::TestTiger1FullCoverage::test_place_tiger_order -v
+        else
+          echo "⚠️ test_tiger1_full_coverage.py不存在，跳过"
+        fi
+    
+    - name: 生成测试报告
+      if: always()
+      run: |
+        echo "## 测试结果" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 测试执行情况" >> $GITHUB_STEP_SUMMARY
+        echo "- 基础功能测试: 已执行" >> $GITHUB_STEP_SUMMARY
+        echo "- 真实下单逻辑测试: 已执行" >> $GITHUB_STEP_SUMMARY
+        echo "- 执行器模块测试: 已执行" >> $GITHUB_STEP_SUMMARY
+        echo "- 集成测试: 已执行" >> $GITHUB_STEP_SUMMARY
+        echo "- 下单逻辑检查: 已执行" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**注意**: 查看上方各步骤的详细输出以获取实际测试结果" >> $GITHUB_STEP_SUMMARY

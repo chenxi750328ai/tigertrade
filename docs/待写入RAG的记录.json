@@ -1,0 +1,56 @@
+[
+  {
+    "type": "knowledge",
+    "title": "Tiger Open API核心要点总结",
+    "content": "【概述】Tiger Open API为量化交易提供接口，支持Python/Java/C++/C#，免费使用（仅需开户入金）。【账户】支持综合账户、环球账户、模拟账户(DEMO)。【功能】交易管理、账户查询、行情获取、实时推送。【期货】支持美国/香港/新加坡期货，白银期货在COMEX交易所，合约SIL2503等。【关键发现】DEMO账户提供真实市场行情数据，仅下单执行是模拟的！【配置】路径/home/cx/openapicfg_dem/，使用TigerOpenClientConfig(props_path='./openapicfg_dem')初始化。【K线获取】quote_client.get_future_bars(symbols, period=BarPeriod.ONE_MINUTE/DAY, begin_time_ms, end_time_ms)。【行情权限】API行情权限独立于APP需单独购买，期货需CME/CBOT交易所权限。",
+    "tags": ["Tiger API", "期货交易", "白银", "COMEX", "DEMO账户", "行情数据"],
+    "project": "tigertrade",
+    "source": "https://quant.itigerup.com/openapi/zh/python/overview/introduction.html",
+    "importance": "critical",
+    "date": "2026-01-21"
+  },
+  {
+    "type": "lesson_learned",
+    "title": "数据采集的致命错误：Mock数据误用",
+    "content": "【问题】之前采集的6970条数据实际是Mock模拟数据，不是真实市场数据。【症状】1)时间戳异常(1970年或2026年未来时间) 2)价格变化不合理(短时间大幅波动58%，一天内$140→$58) 3)训练的模型准确率仅36%(随机33%)。【根本原因】1)API客户端未正确初始化(quote_client=None) 2)代码fallback使用Mock数据生成器 3)配置文件路径./openapicfg_dem未正确加载 4)未验证数据真实性就直接使用。【用户发现】用户要求查看K线图后立即发现数据异常，指出'白银这三个月一直在上涨'但我的数据显示暴跌。【经验教训】1)永远不要假设API返回的是真实数据 2)必须验证：时间戳范围/价格连续性/成交量合理性 3)K线图是最直观的数据验证方法 4)用户质疑时要认真对待，不要辩解。【代价】浪费时间训练无效模型，损失用户信任。",
+    "tags": ["数据质量", "Mock数据", "验证", "错误", "教训"],
+    "project": "tigertrade",
+    "importance": "critical",
+    "date": "2026-01-21"
+  },
+  {
+    "type": "lesson_learned",
+    "title": "泛化性风险：单一市场状态的过拟合",
+    "content": "【用户质疑】'当前市场真实数据一直在上涨，是不是很容易达到盈利率？就算一直持有也能搞定。市场真实数据的分布是不是有误导作用，万一白银开始长期下跌呢？怎么提升泛化性？'【问题本质】如果训练数据只包含上涨行情，模型会过拟合'做多'策略，在下跌市场中会崩溃。这是量化交易中最关键的风险之一：Distribution Bias(数据分布偏差)。【风险】1)牛市策略在熊市失效 2)简单持有就能盈利的环境下，策略的真实价值无法验证 3)回测收益严重高估真实能力。【提升泛化性方案】1)采集更长时间跨度数据(至少包含一轮完整牛熊周期) 2)确保数据包含上涨/下跌/震荡三种市场状态 3)数据增强：对历史数据做镜像/反转模拟相反行情 4)分段训练：识别不同市场regime分别训练 5)Walk-forward测试：滚动窗口验证而非简单train/test分割 6)压力测试：在极端行情(暴涨暴跌)下测试策略 7)正则化和集成学习防止过拟合。【关键洞察】胜率≠盈利能力，泛化性>准确率。",
+    "tags": ["泛化性", "过拟合", "市场状态", "数据分布", "风险控制"],
+    "project": "tigertrade",
+    "importance": "critical",
+    "date": "2026-01-21"
+  },
+  {
+    "type": "rule",
+    "title": "数据质量验证标准流程（强制执行）",
+    "content": "【强制规则】任何数据采集后，必须通过以下验证才能用于训练：1)时间戳验证：检查时间范围是否合理(不能是1970或未来)，时间间隔是否均匀。2)价格验证：最高/最低价在合理范围($50-$150为白银合理区间)，单周期价格变化<5%，无异常跳跃(>$10)。3)成交量验证：成交量>0且在合理范围，非全部相同值。4)连续性验证：无大段数据缺失，价格曲线连续。5)K线图验证：绘制完整K线图人工检查，识别异常模式。6)趋势验证：对比真实市场趋势(通过金融网站确认)，确保方向一致。7)统计验证：计算收益率/波动率/最大回撤，与真实市场对比。【验证代码】if df['timestamp'].min().year < 2024 or df['timestamp'].max().year > 2025: raise ValueError('时间戳异常'). 【惩罚】使用未验证数据训练的模型一律作废，重新采集。",
+    "tags": ["数据验证", "质量控制", "强制规则", "流程"],
+    "project": "tigertrade",
+    "importance": "critical",
+    "date": "2026-01-21"
+  },
+  {
+    "type": "decision",
+    "title": "下一步行动：修复数据采集并重新训练",
+    "content": "【当前状态】已采集的所有数据(6970条和1950条)都是Mock数据，不可用。7个模型训练结果(准确率36%)无效。【决策】1)立即修复API配置，确保quote_client正确初始化 2)重新采集真实市场数据：至少3个月，包含不同市场状态 3)严格执行数据验证流程，确保数据质量 4)在真实数据上重新训练所有模型 5)添加泛化性测试：不同市场状态下的表现。【技术方案】1)修复tiger1.py中的API初始化逻辑 2)添加API连接验证 3)实现数据质量自动检查 4)生成K线图自动保存 5)对比真实市场数据验证。【时间估计】数据采集30分钟，验证10分钟，训练1小时，总计约2小时。【优先级】最高，其他工作暂停。",
+    "tags": ["数据采集", "模型训练", "下一步", "决策"],
+    "project": "tigertrade",
+    "priority": "P0",
+    "date": "2026-01-21"
+  },
+  {
+    "type": "reference",
+    "title": "Tiger Open API完整文档位置",
+    "content": "【主文档】https://quant.itigerup.com/openapi/zh/python/overview/introduction.html 【配置路径】/home/cx/openapicfg_dem/ 【本地总结】/home/cx/tigertrade/docs/Tiger_OpenAPI_总结.md 【关键类】TigerOpenClientConfig, QuoteClient, TradeClient 【重要常量】BarPeriod.ONE_MINUTE/FIVE_MINUTES/ONE_HOUR/DAY 【期货合约】SIL2503.US(白银2025年3月), SIL2505.US(2025年5月) 【行情方法】get_future_bars(symbols, period, begin_time_ms, end_time_ms) 【注意事项】1)DEMO账户提供真实行情但需购买权限 2)时间戳使用epoch毫秒 3)配置使用相对路径./openapicfg_dem 4)必须验证数据真实性。",
+    "tags": ["API文档", "参考", "Tiger", "期货"],
+    "project": "tigertrade",
+    "date": "2026-01-21"
+  }
+]

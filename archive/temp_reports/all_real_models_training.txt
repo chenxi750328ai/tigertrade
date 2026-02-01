@@ -1,0 +1,207 @@
+================================================================================
+🚀 开始训练所有真实模型 (LSTM + Transformer + 双对比)
+================================================================================
+使用设备: cuda
+
+加载数据...
+训练集: 1602, 验证集: 344
+特征数量: 12
+
+找到 8 个模型:
+  1. LSTM模型 (LLM策略)
+  2. 大型LSTM模型
+  3. 强化学习网络 (LSTM)
+  4. 大型Transformer (256维-6层)
+  5. 超大Transformer (512维-8层)
+  6. 增强型Transformer (512维-8层+注意力池化)
+  7. 对比模型-LSTM
+  8. 对比模型-Transformer
+
+================================================================================
+🚀 开始训练: LSTM模型 (LLM策略)
+================================================================================
+模型参数数量: 53,443
+Epoch  1 - Train: Loss=0.9828, Acc=0.5543 | Val: Loss=0.7026, Acc=0.6570 | LR=0.001000
+  🏆 新的最佳准确率: 0.6570
+Epoch  2 - Train: Loss=0.5238, Acc=0.6960 | Val: Loss=0.4189, Acc=0.7820 | LR=0.001000
+  🏆 新的最佳准确率: 0.7820
+Epoch  3 - Train: Loss=0.2950, Acc=0.8945 | Val: Loss=0.1688, Acc=0.9622 | LR=0.001000
+  🏆 新的最佳准确率: 0.9622
+Epoch  4 - Train: Loss=0.1218, Acc=0.9769 | Val: Loss=0.0933, Acc=0.9709 | LR=0.001000
+  🏆 新的最佳准确率: 0.9709
+Epoch  5 - Train: Loss=0.0819, Acc=0.9831 | Val: Loss=0.0642, Acc=0.9971 | LR=0.001000
+  🏆 新的最佳准确率: 0.9971
+Epoch  6 - Train: Loss=0.0659, Acc=0.9863 | Val: Loss=0.0544, Acc=0.9884 | LR=0.001000
+Epoch  7 - Train: Loss=0.0622, Acc=0.9844 | Val: Loss=0.0531, Acc=0.9797 | LR=0.001000
+Epoch  8 - Train: Loss=0.0525, Acc=0.9906 | Val: Loss=0.0432, Acc=0.9884 | LR=0.001000
+Epoch  9 - Train: Loss=0.0548, Acc=0.9863 | Val: Loss=0.0562, Acc=0.9738 | LR=0.001000
+Epoch 10 - Train: Loss=0.0491, Acc=0.9906 | Val: Loss=0.0442, Acc=0.9797 | LR=0.001000
+Epoch 11 - Train: Loss=0.0440, Acc=0.9894 | Val: Loss=0.0493, Acc=0.9709 | LR=0.000500
+Epoch 12 - Train: Loss=0.0451, Acc=0.9919 | Val: Loss=0.0413, Acc=0.9767 | LR=0.000500
+Epoch 13 - Train: Loss=0.0477, Acc=0.9913 | Val: Loss=0.0315, Acc=0.9971 | LR=0.000500
+Epoch 14 - Train: Loss=0.0408, Acc=0.9906 | Val: Loss=0.0402, Acc=0.9797 | LR=0.000500
+Epoch 15 - Train: Loss=0.0415, Acc=0.9906 | Val: Loss=0.0314, Acc=0.9942 | LR=0.000500
+  ⏹️ 早停触发
+
+✅ LSTM模型 (LLM策略) 训练完成!
+  最佳验证准确率: 0.9971 (Epoch 5)
+  训练耗时: 2.9秒
+
+================================================================================
+🚀 开始训练: 大型LSTM模型
+================================================================================
+模型参数数量: 2,053,635
+Epoch  1 - Train: Loss=0.5932, Acc=0.7210 | Val: Loss=0.1584, Acc=0.9360 | LR=0.001000
+  🏆 新的最佳准确率: 0.9360
+Epoch  2 - Train: Loss=0.1304, Acc=0.9519 | Val: Loss=0.3125, Acc=0.9157 | LR=0.001000
+Epoch  3 - Train: Loss=0.0916, Acc=0.9682 | Val: Loss=0.0672, Acc=0.9593 | LR=0.001000
+  🏆 新的最佳准确率: 0.9593
+Epoch  4 - Train: Loss=0.1017, Acc=0.9657 | Val: Loss=0.0885, Acc=0.9709 | LR=0.001000
+  🏆 新的最佳准确率: 0.9709
+Epoch  5 - Train: Loss=0.1113, Acc=0.9625 | Val: Loss=0.0594, Acc=0.9767 | LR=0.001000
+  🏆 新的最佳准确率: 0.9767
+Epoch  6 - Train: Loss=0.0864, Acc=0.9688 | Val: Loss=0.1571, Acc=0.9419 | LR=0.001000
+Epoch  7 - Train: Loss=0.0808, Acc=0.9732 | Val: Loss=0.0423, Acc=0.9913 | LR=0.001000
+  🏆 新的最佳准确率: 0.9913
+Epoch  8 - Train: Loss=0.1009, Acc=0.9682 | Val: Loss=0.0720, Acc=0.9593 | LR=0.001000
+Epoch  9 - Train: Loss=0.0861, Acc=0.9650 | Val: Loss=0.0438, Acc=0.9797 | LR=0.001000
+Epoch 10 - Train: Loss=0.0633, Acc=0.9782 | Val: Loss=0.0341, Acc=0.9797 | LR=0.001000
+Epoch 11 - Train: Loss=0.0812, Acc=0.9694 | Val: Loss=0.0838, Acc=0.9767 | LR=0.001000
+Epoch 12 - Train: Loss=0.0901, Acc=0.9744 | Val: Loss=0.0727, Acc=0.9738 | LR=0.001000
+Epoch 13 - Train: Loss=0.1090, Acc=0.9669 | Val: Loss=0.0915, Acc=0.9506 | LR=0.000500
+Epoch 14 - Train: Loss=0.0568, Acc=0.9800 | Val: Loss=0.0317, Acc=0.9826 | LR=0.000500
+Epoch 15 - Train: Loss=0.0661, Acc=0.9769 | Val: Loss=0.0544, Acc=0.9680 | LR=0.000500
+Epoch 16 - Train: Loss=0.0455, Acc=0.9844 | Val: Loss=0.0815, Acc=0.9593 | LR=0.000500
+Epoch 17 - Train: Loss=0.0459, Acc=0.9856 | Val: Loss=0.0666, Acc=0.9651 | LR=0.000500
+  ⏹️ 早停触发
+
+✅ 大型LSTM模型 训练完成!
+  最佳验证准确率: 0.9913 (Epoch 7)
+  训练耗时: 4.2秒
+
+================================================================================
+🚀 开始训练: 强化学习网络 (LSTM)
+================================================================================
+模型参数数量: 8,742,148
+❌ 强化学习网络 (LSTM) 训练失败: too many indices for tensor of dimension 2
+Traceback (most recent call last):
+  File "/home/cx/tigertrade/src/train_all_real_models.py", line 165, in train_single_model
+    train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, device)
+  File "/home/cx/tigertrade/src/train_all_real_models.py", line 72, in train_epoch
+    outputs = model(batch_data)
+  File "/root/miniconda3/envs/emb-ai/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1518, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/miniconda3/envs/emb-ai/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1527, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/cx/tigertrade/src/strategies/rl_trading_strategy.py", line 75, in forward
+    final_hidden = lstm_out[:, -1, :]  # (batch, hidden)
+IndexError: too many indices for tensor of dimension 2
+
+================================================================================
+🚀 开始训练: 大型Transformer (256维-6层)
+================================================================================
+模型参数数量: 4,783,235
+❌ 大型Transformer (256维-6层) 训练失败: The size of tensor a (32) must match the size of tensor b (12) at non-singleton dimension 1
+Traceback (most recent call last):
+  File "/home/cx/tigertrade/src/train_all_real_models.py", line 165, in train_single_model
+    train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, device)
+  File "/home/cx/tigertrade/src/train_all_real_models.py", line 72, in train_epoch
+    outputs = model(batch_data)
+  File "/root/miniconda3/envs/emb-ai/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1518, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/miniconda3/envs/emb-ai/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1527, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/cx/tigertrade/src/strategies/large_transformer_strategy.py", line 74, in forward
+    x = x + pos_enc
+RuntimeError: The size of tensor a (32) must match the size of tensor b (12) at non-singleton dimension 1
+
+================================================================================
+🚀 开始训练: 超大Transformer (512维-8层)
+================================================================================
+模型参数数量: 25,441,539
+❌ 超大Transformer (512维-8层) 训练失败: not enough values to unpack (expected 3, got 2)
+Traceback (most recent call last):
+  File "/home/cx/tigertrade/src/train_all_real_models.py", line 165, in train_single_model
+    train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, device)
+  File "/home/cx/tigertrade/src/train_all_real_models.py", line 72, in train_epoch
+    outputs = model(batch_data)
+  File "/root/miniconda3/envs/emb-ai/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1518, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/miniconda3/envs/emb-ai/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1527, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/cx/tigertrade/src/strategies/huge_transformer_strategy.py", line 66, in forward
+    batch_size, seq_len, _ = x.shape
+ValueError: not enough values to unpack (expected 3, got 2)
+
+================================================================================
+🚀 开始训练: 增强型Transformer (512维-8层+注意力池化)
+================================================================================
+模型参数数量: 26,441,731
+❌ 增强型Transformer (512维-8层+注意力池化) 训练失败: The size of tensor a (32) must match the size of tensor b (12) at non-singleton dimension 1
+Traceback (most recent call last):
+  File "/home/cx/tigertrade/src/train_all_real_models.py", line 165, in train_single_model
+    train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, device)
+  File "/home/cx/tigertrade/src/train_all_real_models.py", line 72, in train_epoch
+    outputs = model(batch_data)
+  File "/root/miniconda3/envs/emb-ai/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1518, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/miniconda3/envs/emb-ai/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1527, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/cx/tigertrade/src/strategies/enhanced_transformer_strategy.py", line 80, in forward
+    x = x + pos_enc
+RuntimeError: The size of tensor a (32) must match the size of tensor b (12) at non-singleton dimension 1
+
+================================================================================
+🚀 开始训练: 对比模型-LSTM
+================================================================================
+模型参数数量: 53,443
+❌ 对比模型-LSTM 训练失败: For unbatched 2-D input, hx and cx should also be 2-D but got (3-D, 3-D) tensors
+Traceback (most recent call last):
+  File "/home/cx/tigertrade/src/train_all_real_models.py", line 165, in train_single_model
+    train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, device)
+  File "/home/cx/tigertrade/src/train_all_real_models.py", line 72, in train_epoch
+    outputs = model(batch_data)
+  File "/root/miniconda3/envs/emb-ai/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1518, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/miniconda3/envs/emb-ai/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1527, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/cx/tigertrade/src/strategies/model_comparison_strategy.py", line 32, in forward
+    out, _ = self.lstm(x, (h0, c0))
+  File "/root/miniconda3/envs/emb-ai/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1518, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/miniconda3/envs/emb-ai/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1527, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/root/miniconda3/envs/emb-ai/lib/python3.10/site-packages/torch/nn/modules/rnn.py", line 871, in forward
+    raise RuntimeError(msg)
+RuntimeError: For unbatched 2-D input, hx and cx should also be 2-D but got (3-D, 3-D) tensors
+
+================================================================================
+🚀 开始训练: 对比模型-Transformer
+================================================================================
+模型参数数量: 563,395
+❌ 对比模型-Transformer 训练失败: Expected input batch_size (1) to match target batch_size (32).
+Traceback (most recent call last):
+  File "/home/cx/tigertrade/src/train_all_real_models.py", line 165, in train_single_model
+    train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, device)
+  File "/home/cx/tigertrade/src/train_all_real_models.py", line 73, in train_epoch
+    loss = criterion(outputs, batch_labels)
+  File "/root/miniconda3/envs/emb-ai/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1518, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/root/miniconda3/envs/emb-ai/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1527, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/root/miniconda3/envs/emb-ai/lib/python3.10/site-packages/torch/nn/modules/loss.py", line 1179, in forward
+    return F.cross_entropy(input, target, weight=self.weight,
+  File "/root/miniconda3/envs/emb-ai/lib/python3.10/site-packages/torch/nn/functional.py", line 3053, in cross_entropy
+    return torch._C._nn.cross_entropy_loss(input, target, weight, _Reduction.get_enum(reduction), ignore_index, label_smoothing)
+ValueError: Expected input batch_size (1) to match target batch_size (32).
+
+================================================================================
+📊 所有模型训练完成！
+================================================================================
+
+排名结果:
+--------------------------------------------------------------------------------
+1. LSTM模型 (LLM策略): 0.9971 (Epoch 5, 53,443 参数, 2.9s)
+2. 大型LSTM模型: 0.9913 (Epoch 7, 2,053,635 参数, 4.2s)
+
+结果已保存到: /home/cx/trading_data/all_real_models/all_models_results.json

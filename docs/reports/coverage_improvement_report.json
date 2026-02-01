@@ -1,0 +1,675 @@
+{
+  "analysis_time": "2026-01-29T17:06:27.519693",
+  "current_coverage": 21.14,
+  "target_coverage": 65,
+  "gaps": [
+    {
+      "file": "src/api_adapter.py",
+      "current_coverage": 62.37,
+      "target_coverage": 80,
+      "missing_lines": 108,
+      "priority": "medium",
+      "suggestions": [
+        "\u8865\u5145API\u9002\u914d\u5668\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5Mock\u548cReal API\u7684\u6240\u6709\u8def\u5f84",
+        "\u6d4b\u8bd5\u9519\u8bef\u5904\u7406\u548c\u91cd\u8bd5\u903b\u8f91"
+      ]
+    },
+    {
+      "file": "src/bidirectional_strategy.py",
+      "current_coverage": 44.22,
+      "target_coverage": 80,
+      "missing_lines": 193,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/collect_large_dataset.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 343,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/collect_with_options.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 52,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/collect_with_validation.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 83,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/config.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 144,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/coordinator/agent_wrapper.py",
+      "current_coverage": 16.67,
+      "target_coverage": 80,
+      "missing_lines": 40,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/coordinator/election.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 166,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/coordinator/master_agent.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 229,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/coordinator/protocol_governance.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 169,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/data_collection_validator.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 253,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/data_collector/__init__.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 4,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/data_collector/kline_fetcher.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 25,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/data_collector/realtime_collector.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 71,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/data_collector/tick_collector.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 33,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/data_fetcher.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 135,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/data_processor/__init__.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 4,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/data_processor/cleaner.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 43,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/data_processor/normalizer.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 55,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/data_processor/splitter.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 21,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/download_and_train.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 187,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/feature_discovery_from_model.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 276,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/fetch_more_data.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 146,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/futures_contract_manager.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 81,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/generate_report.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 162,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/optimize_labels.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 217,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/prepare_training_data.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 72,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/risk/__init__.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 2,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/risk/risk_manager.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 18,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/strategies/__init__.py",
+      "current_coverage": 62.5,
+      "target_coverage": 80,
+      "missing_lines": 3,
+      "priority": "medium",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategies/advanced_data_augmentation.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 55,
+      "priority": "high",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategies/base.py",
+      "current_coverage": 53.85,
+      "target_coverage": 80,
+      "missing_lines": 6,
+      "priority": "medium",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategies/data_augmentation.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 27,
+      "priority": "high",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategies/enhanced_transformer_improved.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 53,
+      "priority": "high",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategies/enhanced_transformer_lora.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 50,
+      "priority": "high",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategies/enhanced_transformer_regularized.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 74,
+      "priority": "high",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategies/enhanced_transformer_strategy.py",
+      "current_coverage": 9.8,
+      "target_coverage": 80,
+      "missing_lines": 267,
+      "priority": "high",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategies/enhanced_transformer_with_profit.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 53,
+      "priority": "high",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategies/focal_loss.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 18,
+      "priority": "high",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategies/grid_strategy.py",
+      "current_coverage": 21.62,
+      "target_coverage": 80,
+      "missing_lines": 29,
+      "priority": "high",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategies/gru_with_profit.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 35,
+      "priority": "high",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategies/huge_transformer_strategy.py",
+      "current_coverage": 9.96,
+      "target_coverage": 80,
+      "missing_lines": 253,
+      "priority": "high",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategies/large_model_strategy.py",
+      "current_coverage": 9.96,
+      "target_coverage": 80,
+      "missing_lines": 253,
+      "priority": "high",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategies/large_transformer_strategy.py",
+      "current_coverage": 8.5,
+      "target_coverage": 80,
+      "missing_lines": 312,
+      "priority": "high",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategies/llm_strategy.py",
+      "current_coverage": 32.35,
+      "target_coverage": 80,
+      "missing_lines": 458,
+      "priority": "high",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategies/llm_strategy_profit.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 205,
+      "priority": "high",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategies/lora_adapter.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 44,
+      "priority": "high",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategies/moe_strategy.py",
+      "current_coverage": 18.42,
+      "target_coverage": 80,
+      "missing_lines": 93,
+      "priority": "high",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategies/moe_transformer.py",
+      "current_coverage": 14.58,
+      "target_coverage": 80,
+      "missing_lines": 123,
+      "priority": "high",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategies/rl_trading_strategy.py",
+      "current_coverage": 11.4,
+      "target_coverage": 80,
+      "missing_lines": 272,
+      "priority": "high",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategies/strategy_factory.py",
+      "current_coverage": 50.0,
+      "target_coverage": 80,
+      "missing_lines": 28,
+      "priority": "medium",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategies/time_period_strategy.py",
+      "current_coverage": 59.7,
+      "target_coverage": 80,
+      "missing_lines": 54,
+      "priority": "medium",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategies/transformer_strategy.py",
+      "current_coverage": 21.57,
+      "target_coverage": 80,
+      "missing_lines": 40,
+      "priority": "high",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategies/transformer_with_profit.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 51,
+      "priority": "high",
+      "suggestions": [
+        "\u8865\u5145\u7b56\u7565\u6a21\u5757\u7684\u6d4b\u8bd5\u7528\u4f8b",
+        "\u6d4b\u8bd5\u7b56\u7565\u9884\u6d4b\u903b\u8f91",
+        "\u6d4b\u8bd5\u7b56\u7565\u53c2\u6570\u8c03\u6574"
+      ]
+    },
+    {
+      "file": "src/strategy_user_style.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 125,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/tick_data_collector.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 141,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/tiger1.py",
+      "current_coverage": 55.89,
+      "target_coverage": 80,
+      "missing_lines": 618,
+      "priority": "medium",
+      "suggestions": [
+        "\u8865\u5145tiger1.py\u4e3b\u51fd\u6570\u7684\u6d4b\u8bd5",
+        "\u6d4b\u8bd5\u6240\u6709\u7b56\u7565\u5206\u652f",
+        "\u6d4b\u8bd5\u4e3b\u5faa\u73af\u7684\u6240\u6709\u8def\u5f84"
+      ]
+    },
+    {
+      "file": "src/tiger1_legacy.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 1237,
+      "priority": "high",
+      "suggestions": [
+        "\u8865\u5145tiger1.py\u4e3b\u51fd\u6570\u7684\u6d4b\u8bd5",
+        "\u6d4b\u8bd5\u6240\u6709\u7b56\u7565\u5206\u652f",
+        "\u6d4b\u8bd5\u4e3b\u5faa\u73af\u7684\u6240\u6709\u8def\u5f84"
+      ]
+    },
+    {
+      "file": "src/train_all_models.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 142,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/train_raw_features_transformer.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 203,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/train_rl_simple.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 147,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/train_rl_strategy.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 149,
+      "priority": "high",
+      "suggestions": []
+    },
+    {
+      "file": "src/train_with_detailed_logging.py",
+      "current_coverage": 0.0,
+      "target_coverage": 80,
+      "missing_lines": 318,
+      "priority": "high",
+      "suggestions": []
+    }
+  ],
+  "templates": [
+    {
+      "file": "test_api_adapter_coverage.py",
+      "content": "\n#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n\"\"\"\n\u8865\u5145\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u63d0\u5347\u8986\u76d6\u7387: src/api_adapter.py\n\u5f53\u524d\u8986\u76d6\u7387: 62.37%\n\u76ee\u6807\u8986\u76d6\u7387: 80%\n\"\"\"\n\nimport unittest\nimport sys\nsys.path.insert(0, '/home/cx/tigertrade')\n\nfrom src import api_adapter as module\n\n\nclass Testsrc_api_adapterCoverage(unittest.TestCase):\n    \"\"\"\u8865\u5145\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u63d0\u5347\u8986\u76d6\u7387\"\"\"\n    \n    def setUp(self):\n        \"\"\"\u6d4b\u8bd5\u524d\u51c6\u5907\"\"\"\n        pass\n    \n    def tearDown(self):\n        \"\"\"\u6d4b\u8bd5\u540e\u6e05\u7406\"\"\"\n        pass\n    \n    # TODO: \u6dfb\u52a0\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u8986\u76d6\u672a\u8986\u76d6\u7684\u4ee3\u7801\u8def\u5f84\n    # \u5efa\u8bae\uff1a\n    # - \u8865\u5145API\u9002\u914d\u5668\u7684\u6d4b\u8bd5\u7528\u4f8b\n    # - \u6d4b\u8bd5Mock\u548cReal API\u7684\u6240\u6709\u8def\u5f84\n    # - \u6d4b\u8bd5\u9519\u8bef\u5904\u7406\u548c\u91cd\u8bd5\u903b\u8f91\n\n    def test_placeholder(self):\n        \"\"\"\u5360\u4f4d\u6d4b\u8bd5\"\"\"\n        self.assertTrue(True)\n\n\nif __name__ == '__main__':\n    unittest.main()\n",
+      "target_file": "src/api_adapter.py"
+    },
+    {
+      "file": "test_bidirectional_strategy_coverage.py",
+      "content": "\n#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n\"\"\"\n\u8865\u5145\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u63d0\u5347\u8986\u76d6\u7387: src/bidirectional_strategy.py\n\u5f53\u524d\u8986\u76d6\u7387: 44.22%\n\u76ee\u6807\u8986\u76d6\u7387: 80%\n\"\"\"\n\nimport unittest\nimport sys\nsys.path.insert(0, '/home/cx/tigertrade')\n\nfrom src import bidirectional_strategy as module\n\n\nclass Testsrc_bidirectional_strategyCoverage(unittest.TestCase):\n    \"\"\"\u8865\u5145\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u63d0\u5347\u8986\u76d6\u7387\"\"\"\n    \n    def setUp(self):\n        \"\"\"\u6d4b\u8bd5\u524d\u51c6\u5907\"\"\"\n        pass\n    \n    def tearDown(self):\n        \"\"\"\u6d4b\u8bd5\u540e\u6e05\u7406\"\"\"\n        pass\n    \n    # TODO: \u6dfb\u52a0\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u8986\u76d6\u672a\u8986\u76d6\u7684\u4ee3\u7801\u8def\u5f84\n    # \u5efa\u8bae\uff1a\n\n    def test_placeholder(self):\n        \"\"\"\u5360\u4f4d\u6d4b\u8bd5\"\"\"\n        self.assertTrue(True)\n\n\nif __name__ == '__main__':\n    unittest.main()\n",
+      "target_file": "src/bidirectional_strategy.py"
+    },
+    {
+      "file": "test_collect_large_dataset_coverage.py",
+      "content": "\n#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n\"\"\"\n\u8865\u5145\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u63d0\u5347\u8986\u76d6\u7387: src/collect_large_dataset.py\n\u5f53\u524d\u8986\u76d6\u7387: 0.00%\n\u76ee\u6807\u8986\u76d6\u7387: 80%\n\"\"\"\n\nimport unittest\nimport sys\nsys.path.insert(0, '/home/cx/tigertrade')\n\nfrom src import collect_large_dataset as module\n\n\nclass Testsrc_collect_large_datasetCoverage(unittest.TestCase):\n    \"\"\"\u8865\u5145\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u63d0\u5347\u8986\u76d6\u7387\"\"\"\n    \n    def setUp(self):\n        \"\"\"\u6d4b\u8bd5\u524d\u51c6\u5907\"\"\"\n        pass\n    \n    def tearDown(self):\n        \"\"\"\u6d4b\u8bd5\u540e\u6e05\u7406\"\"\"\n        pass\n    \n    # TODO: \u6dfb\u52a0\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u8986\u76d6\u672a\u8986\u76d6\u7684\u4ee3\u7801\u8def\u5f84\n    # \u5efa\u8bae\uff1a\n\n    def test_placeholder(self):\n        \"\"\"\u5360\u4f4d\u6d4b\u8bd5\"\"\"\n        self.assertTrue(True)\n\n\nif __name__ == '__main__':\n    unittest.main()\n",
+      "target_file": "src/collect_large_dataset.py"
+    },
+    {
+      "file": "test_collect_with_options_coverage.py",
+      "content": "\n#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n\"\"\"\n\u8865\u5145\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u63d0\u5347\u8986\u76d6\u7387: src/collect_with_options.py\n\u5f53\u524d\u8986\u76d6\u7387: 0.00%\n\u76ee\u6807\u8986\u76d6\u7387: 80%\n\"\"\"\n\nimport unittest\nimport sys\nsys.path.insert(0, '/home/cx/tigertrade')\n\nfrom src import collect_with_options as module\n\n\nclass Testsrc_collect_with_optionsCoverage(unittest.TestCase):\n    \"\"\"\u8865\u5145\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u63d0\u5347\u8986\u76d6\u7387\"\"\"\n    \n    def setUp(self):\n        \"\"\"\u6d4b\u8bd5\u524d\u51c6\u5907\"\"\"\n        pass\n    \n    def tearDown(self):\n        \"\"\"\u6d4b\u8bd5\u540e\u6e05\u7406\"\"\"\n        pass\n    \n    # TODO: \u6dfb\u52a0\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u8986\u76d6\u672a\u8986\u76d6\u7684\u4ee3\u7801\u8def\u5f84\n    # \u5efa\u8bae\uff1a\n\n    def test_placeholder(self):\n        \"\"\"\u5360\u4f4d\u6d4b\u8bd5\"\"\"\n        self.assertTrue(True)\n\n\nif __name__ == '__main__':\n    unittest.main()\n",
+      "target_file": "src/collect_with_options.py"
+    },
+    {
+      "file": "test_collect_with_validation_coverage.py",
+      "content": "\n#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n\"\"\"\n\u8865\u5145\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u63d0\u5347\u8986\u76d6\u7387: src/collect_with_validation.py\n\u5f53\u524d\u8986\u76d6\u7387: 0.00%\n\u76ee\u6807\u8986\u76d6\u7387: 80%\n\"\"\"\n\nimport unittest\nimport sys\nsys.path.insert(0, '/home/cx/tigertrade')\n\nfrom src import collect_with_validation as module\n\n\nclass Testsrc_collect_with_validationCoverage(unittest.TestCase):\n    \"\"\"\u8865\u5145\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u63d0\u5347\u8986\u76d6\u7387\"\"\"\n    \n    def setUp(self):\n        \"\"\"\u6d4b\u8bd5\u524d\u51c6\u5907\"\"\"\n        pass\n    \n    def tearDown(self):\n        \"\"\"\u6d4b\u8bd5\u540e\u6e05\u7406\"\"\"\n        pass\n    \n    # TODO: \u6dfb\u52a0\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u8986\u76d6\u672a\u8986\u76d6\u7684\u4ee3\u7801\u8def\u5f84\n    # \u5efa\u8bae\uff1a\n\n    def test_placeholder(self):\n        \"\"\"\u5360\u4f4d\u6d4b\u8bd5\"\"\"\n        self.assertTrue(True)\n\n\nif __name__ == '__main__':\n    unittest.main()\n",
+      "target_file": "src/collect_with_validation.py"
+    },
+    {
+      "file": "test_config_coverage.py",
+      "content": "\n#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n\"\"\"\n\u8865\u5145\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u63d0\u5347\u8986\u76d6\u7387: src/config.py\n\u5f53\u524d\u8986\u76d6\u7387: 0.00%\n\u76ee\u6807\u8986\u76d6\u7387: 80%\n\"\"\"\n\nimport unittest\nimport sys\nsys.path.insert(0, '/home/cx/tigertrade')\n\nfrom src import config as module\n\n\nclass Testsrc_configCoverage(unittest.TestCase):\n    \"\"\"\u8865\u5145\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u63d0\u5347\u8986\u76d6\u7387\"\"\"\n    \n    def setUp(self):\n        \"\"\"\u6d4b\u8bd5\u524d\u51c6\u5907\"\"\"\n        pass\n    \n    def tearDown(self):\n        \"\"\"\u6d4b\u8bd5\u540e\u6e05\u7406\"\"\"\n        pass\n    \n    # TODO: \u6dfb\u52a0\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u8986\u76d6\u672a\u8986\u76d6\u7684\u4ee3\u7801\u8def\u5f84\n    # \u5efa\u8bae\uff1a\n\n    def test_placeholder(self):\n        \"\"\"\u5360\u4f4d\u6d4b\u8bd5\"\"\"\n        self.assertTrue(True)\n\n\nif __name__ == '__main__':\n    unittest.main()\n",
+      "target_file": "src/config.py"
+    },
+    {
+      "file": "test_agent_wrapper_coverage.py",
+      "content": "\n#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n\"\"\"\n\u8865\u5145\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u63d0\u5347\u8986\u76d6\u7387: src/coordinator/agent_wrapper.py\n\u5f53\u524d\u8986\u76d6\u7387: 16.67%\n\u76ee\u6807\u8986\u76d6\u7387: 80%\n\"\"\"\n\nimport unittest\nimport sys\nsys.path.insert(0, '/home/cx/tigertrade')\n\nfrom src import agent_wrapper as module\n\n\nclass Testsrc_coordinator_agent_wrapperCoverage(unittest.TestCase):\n    \"\"\"\u8865\u5145\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u63d0\u5347\u8986\u76d6\u7387\"\"\"\n    \n    def setUp(self):\n        \"\"\"\u6d4b\u8bd5\u524d\u51c6\u5907\"\"\"\n        pass\n    \n    def tearDown(self):\n        \"\"\"\u6d4b\u8bd5\u540e\u6e05\u7406\"\"\"\n        pass\n    \n    # TODO: \u6dfb\u52a0\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u8986\u76d6\u672a\u8986\u76d6\u7684\u4ee3\u7801\u8def\u5f84\n    # \u5efa\u8bae\uff1a\n\n    def test_placeholder(self):\n        \"\"\"\u5360\u4f4d\u6d4b\u8bd5\"\"\"\n        self.assertTrue(True)\n\n\nif __name__ == '__main__':\n    unittest.main()\n",
+      "target_file": "src/coordinator/agent_wrapper.py"
+    },
+    {
+      "file": "test_election_coverage.py",
+      "content": "\n#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n\"\"\"\n\u8865\u5145\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u63d0\u5347\u8986\u76d6\u7387: src/coordinator/election.py\n\u5f53\u524d\u8986\u76d6\u7387: 0.00%\n\u76ee\u6807\u8986\u76d6\u7387: 80%\n\"\"\"\n\nimport unittest\nimport sys\nsys.path.insert(0, '/home/cx/tigertrade')\n\nfrom src import election as module\n\n\nclass Testsrc_coordinator_electionCoverage(unittest.TestCase):\n    \"\"\"\u8865\u5145\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u63d0\u5347\u8986\u76d6\u7387\"\"\"\n    \n    def setUp(self):\n        \"\"\"\u6d4b\u8bd5\u524d\u51c6\u5907\"\"\"\n        pass\n    \n    def tearDown(self):\n        \"\"\"\u6d4b\u8bd5\u540e\u6e05\u7406\"\"\"\n        pass\n    \n    # TODO: \u6dfb\u52a0\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u8986\u76d6\u672a\u8986\u76d6\u7684\u4ee3\u7801\u8def\u5f84\n    # \u5efa\u8bae\uff1a\n\n    def test_placeholder(self):\n        \"\"\"\u5360\u4f4d\u6d4b\u8bd5\"\"\"\n        self.assertTrue(True)\n\n\nif __name__ == '__main__':\n    unittest.main()\n",
+      "target_file": "src/coordinator/election.py"
+    },
+    {
+      "file": "test_master_agent_coverage.py",
+      "content": "\n#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n\"\"\"\n\u8865\u5145\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u63d0\u5347\u8986\u76d6\u7387: src/coordinator/master_agent.py\n\u5f53\u524d\u8986\u76d6\u7387: 0.00%\n\u76ee\u6807\u8986\u76d6\u7387: 80%\n\"\"\"\n\nimport unittest\nimport sys\nsys.path.insert(0, '/home/cx/tigertrade')\n\nfrom src import master_agent as module\n\n\nclass Testsrc_coordinator_master_agentCoverage(unittest.TestCase):\n    \"\"\"\u8865\u5145\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u63d0\u5347\u8986\u76d6\u7387\"\"\"\n    \n    def setUp(self):\n        \"\"\"\u6d4b\u8bd5\u524d\u51c6\u5907\"\"\"\n        pass\n    \n    def tearDown(self):\n        \"\"\"\u6d4b\u8bd5\u540e\u6e05\u7406\"\"\"\n        pass\n    \n    # TODO: \u6dfb\u52a0\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u8986\u76d6\u672a\u8986\u76d6\u7684\u4ee3\u7801\u8def\u5f84\n    # \u5efa\u8bae\uff1a\n\n    def test_placeholder(self):\n        \"\"\"\u5360\u4f4d\u6d4b\u8bd5\"\"\"\n        self.assertTrue(True)\n\n\nif __name__ == '__main__':\n    unittest.main()\n",
+      "target_file": "src/coordinator/master_agent.py"
+    },
+    {
+      "file": "test_protocol_governance_coverage.py",
+      "content": "\n#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n\"\"\"\n\u8865\u5145\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u63d0\u5347\u8986\u76d6\u7387: src/coordinator/protocol_governance.py\n\u5f53\u524d\u8986\u76d6\u7387: 0.00%\n\u76ee\u6807\u8986\u76d6\u7387: 80%\n\"\"\"\n\nimport unittest\nimport sys\nsys.path.insert(0, '/home/cx/tigertrade')\n\nfrom src import protocol_governance as module\n\n\nclass Testsrc_coordinator_protocol_governanceCoverage(unittest.TestCase):\n    \"\"\"\u8865\u5145\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u63d0\u5347\u8986\u76d6\u7387\"\"\"\n    \n    def setUp(self):\n        \"\"\"\u6d4b\u8bd5\u524d\u51c6\u5907\"\"\"\n        pass\n    \n    def tearDown(self):\n        \"\"\"\u6d4b\u8bd5\u540e\u6e05\u7406\"\"\"\n        pass\n    \n    # TODO: \u6dfb\u52a0\u6d4b\u8bd5\u7528\u4f8b\u4ee5\u8986\u76d6\u672a\u8986\u76d6\u7684\u4ee3\u7801\u8def\u5f84\n    # \u5efa\u8bae\uff1a\n\n    def test_placeholder(self):\n        \"\"\"\u5360\u4f4d\u6d4b\u8bd5\"\"\"\n        self.assertTrue(True)\n\n\nif __name__ == '__main__':\n    unittest.main()\n",
+      "target_file": "src/coordinator/protocol_governance.py"
+    }
+  ]
+}

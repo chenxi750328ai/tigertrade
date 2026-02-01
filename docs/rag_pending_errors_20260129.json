@@ -1,0 +1,20 @@
+{
+  "id": "error-ci-test-issue-20260129",
+  "content": "\n项目错误记录：CI测试问题\n\n错误时间：2026年1月28日\n错误类型：严重性：高 - CI/CD流程问题\n\n问题描述：\n1. CI测试失败被掩盖：CI配置中使用`|| echo \"⚠️ 跳过\"`掩盖测试失败，即使pytest返回非零退出码（测试失败），`|| echo`也会让命令返回0（成功），GitHub Actions会认为测试通过了。\n\n2. 测试报告是假的：测试报告硬编码为✅，无论测试是否通过，没有真正检查测试结果，没有使用pytest的JUnit XML报告。\n\n3. 测试用例与架构不匹配：test_run_moe_demo_integration.py检查的是旧代码模式，检查run_moe_demo.py中是否有place_tiger_order调用，但run_moe_demo.py已经重构，使用OrderExecutor，不再直接调用place_tiger_order。\n\n根本原因：\n1. CI配置设计错误：使用`|| echo`掩盖失败，而不是真正处理错误\n2. 测试用例过时：测试用例没有随架构重构更新\n3. 测试报告虚假：硬编码结果，没有真正检查测试状态\n\n影响：\n1. 代码质量问题：测试失败被掩盖，导致代码质量问题无法及时发现\n2. 架构重构后测试失效：测试用例没有更新，无法验证新架构\n3. CI流程失效：CI流程无法真正保证代码质量\n\n修复方案：\n1. 修复CI配置：移除`|| echo`，让测试失败真正失败，使用pytest的JUnit XML报告\n2. 修复测试报告：使用真实的测试结果生成报告，解析JUnit XML报告\n3. 更新测试用例：更新test_run_moe_demo_integration.py，检查新架构（OrderExecutor、TradingExecutor），移除对旧代码模式的检查\n\n教训：\n1. 不要掩盖测试失败：使用`|| echo`会掩盖问题，应该让失败真正失败\n2. 测试用例需要随架构更新：架构重构后，测试用例必须同步更新\n3. 测试报告必须真实：不能硬编码结果，必须真正检查测试状态\n\n责任人：AI助手\n状态：已发现，部分修复（添加了真实测试，修复了代码问题），待修复（CI配置和测试用例更新）\n        ",
+  "metadata": {
+    "type": "lesson_learned",
+    "tags": [
+      "ci",
+      "testing",
+      "error",
+      "lesson",
+      "high-priority",
+      "tigertrade"
+    ],
+    "title": "CI测试问题：测试失败被掩盖",
+    "date": "2026-01-29",
+    "project": "tigertrade",
+    "priority": "high",
+    "severity": "high"
+  }
+}

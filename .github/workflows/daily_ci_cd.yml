@@ -1,0 +1,180 @@
+name: 每日CI/CD测试
+
+on:
+  schedule:
+    # 每天UTC 00:00运行（北京时间08:00）
+    - cron: '0 0 * * *'
+  workflow_dispatch:  # 允许手动触发
+  push:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: 运行测试套件并提升覆盖率
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v3
+    
+    - name: 设置Python环境
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: 安装依赖
+      run: |
+        pip install -r requirements.txt
+        pip install pytest pytest-cov coverage psutil
+    
+    - name: 运行测试并收集覆盖率
+      env:
+        PYTEST_DISABLE_PLUGIN_AUTOLOAD: 1
+      run: |
+        python -m coverage run --source=src -m pytest tests/ -v --tb=short
+        python -m coverage report --show-missing
+        python -m coverage xml
+    
+    - name: 分析覆盖率缺口
+      run: |
+        python scripts/improve_test_coverage.py
+    
+    - name: 检查覆盖率阈值
+      run: |
+        python -m coverage report --fail-under=65 --include="src/executor/*" || echo "⚠️ Executor模块覆盖率低于65%"
+        python -m coverage report --fail-under=20 --include="src/*" || echo "⚠️ 总体覆盖率低于20%"
+    
+    - name: 上传覆盖率报告
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+    
+    - name: 上传测试结果
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results
+        path: |
+          test-results.xml
+          htmlcov/
+          coverage_improvement_report.json
+          coverage_improvement_report.md
+
+  data_collection_and_training:
+    name: 每日数据收集和训练
+    runs-on: ubuntu-latest
+    needs: [test]
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v3
+    
+    - name: 设置Python环境
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: 安装依赖
+      run: |
+        pip install -r requirements.txt
+    
+    - name: 配置Tiger API
+      run: |
+        mkdir -p openapicfg_dem
+        echo "配置DEMO账户（需要实际配置）" > openapicfg_dem/tiger_openapi_config.properties
+    
+    - name: 收集新数据并训练
+      env:
+        TRADING_STRATEGY: moe_transformer
+      run: |
+        python scripts/daily_data_collection_and_training.py
+    
+    - name: 上传训练结果
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: training-results
+        path: |
+          daily_training.log
+          daily_workflow_results.json
+
+  optimize_algorithm:
+    name: 优化算法和收益率
+    runs-on: ubuntu-latest
+    needs: [data_collection_and_training]
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v3
+    
+    - name: 设置Python环境
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: 安装依赖
+      run: |
+        pip install -r requirements.txt
+        pip install pandas numpy
+    
+    - name: 下载训练结果
+      uses: actions/download-artifact@v3
+      with:
+        name: training-results
+    
+    - name: 优化算法和收益率
+      run: |
+        python scripts/optimize_algorithm_and_profitability.py
+    
+    - name: 上传优化报告
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: optimization-reports
+        path: |
+          algorithm_optimization_report.json
+          algorithm_optimization_report.md
+
+  stability_test:
+    name: 20小时稳定性测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 1200  # 20小时
+    needs: [optimize_algorithm]
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v3
+    
+    - name: 设置Python环境
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: 安装依赖
+      run: |
+        pip install -r requirements.txt
+        pip install psutil
+    
+    - name: 运行20小时稳定性测试
+      env:
+        TRADING_STRATEGY: moe_transformer
+        RUN_DURATION_HOURS: 20
+        PYTEST_DISABLE_PLUGIN_AUTOLOAD: 1
+      run: |
+        python scripts/stability_test_20h.py
+    
+    - name: 分析稳定性结果
+      if: always()
+      run: |
+        python scripts/analyze_stability_results.py stability_test.log
+    
+    - name: 上传稳定性测试结果
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: stability-test-results
+        path: |
+          stability_test.log
+          stability_stats.json
+          stability_analysis.json

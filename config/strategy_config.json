@@ -1,0 +1,35 @@
+{
+  "default_strategy": "moe_transformer",
+  "strategies": {
+    "moe_transformer": {
+      "name": "MoE Transformer",
+      "model_path": "/home/cx/trading_data/best_moe_transformer.pth",
+      "seq_length": 500,
+      "description": "最佳模型，验证准确率67.43%"
+    },
+    "enhanced_transformer_peft": {
+      "name": "Enhanced Transformer (PEFT)",
+      "model_path": "/home/cx/trading_data/best_enhanced_transformer_peft.pth",
+      "seq_length": 500,
+      "description": "PEFT模型，验证准确率67.43%"
+    },
+    "lstm": {
+      "name": "LSTM",
+      "model_path": "/home/cx/trading_data/best_lstm_improved.pth",
+      "seq_length": 30,
+      "description": "基础LSTM模型"
+    },
+    "transformer": {
+      "name": "Transformer",
+      "model_path": "/home/cx/trading_data/best_transformer_with_profit.pth",
+      "seq_length": 100,
+      "description": "基础Transformer模型"
+    },
+    "gru": {
+      "name": "GRU",
+      "model_path": "/home/cx/trading_data/best_gru_with_profit.pth",
+      "seq_length": 100,
+      "description": "GRU模型，验证准确率43.46%"
+    }
+  }
+}

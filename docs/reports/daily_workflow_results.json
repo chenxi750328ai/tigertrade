@@ -1,0 +1,43 @@
+{
+  "start_time": "2026-01-29T19:42:39.481093",
+  "data_collection": {
+    "tick_count": 0,
+    "kline_count": 0,
+    "timestamp": "2026-01-29T19:43:17.164246"
+  },
+  "training": null,
+  "evaluation": {
+    "moe_transformer": {
+      "accuracy": 0.0,
+      "profitability": 0.0,
+      "status": "evaluated"
+    },
+    "lstm": {
+      "accuracy": 0.0,
+      "profitability": 0.0,
+      "status": "evaluated"
+    },
+    "grid": {
+      "accuracy": 0.0,
+      "profitability": 0.0,
+      "status": "evaluated"
+    }
+  },
+  "optimization": [
+    {
+      "priority": "medium",
+      "issue": "\u53c2\u6570\u4f18\u5316",
+      "suggestion": "\u57fa\u4e8e\u5386\u53f2\u6570\u636e\u4f18\u5316\u7b56\u7565\u53c2\u6570"
+    }
+  ],
+  "profitability": {
+    "total_trades": 0,
+    "winning_trades": 0,
+    "losing_trades": 0,
+    "win_rate": 0.0,
+    "average_profit": 0.0,
+    "total_profit": 0.0,
+    "note": "\u9700\u8981\u5b9e\u9645\u4ea4\u6613\u6570\u636e\u6765\u8ba1\u7b97"
+  },
+  "end_time": "2026-01-29T19:43:17.169524"
+}

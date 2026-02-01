@@ -8,7 +8,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-from tigertrade import tiger1 as t1
+from src import tiger1 as t1
 
 
 def test_boll1m_grid_buys_at_lower():

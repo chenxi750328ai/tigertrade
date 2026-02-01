@@ -1,0 +1,61 @@
+# TigerTrade - AI期货交易系统
+# Python 3.10+
+
+# 深度学习框架
+torch>=2.0.0
+transformers>=4.30.0
+tensorboard>=2.13.0
+
+# 数据处理
+pandas>=2.0.0
+numpy>=1.24.0
+scikit-learn>=1.3.0
+
+# Tiger API
+tigeropen>=2.0.0
+
+# Web框架
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+pydantic>=2.0.0
+
+# 向量数据库
+chromadb>=0.4.0
+sentence-transformers>=2.2.2
+
+# 可视化
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.14.0
+mplfinance>=0.12.9
+
+# 技术分析
+ta-lib>=0.4.26
+TA-Lib>=0.4.24
+
+# 数据库
+sqlalchemy>=2.0.0
+
+# 工具
+pyyaml>=6.0
+requests>=2.31.0
+python-dateutil>=2.8.2
+tqdm>=4.65.0
+
+# 测试
+pytest>=7.3.0
+pytest-cov>=4.1.0
+pytest-asyncio>=0.21.0
+
+# 代码质量
+black>=23.3.0
+pylint>=2.17.0
+flake8>=6.0.0
+
+# 文档
+sphinx>=6.2.0
+sphinx-rtd-theme>=1.2.0
+
+# Jupyter (可选)
+jupyter>=1.0.0
+ipykernel>=6.23.0

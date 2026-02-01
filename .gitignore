@@ -1,0 +1,105 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# 虚拟环境
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# 测试
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+
+# 模型和数据（大文件）
+*.pth
+*.pt
+*.ckpt
+*.h5
+*.pkl
+*.joblib
+
+# 数据文件
+data/
+*.csv
+*.parquet
+*.feather
+
+# 日志
+logs/
+*.log
+nohup.out
+
+# 运行时（手工订单等）
+run/
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+
+# API密钥和配置（敏感信息）
+openapicfg_dem/tiger_openapi_config.properties
+*.pem
+*.key
+*.secret
+.env
+
+# ChromaDB
+chroma/
+*.sqlite3
+*.db
+
+# 结果文件
+results/
+outputs/
+experiments/
+
+# 文档生成
+docs/_build/
+site/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini

@@ -1,0 +1,32 @@
+{
+  "timestamp": "2026-02-01T12:08:50.305435",
+  "profitability": null,
+  "strategy_performance": {
+    "moe_transformer": {
+      "profitability": 0,
+      "win_rate": 0,
+      "sharpe_ratio": 0,
+      "max_drawdown": 0
+    },
+    "lstm": {
+      "profitability": 0,
+      "win_rate": 0,
+      "sharpe_ratio": 0,
+      "max_drawdown": 0
+    },
+    "grid": {
+      "profitability": 0,
+      "win_rate": 0,
+      "sharpe_ratio": 0,
+      "max_drawdown": 0
+    },
+    "boll": {
+      "profitability": 0,
+      "win_rate": 0,
+      "sharpe_ratio": 0,
+      "max_drawdown": 0
+    }
+  },
+  "optimal_parameters": {},
+  "recommendations": []
+}
