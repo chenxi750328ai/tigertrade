@@ -17,27 +17,51 @@
       --muted: #9ca3af;
       --ok: #34d399;
       --wip: #fbbf24;
+      --na: rgba(255,255,255,0.12);
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: "Noto Sans SC", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 2rem 1.5rem; font-size: 15px; line-height: 1.5; }
-    .wrap { max-width: 560px; margin: 0 auto; }
+    .wrap { max-width: 640px; margin: 0 auto; }
 
-    .hero { margin-bottom: 1.5rem; }
+    .hero { margin-bottom: 1.25rem; }
     .hero h1 { font-size: 1.35rem; font-weight: 600; color: var(--accent); margin-bottom: 0.25rem; }
     .hero .meta { font-size: 0.8rem; color: var(--muted); }
 
-    /* 按特性：一行一状态，名称左对齐、状态右对齐 */
+    /* 特性 × 需求/设计/开发/测试 矩阵 + 火焰条 */
     .status-block { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-    .status-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.55rem 1rem; border-bottom: 1px solid var(--border); }
-    .status-row:last-child { border-bottom: 0; }
-    .status-name { font-size: 0.9rem; min-width: 0; }
-    .status-right { display: flex; align-items: center; flex-shrink: 0; }
-    .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-right: 0.5rem; }
-    .status-dot.ok { background: var(--ok); }
-    .status-dot.wip { background: var(--wip); }
-    .status-row .label { font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
-    .status-group { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; padding: 0.4rem 1rem 0.2rem; border-bottom: 1px solid var(--border); }
+    .status-group { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; padding: 0.5rem 1rem 0.25rem; border-bottom: 1px solid var(--border); }
     .status-group:first-child { padding-top: 0.5rem; }
+
+    .phase-header { display: grid; grid-template-columns: 1fr 52px 52px 52px 52px; gap: 0 6px; align-items: center; padding: 0.4rem 1rem; border-bottom: 1px solid var(--border); font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+    .phase-header .name { font-weight: 500; }
+    .phase-header .ph { text-align: center; }
+
+    .status-row { display: grid; grid-template-columns: 1fr 52px 52px 52px 52px; gap: 0 6px; align-items: center; padding: 0.4rem 1rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    .status-row:last-child { border-bottom: 0; }
+    .status-name { min-width: 0; font-weight: 500; }
+    .phase-cell { width: 100%; aspect-ratio: 1; max-width: 40px; max-height: 40px; margin: 0 auto; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: var(--bg); }
+    .phase-cell.ok { background: var(--ok); }
+    .phase-cell.wip { background: var(--wip); }
+    .phase-cell.na { background: var(--na); color: var(--muted); }
+    .phase-cell .short { font-weight: 600; }
+
+    /* 火焰图式进度条：一行内 需求→设计→开发→测试 四段 */
+    .flame-row { display: grid; grid-template-columns: 1fr 208px; gap: 0 8px; align-items: center; padding: 0.25rem 1rem 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.75rem; color: var(--muted); }
+    .flame-row:last-child { border-bottom: 0; }
+    .flame-label { min-width: 0; }
+    .flame-bar { display: flex; height: 14px; border-radius: 4px; overflow: hidden; background: var(--na); }
+    .flame-bar span { flex: 1; min-width: 0; transition: opacity 0.2s; }
+    .flame-bar span.ok { background: var(--ok); }
+    .flame-bar span.wip { background: var(--wip); }
+    .flame-bar span.na { background: var(--na); }
+
+    .legend { display: flex; gap: 1rem; padding: 0.5rem 1rem; border-top: 1px solid var(--border); font-size: 0.7rem; color: var(--muted); }
+    .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+    .legend .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .legend .dot.ok { background: var(--ok); }
+    .legend .dot.wip { background: var(--wip); }
+    .legend .dot.na { background: var(--na); }
+
     .footer { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: 0.8rem; color: var(--muted); }
     .footer a { color: var(--accent); text-decoration: none; }
     .footer a:hover { text-decoration: underline; }
@@ -49,45 +73,126 @@
   <div class="wrap">
     <header class="hero">
       <h1>🐯 TigerTrade</h1>
-      <p class="meta">状态 <strong style="color:var(--wip)">开发中</strong> · 目标 月盈利率 20% · 最近例行：CI 通过（537） · 覆盖率 25.5% · 20h DEMO 运行中 · 刷新 <span id="updated">--</span></p>
+      <p class="meta">状态 <strong style="color:var(--wip)">开发中</strong> · 目标 月盈利率 20% · 最近例行：CI 537 通过 · 覆盖率 25.5% · 20h DEMO 运行中 · 刷新 <span id="updated">--</span></p>
     </header>
 
-    <!-- 按特性展示：名称统一简短，分组排列 -->
+    <!-- 特性 × 需求/设计/开发/测试 矩阵 -->
     <div class="status-block">
+      <div class="phase-header">
+        <span class="name">特性</span>
+        <span class="ph">需求</span>
+        <span class="ph">设计</span>
+        <span class="ph">开发</span>
+        <span class="ph">测试</span>
+      </div>
+
       <div class="status-group">数据与模型</div>
       <div class="status-row">
         <span class="status-name">数据采集</span>
-        <span class="status-right"><span class="status-dot ok"></span><span class="label">已完成</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
       </div>
       <div class="status-row">
         <span class="status-name">模型训练</span>
-        <span class="status-right"><span class="status-dot wip"></span><span class="label">进行中</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="phase-cell wip"><span class="short">…</span></span>
+        <span class="phase-cell na"><span class="short">-</span></span>
       </div>
+
       <div class="status-group">交易与风控</div>
       <div class="status-row">
         <span class="status-name">策略回测</span>
-        <span class="status-right"><span class="status-dot wip"></span><span class="label">进行中</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="phase-cell wip"><span class="short">…</span></span>
+        <span class="phase-cell na"><span class="short">-</span></span>
       </div>
       <div class="status-row">
         <span class="status-name">风控下单</span>
-        <span class="status-right"><span class="status-dot ok"></span><span class="label">已有</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
       </div>
       <div class="status-row">
         <span class="status-name">手工订单</span>
-        <span class="status-right"><span class="status-dot ok"></span><span class="label">已有</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
       </div>
       <div class="status-row">
         <span class="status-name">订单日志</span>
-        <span class="status-right"><span class="status-dot ok"></span><span class="label">已有</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
       </div>
+
       <div class="status-group">质量与发布</div>
       <div class="status-row">
         <span class="status-name">CI 与测试</span>
-        <span class="status-right"><span class="status-dot ok"></span><span class="label">已有</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
       </div>
       <div class="status-row">
         <span class="status-name">协作发布</span>
-        <span class="status-right"><span class="status-dot ok"></span><span class="label">已有</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="phase-cell ok"><span class="short">✓</span></span>
+      </div>
+
+      <div class="legend">
+        <span><i class="dot ok"></i> 已完成</span>
+        <span><i class="dot wip"></i> 进行中</span>
+        <span><i class="dot na"></i> 未开始</span>
+      </div>
+    </div>
+
+    <!-- 火焰图：同一数据，横向进度条 -->
+    <div class="status-block" style="margin-top: 1rem;">
+      <div class="phase-header" style="border: 0; padding-bottom: 0;">
+        <span class="name">特性</span>
+        <span class="ph" style="width: 208px; text-align: right;">需求 → 设计 → 开发 → 测试</span>
+      </div>
+      <div class="status-group">进度一览</div>
+      <div class="flame-row">
+        <span class="flame-label">数据采集</span>
+        <div class="flame-bar"><span class="ok"></span><span class="ok"></span><span class="ok"></span><span class="ok"></span></div>
+      </div>
+      <div class="flame-row">
+        <span class="flame-label">模型训练</span>
+        <div class="flame-bar"><span class="ok"></span><span class="ok"></span><span class="wip"></span><span class="na"></span></div>
+      </div>
+      <div class="flame-row">
+        <span class="flame-label">策略回测</span>
+        <div class="flame-bar"><span class="ok"></span><span class="ok"></span><span class="wip"></span><span class="na"></span></div>
+      </div>
+      <div class="flame-row">
+        <span class="flame-label">风控下单</span>
+        <div class="flame-bar"><span class="ok"></span><span class="ok"></span><span class="ok"></span><span class="ok"></span></div>
+      </div>
+      <div class="flame-row">
+        <span class="flame-label">手工订单</span>
+        <div class="flame-bar"><span class="ok"></span><span class="ok"></span><span class="ok"></span><span class="ok"></span></div>
+      </div>
+      <div class="flame-row">
+        <span class="flame-label">订单日志</span>
+        <div class="flame-bar"><span class="ok"></span><span class="ok"></span><span class="ok"></span><span class="ok"></span></div>
+      </div>
+      <div class="flame-row">
+        <span class="flame-label">CI 与测试</span>
+        <div class="flame-bar"><span class="ok"></span><span class="ok"></span><span class="ok"></span><span class="ok"></span></div>
+      </div>
+      <div class="flame-row">
+        <span class="flame-label">协作发布</span>
+        <div class="flame-bar"><span class="ok"></span><span class="ok"></span><span class="ok"></span><span class="ok"></span></div>
       </div>
     </div>
 
