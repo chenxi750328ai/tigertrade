@@ -212,12 +212,12 @@ class MoETradingStrategy(BaseTradingStrategy):
                     
                     # 动作预测
                     action_probs = torch.softmax(action_logits, dim=-1)
-                    action = torch.argmax(action_probs, dim=-1).cpu().numpy()[0]
-                    confidence = action_probs[0][action].cpu().numpy()
+                    action = int(torch.argmax(action_probs, dim=-1).cpu().item())
+                    confidence = action_probs[0][action].cpu().item()
                     
                     # 收益率预测（如果启用）
                     if profit_pred is not None:
-                        profit_value = float(profit_pred.cpu().numpy()[0])
+                        profit_value = float(profit_pred.cpu().item())
                         # 应用ReLU和clamp（与训练时推理一致）
                         profit_value = max(0.0, min(profit_value, 0.3))
                         return int(action), float(confidence), profit_value

@@ -1051,27 +1051,31 @@ class LLMTradingStrategy(BaseTradingStrategy):
                                 action_logits, profit_or_grid = model_output
                                 if self.model.predict_grid_adjustment:
                                     profit, grid_adjustment = profit_or_grid, model_output[1] if len(model_output) > 1 else None
-                                    grid_adjustment_value = float(grid_adjustment.cpu().numpy()[0]) if grid_adjustment is not None else 1.0
+                                    grid_adjustment_value = float(grid_adjustment.cpu().item()) if grid_adjustment is not None else 1.0
                                 else:
                                     profit = profit_or_grid
                             else:
                                 # 动作 + 网格调整
                                 action_logits, grid_adjustment = model_output
-                                grid_adjustment_value = float(grid_adjustment.cpu().numpy()[0])
+                                grid_adjustment_value = float(grid_adjustment.cpu().item())
                         elif len(model_output) == 3:
                             # 动作 + 收益率 + 网格调整
                             action_logits, profit, grid_adjustment = model_output
-                            grid_adjustment_value = float(grid_adjustment.cpu().numpy()[0])
+                            grid_adjustment_value = float(grid_adjustment.cpu().item())
                         else:
                             action_logits = model_output[0]
                             profit = model_output[1] if len(model_output) > 1 and self.predict_profit else None
                             grid_adjustment = model_output[2] if len(model_output) > 2 else None
-                            grid_adjustment_value = float(grid_adjustment.cpu().numpy()[0]) if grid_adjustment is not None else 1.0
+                            grid_adjustment_value = float(grid_adjustment.cpu().item()) if grid_adjustment is not None else 1.0
                     else:
                         action_logits = model_output
                     
                     # 计算动作概率
-                    probabilities = torch.softmax(action_logits, dim=1).cpu().numpy()[0]
+                    probabilities = torch.softmax(action_logits, dim=1).cpu().numpy().flatten() if action_logits.dim() > 1 else torch.softmax(action_logits, dim=1).cpu().numpy()
+                    if hasattr(probabilities, 'shape') and probabilities.shape and len(probabilities.shape) > 1:
+                        probabilities = probabilities[0]
+                    elif not isinstance(probabilities, np.ndarray):
+                        probabilities = np.array([probabilities])
                     
                     # 返回最可能的动作: 0=不操作, 1=买入, 2=卖出
                     action = np.argmax(probabilities)
@@ -1082,7 +1086,7 @@ class LLMTradingStrategy(BaseTradingStrategy):
                         # 在推理时应用ReLU和clamp限制输出范围
                         profit = torch.relu(profit)  # 确保非负
                         profit = torch.clamp(profit, max=0.3)  # 限制上限为0.3（30%）
-                        profit_value = float(profit.cpu().numpy()[0])
+                        profit_value = float(profit.cpu().item())
                         
                         # 基于收益率预测调整置信度
                         if action == 1:  # 买入
@@ -1106,7 +1110,7 @@ class LLMTradingStrategy(BaseTradingStrategy):
                     
                     # 返回结果（统一接口：(action, confidence, profit_prediction)）
                     if self.predict_profit and profit is not None:
-                        profit_value = float(profit.cpu().numpy()[0])
+                        profit_value = float(profit.cpu().item())
                         return int(action), float(confidence), float(profit_value)
                     else:
                         return int(action), float(confidence), None

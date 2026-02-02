@@ -1789,6 +1789,7 @@ def place_take_profit_order(entry_side: str, quantity: int, take_profit_price: f
     """
     提交止盈订单，处理价格精度调整和异常情况
     """
+    e = None  # 用于 sandbox 日志，避免未定义
     try:
         # 确定订单方向 - 与入场方向相反
         exit_side = 'SELL' if entry_side == 'BUY' else 'BUY'
@@ -1834,9 +1835,12 @@ def place_take_profit_order(entry_side: str, quantity: int, take_profit_price: f
         # If we're in sandbox, ignore failures but log for visibility
         if RUN_ENV == 'sandbox':
             try:
-                print(f"🧭 [模拟] 止盈单提交失败（忽略） | 价格：{float(take_profit_price):.2f} | 原因：{e}")
+                print(f"🧭 [模拟] 止盈单提交失败（忽略） | 价格：{float(take_profit_price):.2f} | 原因：{e if e is not None else '未提交'}")
             except Exception:
-                print(f"🧭 [模拟] 止盈单提交失败（忽略） | 价格：{take_profit_price} | 原因：错误信息不可打印")
+                try:
+                    print(f"🧭 [模拟] 止盈单提交失败（忽略） | 价格：{take_profit_price} | 原因：错误信息不可打印")
+                except Exception:
+                    pass  # 避免 print 被 mock 时导致未返回
             return True
 
         # logger.warning("place_take_profit_order failed: %s", e)

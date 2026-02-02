@@ -210,21 +210,28 @@ class TestTiger1UltimateCoverage(unittest.TestCase):
             pass
     
     def test_place_tiger_order_real_trading_path(self):
-        """测试真实交易路径"""
+        """测试真实交易路径（非 mock 模式下才走 trade_api.place_order）"""
         original_allow = t1.ALLOW_REAL_TRADING
+        original_mock = getattr(api_manager, 'is_mock_mode', True)
         t1.ALLOW_REAL_TRADING = 1
         
         try:
-            with patch.object(api_manager.trade_api, 'place_order', return_value={'order_id': 'TEST123'}):
-                result = t1.place_tiger_order('BUY', 1, 100.0)
-                self.assertIsNotNone(result)
-            
-            # 测试下单失败
-            with patch.object(api_manager.trade_api, 'place_order', side_effect=Exception("Order failed")):
-                result = t1.place_tiger_order('BUY', 1, 100.0)
-                self.assertFalse(result)
+            # 强制走真实 API 分支
+            with patch.object(api_manager, 'is_mock_mode', False):
+                with patch.object(api_manager.trade_api, 'place_order', return_value={'order_id': 'TEST123'}):
+                    result = t1.place_tiger_order('BUY', 1, 100.0)
+                    self.assertIsNotNone(result)
+                
+                # 测试下单失败：place_order 抛异常应返回 False
+                with patch.object(api_manager.trade_api, 'place_order', side_effect=Exception("Order failed")):
+                    result = t1.place_tiger_order('BUY', 1, 100.0)
+                    self.assertFalse(result)
         finally:
             t1.ALLOW_REAL_TRADING = original_allow
+            try:
+                api_manager.is_mock_mode = original_mock
+            except Exception:
+                pass
     
     def test_place_tiger_order_sell_matching(self):
         """测试卖出订单的匹配逻辑"""
