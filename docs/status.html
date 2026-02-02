@@ -32,11 +32,11 @@
     .status-group { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; padding: 0.5rem 1rem 0.25rem; border-bottom: 1px solid var(--border); }
     .status-group:first-child { padding-top: 0.5rem; }
 
-    .phase-header { display: grid; grid-template-columns: 1fr 52px 52px 52px 52px; gap: 0 6px; align-items: center; padding: 0.4rem 1rem; border-bottom: 1px solid var(--border); font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+    .phase-header { display: grid; grid-template-columns: 1fr 52px 52px 52px 52px 48px 48px; gap: 0 6px; align-items: center; padding: 0.4rem 1rem; border-bottom: 1px solid var(--border); font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
     .phase-header .name { font-weight: 500; }
     .phase-header .ph { text-align: center; }
 
-    .status-row { display: grid; grid-template-columns: 1fr 52px 52px 52px 52px; gap: 0 6px; align-items: center; padding: 0.4rem 1rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    .status-row { display: grid; grid-template-columns: 1fr 52px 52px 52px 52px 48px 48px; gap: 0 6px; align-items: center; padding: 0.4rem 1rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
     .status-row:last-child { border-bottom: 0; }
     .status-name { min-width: 0; font-weight: 500; }
     .phase-cell { width: 100%; aspect-ratio: 1; max-width: 40px; max-height: 40px; margin: 0 auto; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: var(--bg); }
@@ -53,14 +53,17 @@
     .legend .dot.na { background: var(--na); }
 
     /* 每日例行：最近一次 + 状态，随状态页刷新时更新 */
-    .routine-header { display: grid; grid-template-columns: 1fr 72px 56px; gap: 0 8px; align-items: center; padding: 0.4rem 1rem; border-bottom: 1px solid var(--border); font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
-    .routine-row { display: grid; grid-template-columns: 1fr 72px 56px; gap: 0 8px; align-items: center; padding: 0.35rem 1rem; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+    .routine-header { display: grid; grid-template-columns: 1fr 72px 56px 52px 52px; gap: 0 6px; align-items: center; padding: 0.4rem 1rem; border-bottom: 1px solid var(--border); font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+    .routine-row { display: grid; grid-template-columns: 1fr 72px 56px 52px 52px; gap: 0 6px; align-items: center; padding: 0.35rem 1rem; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
     .routine-row:last-child { border-bottom: 0; }
     .routine-name { min-width: 0; }
     .routine-date { font-size: 0.8rem; color: var(--muted); text-align: right; }
     .routine-status { font-size: 0.75rem; color: var(--ok); }
     .routine-status.wip { color: var(--wip); }
     .routine-status.na { color: var(--muted); }
+    .cell-link { font-size: 0.75rem; }
+    .cell-link a { color: var(--accent); text-decoration: none; }
+    .cell-link a:hover { text-decoration: underline; }
 
     .footer { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: 0.8rem; color: var(--muted); }
     .footer a { color: var(--accent); text-decoration: none; }
@@ -84,6 +87,8 @@
         <span class="ph">设计</span>
         <span class="ph">开发</span>
         <span class="ph">测试</span>
+        <span class="ph">查看</span>
+        <span class="ph">负责</span>
       </div>
 
       <div class="status-group">数据与模型</div>
@@ -93,6 +98,8 @@
         <span class="phase-cell ok"><span class="short">✓</span></span>
         <span class="phase-cell ok"><span class="short">✓</span></span>
         <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/tree/main/scripts" target="_blank" rel="noopener">查</a></span>
+        <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/shared_rag/best_practices/陈老大陈老二协作分工_20260201.md" target="_blank" rel="noopener">责</a></span>
       </div>
       <div class="status-row">
         <span class="status-name">模型训练</span>
@@ -100,6 +107,8 @@
         <span class="phase-cell ok"><span class="short">✓</span></span>
         <span class="phase-cell wip"><span class="short">…</span></span>
         <span class="phase-cell na"><span class="short">-</span></span>
+        <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/scripts/train_multiple_models_comparison.py" target="_blank" rel="noopener">查</a></span>
+        <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/shared_rag/best_practices/陈老大陈老二协作分工_20260201.md" target="_blank" rel="noopener">责</a></span>
       </div>
 
       <div class="status-group">交易与风控</div>
@@ -146,6 +155,8 @@
         <span class="phase-cell ok"><span class="short">✓</span></span>
         <span class="phase-cell ok"><span class="short">✓</span></span>
         <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/tree/main/.github/workflows" target="_blank" rel="noopener">查</a></span>
+        <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/docs/PL.md" target="_blank" rel="noopener">责</a></span>
       </div>
       <div class="status-row">
         <span class="status-name">协作发布</span>
@@ -153,6 +164,8 @@
         <span class="phase-cell ok"><span class="short">✓</span></span>
         <span class="phase-cell ok"><span class="short">✓</span></span>
         <span class="phase-cell ok"><span class="short">✓</span></span>
+        <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/docs/PL.md" target="_blank" rel="noopener">查</a></span>
+        <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/docs/PL.md" target="_blank" rel="noopener">责</a></span>
       </div>
 
       <div class="legend">
@@ -169,46 +182,64 @@
         <span>例行项</span>
         <span style="text-align:right">最近一次</span>
         <span style="text-align:right">状态</span>
+        <span style="text-align:center">查看</span>
+        <span style="text-align:center">负责</span>
       </div>
       <div class="routine-row">
         <span class="routine-name">CI/CD 测试</span>
         <span class="routine-date" id="r1-date">02-02</span>
         <span class="routine-status">已跑</span>
+        <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/tree/main/.github/workflows" target="_blank" rel="noopener">查</a></span>
+        <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/shared_rag/best_practices/陈老大陈老二协作分工_20260201.md" target="_blank" rel="noopener">责</a></span>
       </div>
       <div class="routine-row">
         <span class="routine-name">覆盖率统计</span>
         <span class="routine-date" id="r2-date">02-02</span>
         <span class="routine-status">已跑</span>
+        <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/shared_rag/best_practices/例行工作清单_agent必读.md" target="_blank" rel="noopener">查</a></span>
+        <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/shared_rag/best_practices/陈老大陈老二协作分工_20260201.md" target="_blank" rel="noopener">责</a></span>
       </div>
       <div class="routine-row">
         <span class="routine-name">问题解决</span>
         <span class="routine-date" id="r3-date">02-02</span>
         <span class="routine-status">已跑</span>
+        <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/AGENT_TASKS.md" target="_blank" rel="noopener">查</a></span>
+        <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/shared_rag/best_practices/陈老大陈老二协作分工_20260201.md" target="_blank" rel="noopener">责</a></span>
       </div>
       <div class="routine-row">
         <span class="routine-name">20h DEMO 运行</span>
         <span class="routine-date" id="r4-date">02-02</span>
         <span class="routine-status wip">运行中</span>
+        <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/scripts/run_20h_demo.sh" target="_blank" rel="noopener">查</a></span>
+        <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/shared_rag/best_practices/陈老大陈老二协作分工_20260201.md" target="_blank" rel="noopener">责</a></span>
       </div>
       <div class="routine-row">
         <span class="routine-name">数据刷新</span>
         <span class="routine-date" id="r5-date">02-02</span>
         <span class="routine-status">已跑</span>
+        <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/scripts/merge_recent_data_and_train.py" target="_blank" rel="noopener">查</a></span>
+        <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/shared_rag/best_practices/陈老大陈老二协作分工_20260201.md" target="_blank" rel="noopener">责</a></span>
       </div>
       <div class="routine-row">
         <span class="routine-name">模型训练</span>
         <span class="routine-date" id="r6-date">02-02</span>
         <span class="routine-status wip">进行中</span>
+        <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/scripts/train_multiple_models_comparison.py" target="_blank" rel="noopener">查</a></span>
+        <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/shared_rag/best_practices/陈老大陈老二协作分工_20260201.md" target="_blank" rel="noopener">责</a></span>
       </div>
       <div class="routine-row">
         <span class="routine-name">收益与算法优化</span>
         <span class="routine-date" id="r7-date">02-02</span>
         <span class="routine-status">已跑</span>
+        <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/scripts/optimize_algorithm_and_profitability.py" target="_blank" rel="noopener">查</a></span>
+        <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/shared_rag/best_practices/陈老大陈老二协作分工_20260201.md" target="_blank" rel="noopener">责</a></span>
       </div>
       <div class="routine-row">
         <span class="routine-name">状态页刷新</span>
         <span class="routine-date" id="r8-date">02-02</span>
         <span class="routine-status">已跑</span>
+        <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/docs/status.html" target="_blank" rel="noopener">查</a></span>
+        <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/docs/PL.md" target="_blank" rel="noopener">责</a></span>
       </div>
     </div>
 
