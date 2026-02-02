@@ -3,6 +3,7 @@ API适配器 - 为tiger1.py提供可注入的API接口
 允许在测试时使用模拟实现，在生产时使用真实API
 """
 
+import logging
 import pandas as pd
 import numpy as np
 from abc import ABC, abstractmethod
@@ -11,6 +12,8 @@ import time
 import sys
 
 from tigeropen.common.consts import BarPeriod, OrderType
+
+logger = logging.getLogger(__name__)
 
 
 class QuoteApiInterface(ABC):
@@ -134,18 +137,18 @@ class RealTradeApiAdapter(TradeApiInterface):
                         account = api_manager._account
                         # 同时更新self.account以便下次使用
                         self.account = account
-                        print(f"✅ 从api_manager获取account成功: {account}")
+                        logger.debug("从api_manager获取account成功: %s", account)
                     elif hasattr(api_manager, 'trade_api') and hasattr(api_manager.trade_api, 'account'):
                         account = api_manager.trade_api.account
                         self.account = account
-                        print(f"✅ 从api_manager.trade_api获取account成功: {account}")
+                        logger.debug("从api_manager.trade_api获取account成功: %s", account)
                 except Exception as e:
-                    print(f"⚠️ 从api_manager获取account失败: {e}")
+                    logger.warning("从api_manager获取account失败: %s", e)
             
             # 确保account不为空
             if not account:
                 error_msg = f"account不能为空，无法创建订单。self.account={self.account}, client.account={getattr(self.client, 'account', None)}, client.config.account={getattr(self.client.config, 'account', None) if hasattr(self.client, 'config') else 'N/A'}"
-                print(f"❌ {error_msg}")
+                logger.warning("%s", error_msg)
                 raise ValueError(error_msg)
             
             # 转换symbol格式：SIL.COMEX.202603 -> SIL2603（根据API文档，期货使用简短格式）
@@ -157,7 +160,7 @@ class RealTradeApiAdapter(TradeApiInterface):
                     t1_module = sys.modules['tiger1']
                     if hasattr(t1_module, '_to_api_identifier'):
                         symbol_to_use = t1_module._to_api_identifier(symbol)
-                        print(f"🔍 [下单调试] 使用tiger1._to_api_identifier转换: {symbol} -> {symbol_to_use}")
+                        logger.debug("使用tiger1._to_api_identifier转换: %s -> %s", symbol, symbol_to_use)
                 
                 # 如果没有转换函数，手动转换
                 if symbol_to_use == symbol and '.' in symbol_to_use:
@@ -168,28 +171,26 @@ class RealTradeApiAdapter(TradeApiInterface):
                         datepart = parts[-1]  # 202603
                         if len(datepart) == 6 and datepart.isdigit():
                             symbol_to_use = f"{base}{datepart[-4:]}"  # SIL2603
-                            print(f"🔍 [下单调试] 手动转换symbol: {symbol} -> {symbol_to_use}")
+                            logger.debug("手动转换symbol: %s -> %s", symbol, symbol_to_use)
             except Exception as e:
-                print(f"⚠️ symbol转换失败，使用原格式: {e}")
-                import traceback
-                traceback.print_exc()
+                logger.warning("symbol转换失败，使用原格式: %s", e)
+                logger.debug("symbol转换失败", exc_info=True)
             
             tiger_id_used = getattr(getattr(self.client, 'config', None), 'tiger_id', None) or 'N/A'
-            print(f"🔍 [下单调试] 当前请求 account={account}, tiger_id={tiger_id_used}（来自配置文件），请与 Tiger 后台「API 账户授权」中一致")
-            print(f"🔍 [下单调试] symbol={symbol} -> {symbol_to_use}, side={side}, order_type={order_type}, quantity={quantity}, limit_price={limit_price}")
+            logger.debug("当前请求 account=%s tiger_id=%s symbol=%s side=%s quantity=%s limit_price=%s", account, tiger_id_used, symbol_to_use, side, quantity, limit_price)
             
             # 创建Contract对象：与原始根目录 tiger1.py 一致，仅 symbol+currency（原始可下单成功）
             # 原始：contract = future_contract(symbol=contract_symbol, currency=FUTURE_CURRENCY)，无 expiry/exchange
             contract = None
             try:
                 contract = future_contract(symbol=symbol_to_use, currency=Currency.USD)
-                print(f"✅ 使用future_contract创建合约成功: {symbol_to_use}（与原始 tiger1 一致：仅 symbol+currency）")
+                logger.debug("使用future_contract创建合约成功: %s", symbol_to_use)
             except (TypeError, ValueError, Exception) as e:
-                print(f"⚠️ future_contract创建失败: {e}，尝试stock_contract")
+                logger.warning("future_contract创建失败: %s，尝试stock_contract", e)
                 # 如果失败，尝试股票合约（兼容旧代码）
                 try:
                     contract = stock_contract(symbol_to_use, Currency.USD)
-                    print(f"⚠️ 使用stock_contract创建合约（可能不正确）: {symbol_to_use}")
+                    logger.debug("使用stock_contract创建合约: %s", symbol_to_use)
                 except (TypeError, ValueError):
                     contract = stock_contract(symbol_to_use)
             
@@ -197,13 +198,40 @@ class RealTradeApiAdapter(TradeApiInterface):
                 raise ValueError(f"无法创建合约对象，symbol={symbol_to_use}")
             
             # 创建Order对象 - 根据API文档，应该使用limit_order或market_order函数
-            print(f"🔍 [下单调试] 准备创建Order: account={account}, symbol={symbol} -> {symbol_to_use}, side={side}, order_type={order_type}, quantity={quantity}, limit_price={limit_price}")
+            logger.debug("准备创建Order: account=%s symbol=%s side=%s quantity=%s limit_price=%s", account, symbol_to_use, side, quantity, limit_price)
             
             # 根据API文档，应该使用order_utils中的函数创建订单
             try:
-                from tigeropen.common.util.order_utils import limit_order, market_order
+                from tigeropen.common.util.order_utils import limit_order, market_order, stop_order, stop_limit_order
                 
-                if order_type == 'LMT' or order_type == OrderType.LMT:
+                if order_type == 'STP' or order_type == OrderType.STP:
+                    # 止损市价单：触发价 aux_price，触发后市价成交
+                    if stop_price is None:
+                        raise ValueError("止损单(STP)必须提供 stop_price")
+                    order = stop_order(
+                        account=account,
+                        contract=contract,
+                        action=side,
+                        quantity=quantity,
+                        aux_price=stop_price,
+                        time_in_force=time_in_force or 'DAY'
+                    )
+                    logger.debug("使用stop_order创建止损单成功 aux_price=%s", stop_price)
+                elif order_type == 'STP_LMT' or order_type == OrderType.STP_LMT:
+                    # 止损限价单：触发价 aux_price，触发后按 limit_price 限价成交
+                    if stop_price is None or limit_price is None:
+                        raise ValueError("止损限价单(STP_LMT)必须提供 stop_price 和 limit_price")
+                    order = stop_limit_order(
+                        account=account,
+                        contract=contract,
+                        action=side,
+                        quantity=quantity,
+                        limit_price=limit_price,
+                        aux_price=stop_price,
+                        time_in_force=time_in_force or 'DAY'
+                    )
+                    logger.debug("使用stop_limit_order创建止损限价单成功 aux_price=%s limit_price=%s", stop_price, limit_price)
+                elif order_type == 'LMT' or order_type == OrderType.LMT:
                     # 限价单：使用limit_order函数
                     order = limit_order(
                         account=account,
@@ -212,7 +240,7 @@ class RealTradeApiAdapter(TradeApiInterface):
                         limit_price=limit_price,
                         quantity=quantity
                     )
-                    print(f"✅ 使用limit_order创建限价单成功")
+                    logger.debug("使用limit_order创建限价单成功")
                 else:
                     # 市价单：使用market_order函数
                     order = market_order(
@@ -221,10 +249,10 @@ class RealTradeApiAdapter(TradeApiInterface):
                         action=side,  # BUY or SELL
                         quantity=quantity
                     )
-                    print(f"✅ 使用market_order创建市价单成功")
+                    logger.debug("使用market_order创建市价单成功")
             except ImportError:
                 # 如果order_utils不可用，fallback到直接创建Order对象
-                print(f"⚠️ order_utils不可用，使用Order直接创建")
+                logger.debug("order_utils不可用，使用Order直接创建")
                 order = Order(
                     account=account,
                     contract=contract,
@@ -235,26 +263,15 @@ class RealTradeApiAdapter(TradeApiInterface):
                     limit_price=limit_price,
                     aux_price=stop_price
                 )
-            print(f"🔍 [下单调试] Order创建成功: order.account={order.account}, order.contract={order.contract}")
+            logger.debug("Order创建成功: account=%s contract=%s", order.account, getattr(order.contract, 'symbol', None) if hasattr(order, 'contract') and order.contract else None)
             
             # 调用TradeClient.place_order，它接受Order对象
-            print(f"🔍 [下单调试] 调用client.place_order，Order详情:")
-            print(f"   Order.account: {order.account}")
-            print(f"   Order.contract.symbol: {order.contract.symbol if hasattr(order, 'contract') and order.contract else 'N/A'}")
-            print(f"   Order.action: {order.action}")
-            print(f"   Order.order_type: {order.order_type}")
-            print(f"   Order.quantity: {order.quantity}")
-            print(f"   Order.limit_price: {order.limit_price}")
-            
             result = self.client.place_order(order)
-            print(f"🔍 [下单调试] place_order调用成功: result={result}")
-            print(f"🔍 [下单调试] result类型: {type(result)}")
-            if hasattr(result, '__dict__'):
-                print(f"🔍 [下单调试] result属性: {result.__dict__}")
+            logger.debug("place_order调用成功: result=%s", result)
             return result
         except (ImportError, AttributeError, TypeError, ValueError) as e:
             # TradeClient.place_order 只接受 (order, lang=None)，无多参数 fallback
-            print(f"⚠️ [下单调试] Order创建失败: {e}")
+            logger.warning("Order创建失败: %s", e)
             raise Exception(f"下单失败: 无法创建Order对象或调用API - Order创建错误: {e}")
         except Exception as e:
             # 捕获所有其他异常（包括API返回的错误）
@@ -262,9 +279,9 @@ class RealTradeApiAdapter(TradeApiInterface):
             # 明确识别授权错误
             if 'not authorized' in error_msg.lower() or 'authorized' in error_msg.lower() or 'authorization' in error_msg.lower():
                 auth_error = f"授权失败: {error_msg}。需要在Tiger后台配置account授权给API用户。"
-                print(f"❌ [下单调试] {auth_error}")
+                logger.warning("%s", auth_error)
                 raise ValueError(auth_error)
-            print(f"❌ [下单调试] 下单异常: {e}")
+            logger.warning("下单异常: %s", e)
             raise
 
 
@@ -329,9 +346,16 @@ class MockQuoteApiAdapter(QuoteApiInterface):
         """获取期货K线数据"""
         self.get_future_bars_call_count += 1
         
-        # 根据调用次数返回不同的数据
-        if self.get_future_bars_call_count % 7 == 0:  # 每第7次调用返回None
-            return None
+        # 根据调用次数返回不同的数据（DEMO 需稳定有数据，不再返回 None）
+        if self.get_future_bars_call_count % 7 == 0:  # 原返回 None，改为返回正常数据以保证 DEMO 可跑
+            return pd.DataFrame({
+                'time': pd.date_range('2026-01-16 12:00', periods=count, freq='1min'),
+                'open': [90.0 + i * 0.01 for i in range(count)],
+                'high': [90.1 + i * 0.01 for i in range(count)],
+                'low': [89.9 + i * 0.01 for i in range(count)],
+                'close': [90.0 + i * 0.01 for i in range(count)],
+                'volume': [100 + i for i in range(count)]
+            })
         elif self.get_future_bars_call_count % 7 == 1:  # 每第1次调用返回正常数据
             return pd.DataFrame({
                 'time': pd.date_range('2026-01-16 12:00', periods=count, freq='1min'),
@@ -639,11 +663,9 @@ class ApiAdapterManager:
         trade_adapter.account = final_account  # 确保设置
         
         if final_account:
-            print(f"✅ [API初始化] account已设置: {final_account}")
-            print(f"✅ [API初始化] 验证: api_manager._account={self._account}, trade_api.account={trade_adapter.account}")
+            logger.info("[API初始化] account已设置: %s", final_account)
         else:
-            print(f"⚠️ [API初始化] account为空，可能导致下单失败")
-            print(f"⚠️ [API初始化] 调试信息: account参数={account}, trade_client.config.account={getattr(trade_client.config, 'account', None) if hasattr(trade_client, 'config') else 'N/A'}")
+            logger.warning("[API初始化] account为空，可能导致下单失败 account=%s config.account=%s", account, getattr(trade_client.config, 'account', None) if hasattr(trade_client, 'config') else 'N/A')
         
         self.trade_api = trade_adapter
         self.is_mock_mode = False

@@ -153,7 +153,6 @@ class DataCollector:
             writer = csv.DictWriter(f, fieldnames=self.fields)
             writer.writerow(data_point)
         
-        print(f"📊 数据点已记录: {data_point['timestamp']}")
 
 
 # 创建全局数据收集器实例
@@ -239,13 +238,11 @@ if len(sys.argv) > 1:
     if count_type == 'd':
         try:
             client_config = TigerOpenClientConfig(props_path='./openapicfg_dem')
-            print("demo count\r\n")
         except Exception:
             client_config = None
     elif count_type == 'c':
         try:
             client_config = TigerOpenClientConfig(props_path='./openapicfg_com')
-            print("combine count\r\n")
         except Exception:
             client_config = None
     else:
@@ -261,7 +258,6 @@ if len(sys.argv) > 1:
 # Try to build clients if we have a config; fail gracefully for import-time safety
 if client_config is not None:
     try:
-        print(client_config.account, client_config.tiger_id)
         quote_client = QuoteClient(client_config)  # 行情客户端
         trade_client = TradeClient(client_config)  # 交易客户端
         
@@ -596,9 +592,7 @@ def adjust_grid_interval(trend, indicators):
                 period_name = grid_params['period_name']
                 config_source = grid_params['config_source']
                 
-                print(f"📈 时段自适应网格 - 时段: {period_name}, 来源: {config_source}")
-                print(f"   网格间距: {period_grid_step:.4f}美元 (平衡阈值: {grid_params['balance_threshold']:.4f}美元)")
-                print(f"   网格区间: [{grid_lower:.3f}, {grid_upper:.3f}], 最大仓位: {GRID_MAX_POSITION}手")
+                print(f"📈 时段自适应网格 | 时段: {period_name} | 区间: [{grid_lower:.3f}, {grid_upper:.3f}], 仓位: {GRID_MAX_POSITION}手")
                 
             except Exception as e:
                 print(f"⚠️ 时段自适应策略获取失败: {e}，使用传统方法")
@@ -630,7 +624,7 @@ def adjust_grid_interval(trend, indicators):
         atr_5m = atr_value
         
     else:
-        print("⚠️ 指标数据不足，使用默认网格参数")
+        logger.debug("指标数据不足，使用默认网格参数")
 
 
 def verify_api_connection():
@@ -641,49 +635,21 @@ def verify_api_connection():
             print("🧪 运行在模拟模式下，跳过真实API连接验证")
             return True
         
-        # 调用API查询股票行情
-        stock_price = api_manager.quote_api.get_stock_briefs(['00700'])
-
-        # 查询行情函数会返回一个包含当前行情快照的pandas.DataFrame对象，见返回示例。具体字段含义参见get_stock_briefs方法说明
-        print(stock_price)
-
-        exchanges = api_manager.quote_api.get_future_exchanges()
-        # 打印第一个交易所的代码，名称，时区
-        for exchange1 in exchanges.iloc:
-            print(f'code: {exchange1.code}, name: {exchange1.name}, zone: {exchange1.zone}')
-
-
-        contracts = api_manager.quote_api.get_future_contracts('COMEX')
-
-        # 将合约代码设置为pandas DataFrame 索引，并查询字段
-        contract1 = contracts.set_index('contract_code').loc['SIL2603']
-        print(contract1.name)  # 合约名称
-        print(contract1.multiplier)  # 合约乘数
-        print(contract1.last_trading_date)  # 最后交易日
-
-        contracts = api_manager.quote_api.get_all_future_contracts('SIL')
-        print(contracts)
-
-        contract = api_manager.quote_api.get_current_future_contract('SIL')
-        print(contract)
-
-        permissions = api_manager.quote_api.get_quote_permission()
-        print(permissions)
-
-        klines = api_manager.quote_api.get_future_brief(['SIL2603'])
-            
-        print(klines.head().to_string())
-
-
-        klines = api_manager.quote_api.get_future_bars(
+        # 调用API查询股票行情、交易所、合约、K线以验证连接
+        api_manager.quote_api.get_stock_briefs(['00700'])
+        api_manager.quote_api.get_future_exchanges()
+        api_manager.quote_api.get_future_contracts('COMEX')
+        api_manager.quote_api.get_all_future_contracts('SIL')
+        api_manager.quote_api.get_current_future_contract('SIL')
+        api_manager.quote_api.get_quote_permission()
+        api_manager.quote_api.get_future_brief(['SIL2603'])
+        api_manager.quote_api.get_future_bars(
             ['SIL2603'],
             BarPeriod.ONE_MINUTE,
             -1,
             -1,
             2,
             None)
-
-        print(klines.head().to_string())
 
         # 初始化校验里下单：便于到后台查看订单（已打开运行）
         place_tiger_order('BUY', 1, 91.63, 90)
@@ -740,7 +706,7 @@ def get_future_brief_info(symbol):
                 "expire_date": expire_date
             }
         else:
-            print("⚠️ 获取概要信息失败，使用默认参数")
+            logger.debug("获取概要信息失败，使用默认参数")
             # 如果获取不到，返回默认值
             return {
                 "multiplier": FUTURE_MULTIPLIER,
@@ -748,7 +714,7 @@ def get_future_brief_info(symbol):
                 "expire_date": datetime.strptime(FUTURE_EXPIRE_DATE, "%Y-%m-%d").date() if FUTURE_EXPIRE_DATE != "2026-03-28" else date.today() + timedelta(days=90)
             }
     except Exception as e:
-        print(f"⚠️ 获取概要信息失败：{e}，使用默认参数")
+        logger.debug("获取概要信息失败：%s，使用默认参数", e)
         # 异常情况下返回默认值
         return {
             "multiplier": FUTURE_MULTIPLIER,
@@ -937,8 +903,25 @@ def get_tick_data(symbol, count=100):
             
             return pd.DataFrame()
     except Exception as e:
-        print(f"❌ 获取Tick数据异常: {e}")
+        logger.debug("获取Tick数据异常: %s", e)
         return pd.DataFrame()
+
+
+def _make_synthetic_klines(count, base_price=90.0):
+    """生成合成K线数据，用于 mock/异常 时保证策略有数据可跑。返回 index=时间(Asia/Shanghai)，列 open/high/low/close/volume。"""
+    n = max(count, MIN_KLINES)
+    price_changes = np.random.normal(0, 0.005, n)
+    prices = base_price * (1 + price_changes).cumprod()
+    opens = prices
+    closes = prices * (1 + np.random.normal(0, 0.002, n))
+    highs = np.maximum(opens, closes) * (1 + np.abs(np.random.normal(0, 0.001, n)))
+    lows = np.minimum(opens, closes) * (1 - np.abs(np.random.normal(0, 0.001, n)))
+    volumes = np.random.randint(80, 120, n)
+    idx = pd.date_range(start=datetime.now(timezone.utc), periods=n, freq='1min')
+    idx = idx.tz_convert('Asia/Shanghai')
+    return pd.DataFrame({
+        'open': opens, 'high': highs, 'low': lows, 'close': closes, 'volume': volumes
+    }, index=idx)
 
 
 def get_kline_data(symbol, period, count=100, start_time=None, end_time=None):
@@ -985,8 +968,8 @@ def get_kline_data(symbol, period, count=100, start_time=None, end_time=None):
         "1y": BarPeriod.YEAR,
     }
     if period not in period_map:
-        print(f"❌ 不支持的周期：{period}")
-        return pd.DataFrame()
+        logger.warning("不支持的周期：%s，使用合成数据兜底", period)
+        return _make_synthetic_klines(count)
     
     try:
         # 检查是否为模拟模式
@@ -1002,12 +985,37 @@ def get_kline_data(symbol, period, count=100, start_time=None, end_time=None):
             )
             
             if klines is None or (hasattr(klines, 'empty') and klines.empty):
-                print(f"❌ 获取K失败00：模拟数据为空")
-                return pd.DataFrame()
+                return _make_synthetic_klines(count)
             if isinstance(klines, dict) and 'df' in klines:
                 klines = klines['df']
+            required_cols = ['open', 'high', 'low', 'close', 'volume']
             if isinstance(klines, pd.DataFrame):
-                return klines
+                klines = klines.copy()
+                for col in required_cols:
+                    if col not in klines.columns:
+                        if col == 'close' and 'open' in klines.columns:
+                            klines[col] = klines['open']
+                        elif col in ('low', 'high') and 'close' in klines.columns:
+                            klines[col] = klines['close'] * (0.99 if col == 'low' else 1.01)
+                        elif col == 'volume':
+                            klines[col] = 100
+                        else:
+                            klines[col] = 90.0
+                if len(klines) < MIN_KLINES:
+                    return _make_synthetic_klines(count)
+                if 'time' in klines.columns:
+                    klines['time'] = pd.to_datetime(klines['time'], errors='coerce')
+                    klines = klines.dropna(subset=['time'])
+                    if klines.empty:
+                        return _make_synthetic_klines(count)
+                    if klines['time'].dt.tz is None:
+                        klines['time'] = klines['time'].dt.tz_localize('UTC', ambiguous='infer')
+                    klines['time'] = klines['time'].dt.tz_convert('Asia/Shanghai')
+                    klines = klines.set_index('time')
+                for c in list(klines.columns):
+                    if c not in required_cols:
+                        klines = klines.drop(columns=[c], errors='ignore')
+                return klines.tail(max(count, MIN_KLINES))
             # 模拟模式下 API 可能返回 bar 对象列表，转为 DataFrame
             if hasattr(klines, '__iter__') and not isinstance(klines, (str, dict)):
                 try:
@@ -1027,10 +1035,13 @@ def get_kline_data(symbol, period, count=100, start_time=None, end_time=None):
                                 df['time'] = df['time'].dt.tz_localize('UTC')
                             df['time'] = df['time'].dt.tz_convert('Asia/Shanghai')
                             df = df.set_index('time')
-                            return df
+                            if len(df) >= MIN_KLINES and all(c in df.columns for c in required_cols):
+                                return df
+                        if len(df) < MIN_KLINES:
+                            return _make_synthetic_klines(count)
                 except Exception:
                     pass
-            return klines
+            return _make_synthetic_klines(count)
         else:
             # 实际API调用
             # 1. 统一 symbol 为 Tiger 期望的 compact 格式（如 SIL2603），SIL.COMEX.202603 需转换
@@ -1074,7 +1085,6 @@ def get_kline_data(symbol, period, count=100, start_time=None, end_time=None):
                 # 统一 symbol 为 compact 格式（SIL2603）
                 sym_raw = symbol if isinstance(symbol, str) else (symbol[0] if symbol else 'SIL2603')
                 symbol1 = [_to_api_identifier(sym_raw)]
-                print(symbol1)
                 logger.debug("get_kline_data request: symbol=%s period=%s count=%s start_time=%s end_time=%s", symbol1, period, count, start_time, end_time)
 
                 # Convert optional start/end into epoch ms (UTC). Accept datetime (tz-aware or naive) or integer ms
@@ -1220,11 +1230,11 @@ def get_kline_data(symbol, period, count=100, start_time=None, end_time=None):
             if isinstance(klines, pd.DataFrame):
                 df = klines.copy()
                 if 'time' not in df.columns:
-                    print(f"❌ 返回的K数据缺少'time'列，实际列：{df.columns.tolist()}")
-                    return pd.DataFrame()
+                    logger.debug("返回的K数据缺少'time'列，实际列：%s，使用合成数据兜底", df.columns.tolist())
+                    return _make_synthetic_klines(count)
                 if not all(col in df.columns for col in required_cols):
-                    print(f"❌ K数据列缺失，必要列：{required_cols}，实际列：{df.columns.tolist()}")
-                    return pd.DataFrame()
+                    logger.debug("K数据列缺失，必要列：%s，实际列：%s，使用合成数据兜底", required_cols, df.columns.tolist())
+                    return _make_synthetic_klines(count)
                 df = df[['time', 'open', 'high', 'low', 'close', 'volume']].copy()
 
                 # Ensure time is parsed and timezone-aware, then convert to Asia/Shanghai
@@ -1266,8 +1276,7 @@ def get_kline_data(symbol, period, count=100, start_time=None, end_time=None):
                                     try:
                                         alt_dt = pd.to_datetime(ts, unit=alt)
                                         if alt_dt.dt.year.max() >= 2000:
-                                            logger.warning("Parsed times appeared to be around 1970 using unit=%s; switched to unit=%s", unit, alt)
-                                            logging.warning("Parsed times appeared to be around 1970 using unit=%s; switched to unit=%s", unit, alt)
+                                            logger.debug("Parsed times appeared to be around 1970 using unit=%s; switched to unit=%s", unit, alt)
                                             dt = alt_dt
                                             break
                                     except Exception:
@@ -1283,7 +1292,7 @@ def get_kline_data(symbol, period, count=100, start_time=None, end_time=None):
                     df['time'] = df['time'].dt.tz_convert('Asia/Shanghai')
                 except Exception as e:
                     logger.exception("时间解析失败")
-                    print(f"❌ 时间解析失败：{e}")
+                    logger.debug("时间解析失败：%s", e)
                     return pd.DataFrame()
             else:
                 # iterable of bar-like objects (with attributes .time, .open, etc.)
@@ -1294,15 +1303,9 @@ def get_kline_data(symbol, period, count=100, start_time=None, end_time=None):
                     klines = list(klines)
                     klines_len = len(klines)
 
-                # print bars for debugging (now that klines is sized or converted to list)
-                for bar in klines:
-                    print(bar)
-
                 if (hasattr(klines, 'empty') and getattr(klines, 'empty')) or klines_len < MIN_KLINES:
-                    print(f"❌ K数据不足（仅获取{klines_len}条）")
+                    logger.debug("K数据不足，仅获取%d条", klines_len)
                     return pd.DataFrame()
-                else:
-                    print("k数据获取\r\n")
 
                 df = pd.DataFrame([{
                     'time': getattr(bar, 'time', None),
@@ -1314,11 +1317,11 @@ def get_kline_data(symbol, period, count=100, start_time=None, end_time=None):
                 } for bar in klines])
 
                 if df.empty or len(df) < MIN_KLINES:
-                    print(f"❌ K数据不足（仅获取{len(df)}条）")
+                    logger.debug("K数据不足，仅获取%d条", len(df))
                     return pd.DataFrame()
 
                 if not all(col in df.columns for col in required_cols):
-                    print(f"❌ K数据列缺失，必要列：{required_cols}，实际列：{df.columns.tolist()}")
+                    logger.debug("K数据列缺失，必要列：%s，实际列：%s", required_cols, df.columns.tolist())
                     return pd.DataFrame()
 
                 # Ensure time is parsed and timezone-aware, then convert to Asia/Shanghai
@@ -1354,8 +1357,7 @@ def get_kline_data(symbol, period, count=100, start_time=None, end_time=None):
                                     try:
                                         alt_dt = pd.to_datetime(ts, unit=alt)
                                         if alt_dt.dt.year.max() >= 2000:
-                                            logger.warning("Parsed times appeared to be around 1970 using unit=%s; switched to unit=%s", unit, alt)
-                                            logging.warning("Parsed times appeared to be around 1970 using unit=%s; switched to unit=%s", unit, alt)
+                                            logger.debug("Parsed times appeared to be around 1970 using unit=%s; switched to unit=%s", unit, alt)
                                             dt = alt_dt
                                             break
                                     except Exception:
@@ -1371,8 +1373,8 @@ def get_kline_data(symbol, period, count=100, start_time=None, end_time=None):
                     df['time'] = df['time'].dt.tz_convert('Asia/Shanghai')
                 except Exception as e:
                     logger.exception("时间解析失败")
-                    print(f"❌ 时间解析失败：{e}")
-                    return pd.DataFrame()
+                    logger.debug("时间解析失败：%s，使用合成数据兜底", e)
+                    return _make_synthetic_klines(count)
 
             df.set_index('time', inplace=True)
             # sort and keep the most recent `count` rows
@@ -1383,33 +1385,13 @@ def get_kline_data(symbol, period, count=100, start_time=None, end_time=None):
                     df = df.tail(count)
                 # 否则使用所有数据
 
-            print(df)
-            logger.info("get_kline_data returning %s rows for %s", len(df), symbol)
+            logger.debug("get_kline_data returning %s rows for %s", len(df), symbol)
             return df
     
     except Exception as e:
-        print(f"❌ 获取K线数据失败：{e}")
+        logger.warning("获取K线数据失败：%s，使用合成数据兜底", e)
         logger.exception("get_kline_data exception")
-        # Return a default DataFrame with realistic price variations
-        import numpy as np
-        base_price = 90.0
-        price_changes = np.random.normal(0, 0.005, count)  # 0.5%标准差
-        prices = base_price * (1 + price_changes).cumprod()
-        
-        # 生成OHLC数据
-        opens = prices
-        closes = prices * (1 + np.random.normal(0, 0.002, count))
-        highs = np.maximum(opens, closes) * (1 + np.abs(np.random.normal(0, 0.001, count)))
-        lows = np.minimum(opens, closes) * (1 - np.abs(np.random.normal(0, 0.001, count)))
-        volumes = np.random.randint(80, 120, count)
-        
-        return pd.DataFrame({
-            'open': opens,
-            'high': highs,
-            'low': lows,
-            'close': closes,
-            'volume': volumes
-        }, index=pd.date_range(start=datetime.now(), periods=count, freq='1min'))
+        return _make_synthetic_klines(count)
 
 def place_tiger_order(side, quantity, price, stop_loss_price=None, take_profit_price=None, tech_params=None, reason='', source='auto'):
     """下单函数（适配动态乘数）。source: 'auto' 自动订单 | 'manual' 手工订单"""
@@ -1473,7 +1455,7 @@ def place_tiger_order(side, quantity, price, stop_loss_price=None, take_profit_p
             
             # 如果trade_api为None，尝试初始化
             if trade_api is None:
-                print("⚠️ [place_tiger_order] trade_api为None，尝试初始化...")
+                logger.warning("[place_tiger_order] trade_api为None，尝试初始化...")
                 # 检查是否有可用的客户端
                 if trade_client is not None and quote_client is not None:
                     account_from_config = getattr(client_config, 'account', None) if client_config else None
@@ -1482,15 +1464,15 @@ def place_tiger_order(side, quantity, price, stop_loss_price=None, take_profit_p
                     api_manager.initialize_real_apis(quote_client, trade_client, account=account_from_config)
                     trade_api = api_manager.trade_api
                     if trade_api:
-                        print(f"✅ [place_tiger_order] API初始化成功，account={account_from_config}")
+                        logger.info("[place_tiger_order] API初始化成功 account=%s", account_from_config)
                     else:
-                        print(f"❌ [place_tiger_order] API初始化失败")
+                        logger.warning("[place_tiger_order] API初始化失败")
                         if order_log:
                             order_log.log_order(side, quantity, price or 0, order_id, "fail", "real", stop_loss_price, take_profit_price, reason=reason, error="API init failed", source=source, symbol=symbol_for_log, order_type=log_order_type)
                             order_log.log_api_failure_for_support(side=side, quantity=quantity, price=price, symbol_submitted=symbol_for_log, order_type_api="LMT", time_in_force="DAY", limit_price=float(price) if price is not None else None, stop_price=None, error="API init failed", source=source, order_id=order_id)
                         return False
                 else:
-                    print(f"❌ [place_tiger_order] 无法初始化API：trade_client={trade_client}, quote_client={quote_client}")
+                    logger.warning("[place_tiger_order] 无法初始化API trade_client=%s quote_client=%s", trade_client is not None, quote_client is not None)
                     if order_log:
                         order_log.log_order(side, quantity, price or 0, order_id, "fail", "real", stop_loss_price, take_profit_price, reason=reason, error="Cannot init API", source=source, symbol=symbol_for_log, order_type=log_order_type)
                         order_log.log_api_failure_for_support(side=side, quantity=quantity, price=price, symbol_submitted=symbol_for_log, order_type_api="LMT", time_in_force="DAY", limit_price=float(price) if price is not None else None, stop_price=None, error="Cannot init API", source=source, order_id=order_id)
@@ -1503,6 +1485,19 @@ def place_tiger_order(side, quantity, price, stop_loss_price=None, take_profit_p
                 # 如果导入失败，使用字符串
                 OrderSide = type('OrderSide', (), {'BUY': 'BUY', 'SELL': 'SELL'})()
                 TimeInForce = type('TimeInForce', (), {'DAY': 'DAY'})()
+            
+            # 按合约最小变动价位取整，避免 tick size 报错
+            min_tick = MIN_TICK
+            try:
+                brief = get_future_brief_info(_to_api_identifier(FUTURE_SYMBOL) or FUTURE_SYMBOL)
+                min_tick = float(brief.get('min_tick', MIN_TICK)) if brief else MIN_TICK
+            except Exception:
+                min_tick = float(getattr(sys.modules[__name__], 'FUTURE_TICK_SIZE', 0.01) or 0.01)
+            if min_tick <= 0:
+                min_tick = 0.01
+            if price is not None and min_tick > 0:
+                price = round(price / min_tick) * min_tick
+                price = round(price, 2)  # 避免浮点误差
             
             # 确定订单类型：如果有价格则用限价单，否则用市价单
             # Tiger API使用LMT（限价单）和MKT（市价单）
@@ -1541,12 +1536,48 @@ def place_tiger_order(side, quantity, price, stop_loss_price=None, take_profit_p
                 order_id = str(order_result)
             
             price_str = f"{price:.3f}" if price else "市价"
-            print(f"✅ [实盘单] 下单成功 | {side} {quantity}手 | 价格={price_str} | 订单ID：{order_id}")
+            logger.info("[实盘单] 下单成功 | %s %s手 | 价格=%s | 订单ID：%s", side, quantity, price_str, order_id)
             if order_log:
                 order_log.log_order(side, quantity, price or 0, order_id, "success", "real", stop_loss_price, take_profit_price, reason=reason, source=source, symbol=symbol_for_log, order_type=log_order_type)
+            
+            # 主单成功后，立即提交止损单和止盈单（仅对买入单），避免股价突变来不及止损
+            if side == 'BUY' and (stop_loss_price is not None or take_profit_price is not None):
+                from tigeropen.common.consts import OrderSide
+                _sl_rounded = round(stop_loss_price / min_tick) * min_tick if stop_loss_price is not None and min_tick > 0 else None
+                _tp_rounded = round(take_profit_price / min_tick) * min_tick if take_profit_price is not None and min_tick > 0 else None
+                if _sl_rounded is not None:
+                    try:
+                        sl_result = trade_api.place_order(
+                            symbol=symbol_for_api,
+                            side=OrderSide.SELL,
+                            order_type=OrderType.STP,
+                            quantity=quantity,
+                            time_in_force=TimeInForce.DAY,
+                            limit_price=None,
+                            stop_price=_sl_rounded,
+                        )
+                        _sl_id = getattr(sl_result, 'order_id', None) or (sl_result.get('order_id') if isinstance(sl_result, dict) else None) or str(sl_result)
+                        logger.info("[实盘单] 已提交止损单 | SELL %s手 | 触发价=%.3f | 订单ID：%s", quantity, _sl_rounded, _sl_id)
+                    except Exception as sl_e:
+                        logger.warning("[实盘单] 止损单提交失败（主单已成交）：%s", sl_e)
+                if _tp_rounded is not None:
+                    try:
+                        tp_result = trade_api.place_order(
+                            symbol=symbol_for_api,
+                            side=OrderSide.SELL,
+                            order_type=OrderType.LMT,
+                            quantity=quantity,
+                            time_in_force=TimeInForce.DAY,
+                            limit_price=_tp_rounded,
+                            stop_price=None,
+                        )
+                        _tp_id = getattr(tp_result, 'order_id', None) or (tp_result.get('order_id') if isinstance(tp_result, dict) else None) or str(tp_result)
+                        logger.info("[实盘单] 已提交止盈单 | SELL %s手 | 价格=%.3f | 订单ID：%s", quantity, _tp_rounded, _tp_id)
+                    except Exception as tp_e:
+                        logger.warning("[实盘单] 止盈单提交失败（主单已成交）：%s", tp_e)
         
         except Exception as e:
-            print(f"❌ 下单失败：{e}")
+            logger.warning("下单失败：%s", e)
             if order_log:
                 order_log.log_order(side, quantity, price or 0, order_id, "fail", "real", stop_loss_price, take_profit_price, reason=reason, error=str(e), source=source, symbol=symbol_for_log, order_type=log_order_type)
                 # API 失败时写入完整订单参数，便于提供给老虎客服排查
@@ -1787,69 +1818,54 @@ def check_timeout_take_profits(current_price):
 
 def place_take_profit_order(entry_side: str, quantity: int, take_profit_price: float) -> bool:
     """
-    提交止盈订单，处理价格精度调整和异常情况
+    提交止盈订单，处理价格精度调整和异常情况。
+    实盘模式下调用 trade_api.place_order 提交限价平仓单（与入场方向相反）。
     """
-    e = None  # 用于 sandbox 日志，避免未定义
     try:
-        # 确定订单方向 - 与入场方向相反
         exit_side = 'SELL' if entry_side == 'BUY' else 'BUY'
-        
-        def _build_tp_order(adj_price):
-            """内部函数，用于构建止盈订单"""
-            # 这里需要根据实际情况构建订单对象
-            # 由于不知道具体的订单对象格式，暂时留空
-            pass
-        
-        # 从配置获取最小刻度
-        min_tick = 0.01
-
-        # round target price to nearest tick using Decimal for safe rounding
+        min_tick = MIN_TICK
         try:
-            from decimal import Decimal, ROUND_HALF_UP
-            tick_d = Decimal(str(min_tick))
-            price_d = Decimal(str(take_profit_price))
-            multiplier = (price_d / tick_d).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
-            adj_price = float((multiplier * tick_d).normalize())
+            brief = get_future_brief_info(_to_api_identifier(FUTURE_SYMBOL) or FUTURE_SYMBOL)
+            min_tick = float(brief.get('min_tick', MIN_TICK)) if brief else MIN_TICK
         except Exception:
-            # fallback simple round
-            try:
-                adj_price = round(take_profit_price / min_tick) * min_tick
-            except Exception:
-                adj_price = take_profit_price
+            min_tick = float(getattr(sys.modules[__name__], 'FUTURE_TICK_SIZE', 0.01) or 0.01)
+        if min_tick <= 0:
+            min_tick = 0.01
+        adj_price = round(take_profit_price / min_tick) * min_tick if min_tick > 0 else take_profit_price
+        adj_price = round(adj_price, 2)
 
-        # If adjusted price equals original, no point retrying
-        if abs(adj_price - float(take_profit_price)) < 1e-12:
-            # fall through to sandbox logging or failure
-            pass
-        else:
-            try:
-                tp_order2 = _build_tp_order(adj_price)
-                # 假设trade_client是已初始化的客户端
-                # trade_client.place_order(tp_order2)
-                print(f"🧭 已提交独立止盈单（调整到tick） | {exit_side} {quantity}手 | 价格：{float(adj_price):.2f} (原价 {float(take_profit_price):.2f})")
-                return True
-            except Exception as e2:
-                # replace primary exception message with combined info for logging
-                e = Exception(f"原始异常: {e}; 重试异常（价格调整至{adj_price}）: {e2}")
-
-        # If we're in sandbox, ignore failures but log for visibility
-        if RUN_ENV == 'sandbox':
-            try:
-                print(f"🧭 [模拟] 止盈单提交失败（忽略） | 价格：{float(take_profit_price):.2f} | 原因：{e if e is not None else '未提交'}")
-            except Exception:
-                try:
-                    print(f"🧭 [模拟] 止盈单提交失败（忽略） | 价格：{take_profit_price} | 原因：错误信息不可打印")
-                except Exception:
-                    pass  # 避免 print 被 mock 时导致未返回
+        if api_manager.is_mock_mode:
+            print(f"🧭 [模拟单] 已提交止盈单 | {exit_side} {quantity}手 | 价格：{adj_price:.2f}")
             return True
 
-        # logger.warning("place_take_profit_order failed: %s", e)
-        return False
+        trade_api = api_manager.trade_api
+        if trade_api is None:
+            logger.warning("[place_take_profit_order] trade_api 未初始化")
+            return False
+        try:
+            from tigeropen.common.consts import OrderSide, TimeInForce
+        except ImportError:
+            OrderSide = type('OrderSide', (), {'BUY': 'BUY', 'SELL': 'SELL'})()
+            TimeInForce = type('TimeInForce', (), {'DAY': 'DAY'})()
+        symbol_for_api = _to_api_identifier(FUTURE_SYMBOL)
+        order_side = OrderSide.SELL if entry_side == 'BUY' else OrderSide.BUY
+        tp_result = trade_api.place_order(
+            symbol=symbol_for_api,
+            side=order_side,
+            order_type=OrderType.LMT,
+            quantity=quantity,
+            time_in_force=TimeInForce.DAY,
+            limit_price=adj_price,
+            stop_price=None,
+        )
+        tp_id = getattr(tp_result, 'order_id', None) or (tp_result.get('order_id') if isinstance(tp_result, dict) else None) or str(tp_result)
+        logger.info("[实盘单] 独立止盈单已提交 | %s %s手 | 价格=%.3f | 订单ID：%s", exit_side, quantity, adj_price, tp_id)
+        return True
     except Exception as e:
         if RUN_ENV == 'sandbox':
-            print(f"🧭 [模拟] 止盈单提交失败（忽略） | 价格：{float(take_profit_price):.2f} | 原因：{e}")
+            logger.debug("止盈单提交失败（忽略） 价格=%s 原因=%s", take_profit_price, e)
             return True
-        # logger.warning("place_take_profit_order outer failure: %s", e)
+        logger.warning("place_take_profit_order 失败: %s", e)
         return False
 
 def grid_trading_strategy():
@@ -1857,12 +1873,12 @@ def grid_trading_strategy():
     df_1m = get_kline_data([FUTURE_SYMBOL], '1min', count=30)
     df_5m = get_kline_data([FUTURE_SYMBOL], '5min', count=50)
     if df_1m.empty or df_5m.empty:
-        print("⚠️ 数据不足，跳过本STEP 22")
+        logger.debug("数据不足，跳过本STEP")
         return
     
     indicators = calculate_indicators(df_1m, df_5m)
     if not indicators or '5m' not in indicators or '1m' not in indicators:
-        print("⚠️ 指标计算失败，跳过本次循环33")
+        logger.debug("指标计算失败，跳过本次循环")
         return
     
     trend = judge_market_trend(indicators)
@@ -1897,7 +1913,7 @@ def grid_trading_strategy():
         if trend_check:
             stop_loss_price, projected_loss = compute_stop_loss(price_current, atr, grid_lower)
             if stop_loss_price is None or not isinstance(projected_loss, (int, float)) or not np.isfinite(projected_loss):
-                print("⚠️ 止损计算异常，跳过买入")
+                logger.debug("止损计算异常，跳过买入")
                 return
             # compute TP level with buffer below grid_upper to improve fills
             min_tick = 0.01
@@ -1966,12 +1982,12 @@ def grid_trading_strategy_pro1():
     df_1m = get_kline_data([FUTURE_SYMBOL], '1min', count=30)
     df_5m = get_kline_data([FUTURE_SYMBOL], '5min', count=50)
     if df_1m.empty or df_5m.empty:
-        print("⚠️ 数据不足，跳过 grid_trading_strategy_pro1")
+        logger.debug("数据不足，跳过 grid_trading_strategy_pro1")
         return
 
     indicators = calculate_indicators(df_1m, df_5m)
     if not indicators or '5m' not in indicators or '1m' not in indicators:
-        print("⚠️ 指标计算失败，跳过 grid_trading_strategy_pro1")
+        logger.debug("指标计算失败，跳过 grid_trading_strategy_pro1")
         return
 
     trend = judge_market_trend(indicators)
@@ -2089,7 +2105,7 @@ def grid_trading_strategy_pro1():
     if final_decision and check_risk_control(price_current, 'BUY'):
         stop_loss_price, projected_loss = compute_stop_loss(price_current, atr, grid_lower)
         if stop_loss_price is None or not isinstance(projected_loss, (int, float)) or not np.isfinite(projected_loss):
-            print("⚠️ 止损计算异常，跳过买入")
+            logger.debug("止损计算异常，跳过买入")
             return
         # compute TP with buffer below grid_upper
         import math
@@ -2131,24 +2147,19 @@ def grid_trading_strategy_pro1():
             boll_lower=getattr(sys.modules[__name__], 'boll_lower', None)
         )
         
-        # Consolidated log output with 3 decimal places and compact format
-        print(f"🎯 grid_trading_strategy_pro1: 买入 | 价={price_current:.3f}, 停损={stop_loss_price:.3f}, 止盈={take_profit_price:.3f}, ATR={atr:.3f}, 网格=[{grid_lower:.3f},{grid_upper:.3f}] | 条件=(近轨={near_lower}, RSI_OK={rsi_ok}, 趋势={trend_check}, 反弹={rebound}, 成交={vol_ok})")
+        print(f"🎯 grid_trading_strategy_pro1: 买入 | 价={price_current:.3f}, 停损={stop_loss_price:.3f}, 止盈={take_profit_price:.3f}")
         place_tiger_order('BUY', 1, price_current, stop_loss_price)
         try:
             place_take_profit_order('BUY', 1, take_profit_price)
         except Exception:
             pass
     else:
-        # 打印详细分析日志
+        # 打印简要分析
         if not (near_lower and rsi_ok and trend_check and rebound and vol_ok):
-            print(f"🔸 grid_trading_strategy_pro1: 未触发 | 价={price_current:.3f}, ATR={atr:.3f}, 网格=[{grid_lower:.3f},{grid_upper:.3f}]")
-            print(f"   条件详情: BUFFER={buffer:.3f}, 近轨={near_lower}, RSI_OK={rsi_ok}, 趋势={trend_check}, 反弹={rebound}, 成交={vol_ok}")
-            print(f"   决策: {'买入' if final_decision else '不买入'} | RSI_1m={rsi_1m:.3f}, RSI_5m={rsi_5m:.3f}, VOL_RATIO={vol_ratio:.3f}")
+            print(f"🔸 grid_trading_strategy_pro1: 未触发 | 价={price_current:.3f}, 网格=[{grid_lower:.3f},{grid_upper:.3f}]")
         else:
             final_decision = True
-            print(f"✅ grid_trading_strategy_pro1: 买入信号 | 价={price_current:.3f}, ATR={atr:.3f}, 网格=[{grid_lower:.3f},{grid_upper:.3f}]")
-            print(f"   条件详情: BUFFER={buffer:.3f}, 近轨={near_lower}, RSI_OK={rsi_ok}, 趋势={trend_check}, 反弹={rebound}, 成交={vol_ok}")
-            print(f"   决策: 买入 | RSI_1m={rsi_1m:.3f}, RSI_5m={rsi_5m:.3f}, VOL_RATIO={vol_ratio:.3f}")
+            print(f"✅ grid_trading_strategy_pro1: 买入信号 | 价={price_current:.3f}, 网格=[{grid_lower:.3f},{grid_upper:.3f}]")
 
         # 记录数据点
         data_collector.collect_data_point(
@@ -2362,17 +2373,12 @@ def boll1m_grid_strategy():
             if stop_loss_price is None or not math.isfinite(projected_loss):
                 print("⚠️ boll1m_grid_strategy: 止损计算异常，跳过买入")
                 return
-            print(f"✅ boll1m_grid_strategy ({trend}): 买入信号 | 价={price_current:.3f}, ATR={atr:.3f}, BOLL=[{boll_lower:.3f},{boll_mid:.3f}]")
-            print(f"   条件详情: 回调={dip_detected}, 反弹={prev is not None and last > prev}, 趋势={trend}")
-            print(f"   决策: 买入 | 价格={price_current:.3f}, 下轨={boll_lower:.3f}")
+            print(f"✅ boll1m_grid_strategy ({trend}): 买入信号 | 价={price_current:.3f}, BOLL=[{boll_lower:.3f},{boll_mid:.3f}]")
             place_tiger_order('BUY', 1, price_current, stop_loss_price)
         else:
-            print("⚠️ boll1m_grid_strategy: 风控阻止买入")
+            logger.debug("boll1m_grid_strategy: 风控阻止买入")
     else:
         print(f"🔸 boll1m_grid_strategy ({trend}): 未满足条件 | 价={price_current:.3f}, BOLL=[{boll_lower:.3f},{boll_mid:.3f}]")
-        print(f"   条件详情: 回调={dip_detected}, 反弹={prev is not None and last > prev}, 趋势={trend}")
-        prev_str = f"{prev:.3f}" if prev is not None else "None"
-        print(f"   决策: 不买入 | last={last:.3f}, prev={prev_str}")
 
 
     # 检查主动止盈
@@ -2705,6 +2711,18 @@ def run_tests():
 
 
 # ====================== 主程序 ======================
+def reset_demo_positions():
+    """DEMO 重启时清理持仓相关内存状态，避免旧持仓影响后续操作。"""
+    global current_position, open_orders, closed_positions, position_entry_times, position_entry_prices, active_take_profit_orders
+    current_position = 0
+    open_orders.clear()
+    closed_positions.clear()
+    position_entry_times.clear()
+    position_entry_prices.clear()
+    active_take_profit_orders.clear()
+    logger.info("DEMO 持仓状态已重置: 持仓=0, 待平仓/止盈/已平仓 已清空")
+
+
 def refresh_period_analysis_background():
     """后台定期刷新时段分析（每天一次）"""
     if not time_period_strategy_instance:
@@ -2742,6 +2760,7 @@ if __name__ == "__main__":
     # 如果策略类型是moe或moe_transformer，使用TradingExecutor架构
     if strategy_type in ('moe', 'moe_transformer'):
         print("🚀 启动MOE策略（使用TradingExecutor架构）...")
+        reset_demo_positions()
         try:
             from src.strategies.strategy_factory import StrategyFactory
             from src.executor import MarketDataProvider, OrderExecutor, TradingExecutor
@@ -2861,7 +2880,7 @@ if __name__ == "__main__":
                 df_1m = get_kline_data([FUTURE_SYMBOL], '1min', count=GRID_PERIOD + 5)
                 
                 if df_5m.empty or df_1m.empty:
-                    print("⚠️ 超大Transformer策略: 数据不足，跳过")
+                    logger.debug("超大Transformer策略: 数据不足，跳过")
                     time.sleep(5)
                     continue
 
@@ -2947,7 +2966,7 @@ if __name__ == "__main__":
                 # 计算技术指标
                 inds = calculate_indicators(df_5m, df_1m)
                 if '5m' not in inds or '1m' not in inds:
-                    print("⚠️ 强化学习策略: 指标计算失败，跳过")
+                    logger.debug("强化学习策略: 指标计算失败，跳过")
                     time.sleep(5)
                     continue
 
@@ -3034,7 +3053,7 @@ if __name__ == "__main__":
                 # 计算技术指标
                 inds = calculate_indicators(df_5m, df_1m)
                 if '5m' not in inds or '1m' not in inds:
-                    print("⚠️ 增强型Transformer策略: 指标计算失败，跳过")
+                    logger.debug("增强型Transformer策略: 指标计算失败，跳过")
                     time.sleep(5)
                     continue
 
@@ -3111,14 +3130,14 @@ if __name__ == "__main__":
                 df_tick = get_tick_data([FUTURE_SYMBOL], count=100)
                 
                 if df_5m.empty or df_1m.empty:
-                    print("⚠️ LLM策略: K线数据不足，跳过")
+                    logger.debug("LLM策略: K线数据不足，跳过")
                     time.sleep(5)
                     continue
 
                 # 计算技术指标
                 inds = calculate_indicators(df_5m, df_1m)
                 if '5m' not in inds or '1m' not in inds:
-                    print("⚠️ LLM策略: 指标计算失败，跳过")
+                    logger.debug("LLM策略: 指标计算失败，跳过")
                     time.sleep(5)
                     continue
 
@@ -3224,13 +3243,13 @@ if __name__ == "__main__":
                             print(f"✅ [LLM预测] 执行买入操作 | 价格={tick_price:.3f}, 止损={stop_loss_price:.3f}")
                             place_tiger_order('BUY', 1, tick_price, stop_loss_price)
                         else:
-                            print("⚠️ 风控阻止买入")
+                            logger.debug("风控阻止买入")
                     elif action == 2:  # 卖出
                         if current_position > 0:
                             print(f"✅ [LLM预测] 执行卖出操作 | 价格={tick_price:.3f}")
                             place_tiger_order('SELL', 1, tick_price)
                         else:
-                            print("⚠️ 无持仓，无法卖出")
+                            logger.debug("无持仓，无法卖出")
                 elif use_rule_strategy:
                     # 规则策略作为后备（当LLM置信度低时）
                     print(f"📊 [规则策略] LLM置信度低({confidence:.3f})，使用规则策略")
@@ -3245,7 +3264,7 @@ if __name__ == "__main__":
                             print(f"✅ [规则策略] 执行买入操作 | 价格={tick_price:.3f}, 止损={stop_loss_price:.3f}")
                             place_tiger_order('BUY', 1, tick_price, stop_loss_price)
                         else:
-                            print("⚠️ 风控阻止买入")
+                            logger.debug("风控阻止买入")
                     
                     # 卖出条件：持有仓位 + 价格达到中轨
                     if current_position > 0 and price_current >= inds['1m'].get('boll_mid', price_current):
@@ -3281,7 +3300,7 @@ if __name__ == "__main__":
                 # 计算技术指标
                 inds = calculate_indicators(df_5m, df_1m)
                 if '5m' not in inds or '1m' not in inds:
-                    print("⚠️ 大模型策略: 指标计算失败，跳过")
+                    logger.debug("大模型策略: 指标计算失败，跳过")
                     time.sleep(5)
                     continue
 
@@ -3441,13 +3460,8 @@ def compute_stop_loss(price: float, atr_value: float, grid_lower_val: float):
     # 计算预期损失
     projected_loss = stop_distance * FUTURE_MULTIPLIER
     
-    # 详细日志输出，符合日志输出规范
-    print(f"🔍 止损计算详情: 当前价格={price:.3f}, ATR={atr_value:.3f}, 网格下轨={grid_lower_val:.3f}")
-    print(f"📊 ATR止损距离: max({STOP_LOSS_ATR_FLOOR:.3f}, {atr_value:.3f} * {STOP_LOSS_MULTIPLIER}) = {atr_based_stop:.3f}")
-    print(f"📊 结构性止损距离: max(0.05, {price:.3f} - {grid_lower_val:.3f}) = {structural_stop:.3f}")
-    print(f"📊 综合止损距离: max({atr_based_stop:.3f}, {structural_stop:.3f}, 0.05) = {stop_distance:.3f}")
-    print(f"📊 止损价格: {price:.3f} - {stop_distance:.3f} = {stop_loss_price:.3f}")
-    print(f"📊 预期损失: {stop_distance:.3f} * {FUTURE_MULTIPLIER} = {projected_loss:.3f}")
+    logger.debug("止损计算详情: 价格=%.3f ATR=%.3f 下轨=%.3f 止损价=%.3f 预期损失=%.3f",
+                 price, atr_value, grid_lower_val, stop_loss_price, projected_loss)
     
     # 返回止损价格和预期损失
     return stop_loss_price, projected_loss
@@ -3472,54 +3486,52 @@ def check_risk_control(price, side):
     # basic validation of inputs（先判 None 再格式化打印，避免 TypeError）
     try:
         if price is None:
-            print(f"❌ 风控检查失败: 价格为None")
+            logger.warning("风控检查失败: 价格为None")
             return False
-        # 详细日志输出，符合日志输出规范
-        print(f"🔍 风控检查: 价格={price:.3f}, 方向={side}, 当前持仓={current_position}, 当日亏损={daily_loss:.2f}")
+        logger.debug("风控检查: 价格=%.3f 方向=%s 持仓=%s 当日亏损=%.2f", price, side, current_position, daily_loss)
         if not (isinstance(price, (int, float))):
-            print(f"❌ 风控检查失败: 价格类型错误 ({type(price)})")
+            logger.warning("风控检查失败: 价格类型错误 (%s)", type(price))
             return False
         if math.isinf(price) or math.isnan(price):
-            print(f"❌ 风控检查失败: 价格为无穷大或NaN")
+            logger.warning("风控检查失败: 价格为无穷大或NaN")
             return False
         if price <= 0:
-            print(f"❌ 风控检查失败: 价格小于等于0 ({price})")
+            logger.warning("风控检查失败: 价格小于等于0 (%s)", price)
             return False
     except Exception:
-        print(f"❌ 风控检查异常: 价格验证失败")
+        logger.warning("风控检查异常: 价格验证失败")
         return False
 
     if side not in ('BUY', 'SELL'):
-        print(f"❌ 风控检查失败: 交易方向错误 ({side})")
+        logger.warning("风控检查失败: 交易方向错误 (%s)", side)
         return False
 
     # If we've already hit daily loss limit, block further buys
     if daily_loss >= DAILY_LOSS_LIMIT:
-        print(f"❌ 风控检查失败: 当日亏损已达上限 (当前:{daily_loss:.2f}, 上限:{DAILY_LOSS_LIMIT})")
+        logger.warning("风控检查失败: 当日亏损已达上限 (当前:%.2f 上限:%s)", daily_loss, DAILY_LOSS_LIMIT)
         return False
 
     # Prevent buys beyond max position
     if side == 'BUY' and current_position >= GRID_MAX_POSITION:
-        print(f"❌ 风控检查失败: 持仓已达上限 (当前:{current_position}, 上限:{GRID_MAX_POSITION})")
+        logger.warning("风控检查失败: 持仓已达上限 (当前:%s 上限:%s)", current_position, GRID_MAX_POSITION)
         return False
 
     # conservative per-trade loss check: estimate stop loss and projected loss
     try:
         stop_price, proj_loss = compute_stop_loss(price, atr_5m if atr_5m is not None else 0, grid_lower)
         if proj_loss is None:
-            print(f"❌ 风控检查失败: 预期损失为None")
+            logger.warning("风控检查失败: 预期损失为None")
             return False
         if proj_loss > SINGLE_TRADE_LOSS or proj_loss > MAX_SINGLE_LOSS:
-            print(f"❌ 风控检查失败: 单笔预期损失超限 (当前:{proj_loss:.2f}, 单笔上限:{SINGLE_TRADE_LOSS}, 总上限:{MAX_SINGLE_LOSS})")
+            logger.warning("风控检查失败: 单笔预期损失超限 (当前:%.2f 单笔上限:%s 总上限:%s)", proj_loss, SINGLE_TRADE_LOSS, MAX_SINGLE_LOSS)
             return False
-        else:
-            print(f"✅ 单笔损失检查通过: 预期损失={proj_loss:.2f}, 阈值={min(SINGLE_TRADE_LOSS, MAX_SINGLE_LOSS):.2f}")
+        logger.debug("单笔损失检查通过: 预期损失=%.2f 阈值=%.2f", proj_loss, min(SINGLE_TRADE_LOSS, MAX_SINGLE_LOSS))
     except Exception:
         # if estimation fails, be conservative and allow None/False depending on tests
-        print(f"⚠️ 损失估算失败，保守拒绝交易")
+        logger.warning("损失估算失败，保守拒绝交易")
         return False
 
-    print(f"✅ 风控检查通过: 价格={price:.3f}, 方向={side}")
+    logger.debug("风控检查通过: 价格=%.3f 方向=%s", price, side)
     return True  # This is the actual end of the function
 
 

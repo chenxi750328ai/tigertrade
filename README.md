@@ -1,6 +1,6 @@
 # TigerTrade - AI驱动的期货交易系统
 
-> 基于深度学习和Tick级数据的白银期货量化交易平台
+> **面向量化开发者/期货研究者**：基于 Tick 级数据与 Transformer，解决「不用人为指标、让模型自动发现特征」的量化研究与回测验证；目标月盈利率 20%，支持与 agent江湖 多 Agent 协作分工。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
@@ -151,9 +151,32 @@ python src/feature_discovery_from_model.py
 - 灵活止损（非固定比例）
 - 目标收益导向
 
+### 适用场景
+
+- 期货量化研究、Tick 级策略开发
+- Transformer 在金融时序中的应用与实验
+- 白银/期货 API（Tiger Open API）数据采集与回测
+- 与 agent江湖 多 Agent 协作：数据采集、模型训练、回测分工
+
 ---
 
 ## 🚀 快速开始
+
+### 3 步最简上手
+
+```bash
+# 1. 克隆 + 安装依赖
+git clone https://github.com/chenxi750328ai/tigertrade.git && cd tigertrade
+pip install -r requirements.txt
+
+# 2. 配置 Tiger API（或使用示例数据）→ 启动 Tick 采集
+# 编辑 openapicfg_dem/tiger_openapi_config.properties 后：
+bash scripts/启动Tick采集器.sh
+
+# 3. 训练 + 回测
+python src/train_raw_features_transformer.py
+# 回测与特征分析见下方「完整步骤」
+```
 
 ### 前置要求
 
@@ -359,6 +382,8 @@ Tiger API → Tick采集器 → 本地存储 → 数据预处理 → Transformer
 ---
 
 ## 📊 项目状态
+
+> **STATUS 与计划**：[项目状态总览（STATUS）](docs/STATUS.md) | [项目计划（月度/周计划）](docs/项目计划_月度周计划.md)
 
 ### 已完成 ✅
 

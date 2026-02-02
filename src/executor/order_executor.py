@@ -204,6 +204,19 @@ class OrderExecutor:
                     if len(datepart) == 6 and datepart.isdigit():
                         symbol_to_use = f"{base}{datepart[-4:]}"
             
+            # 按合约最小变动价位取整，避免 tick size 报错
+            min_tick = getattr(t1, 'MIN_TICK', 0.01)
+            try:
+                if hasattr(t1, 'get_future_brief_info') and hasattr(t1, '_to_api_identifier'):
+                    brief = t1.get_future_brief_info(t1._to_api_identifier(t1.FUTURE_SYMBOL) or t1.FUTURE_SYMBOL)
+                    min_tick = float(brief.get('min_tick', min_tick)) if brief else min_tick
+            except Exception:
+                min_tick = float(getattr(t1, 'FUTURE_TICK_SIZE', 0.01) or 0.01)
+            if min_tick <= 0:
+                min_tick = 0.01
+            limit_price = round(price / min_tick) * min_tick if min_tick > 0 else price
+            limit_price = round(limit_price, 2)
+            
             # 提交订单（使用位置参数，兼容Tiger API）
             order_result = trade_api.place_order(
                 symbol_to_use,  # 使用转换后的symbol（SIL2603格式）
@@ -211,7 +224,7 @@ class OrderExecutor:
                 order_type,
                 order_quantity,
                 TimeInForce.DAY,
-                price,  # limit_price
+                limit_price,  # limit_price（已按 min_tick 取整）
                 None    # stop_price
             )
             
@@ -243,7 +256,7 @@ class OrderExecutor:
                 t1.position_entry_times[pos_id] = time.time()
                 t1.position_entry_prices[pos_id] = price
             
-            return True, f"订单提交成功 | 价格={price:.3f}, 止损={stop_loss_price:.3f}, 止盈={take_profit_price:.3f}, 订单ID={order_id}"
+            return True, f"订单提交成功 | 价格={limit_price:.3f}, 止损={stop_loss_price:.3f}, 止盈={take_profit_price:.3f}, 订单ID={order_id}"
             
         except Exception as e:
             error_msg = str(e)
@@ -310,18 +323,18 @@ class OrderExecutor:
                     if len(datepart) == 6 and datepart.isdigit():
                         symbol_to_use = f"{base}{datepart[-4:]}"
             
-            # 转换symbol格式：SIL.COMEX.202603 -> SIL2603（Tiger API可能期望简短格式）
-            symbol_to_use = t1.FUTURE_SYMBOL
-            if hasattr(t1, '_to_api_identifier'):
-                symbol_to_use = t1._to_api_identifier(t1.FUTURE_SYMBOL)
-            elif '.' in symbol_to_use:
-                # 简单转换：SIL.COMEX.202603 -> SIL2603
-                parts = symbol_to_use.split('.')
-                if len(parts) >= 2:
-                    base = parts[0]
-                    datepart = parts[-1]
-                    if len(datepart) == 6 and datepart.isdigit():
-                        symbol_to_use = f"{base}{datepart[-4:]}"
+            # 按合约最小变动价位取整，避免 tick size 报错
+            min_tick = getattr(t1, 'MIN_TICK', 0.01)
+            try:
+                if hasattr(t1, 'get_future_brief_info') and hasattr(t1, '_to_api_identifier'):
+                    brief = t1.get_future_brief_info(t1._to_api_identifier(t1.FUTURE_SYMBOL) or t1.FUTURE_SYMBOL)
+                    min_tick = float(brief.get('min_tick', min_tick)) if brief else min_tick
+            except Exception:
+                min_tick = float(getattr(t1, 'FUTURE_TICK_SIZE', 0.01) or 0.01)
+            if min_tick <= 0:
+                min_tick = 0.01
+            limit_price = round(price / min_tick) * min_tick if min_tick > 0 else price
+            limit_price = round(limit_price, 2)
             
             # 提交订单（使用位置参数，兼容Tiger API）
             order_result = trade_api.place_order(
@@ -330,7 +343,7 @@ class OrderExecutor:
                 order_type,
                 order_quantity,
                 TimeInForce.DAY,
-                price,  # limit_price
+                limit_price,  # limit_price（已按 min_tick 取整）
                 None    # stop_price
             )
             
@@ -364,7 +377,7 @@ class OrderExecutor:
                     'profit': (price - buy_info['price']) * t1.FUTURE_MULTIPLIER
                 }
             
-            return True, f"订单提交成功 | 价格={price:.3f}, 持仓={t1.current_position}手, 订单ID={order_id}"
+            return True, f"订单提交成功 | 价格={limit_price:.3f}, 持仓={t1.current_position}手, 订单ID={order_id}"
             
         except Exception as e:
             error_msg = str(e)
