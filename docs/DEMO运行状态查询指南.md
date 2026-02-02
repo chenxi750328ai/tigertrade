@@ -1,7 +1,12 @@
 # DEMO运行状态查询指南
 
 **日期**: 2026-01-29  
-**用途**: 监控DEMO交易策略运行状态
+**用途**: 监控 DEMO 交易策略运行状态
+
+**当前 LOG 路径**（`bash scripts/run_20h_demo.sh` 产出）：`logs/demo_20h_*.log`  
+**查看最新 LOG**：`tail -f logs/demo_20h_*.log` 或 `ls -t logs/demo_20h_*.log | head -1 | xargs tail -f`
+
+---
 
 ## 一、快速查询命令
 
@@ -14,13 +19,18 @@ ps aux | grep -E "run_moe_demo|python.*demo" | grep -v grep
 ps -p $(pgrep -f "run_moe_demo") -o pid,etime,cmd --no-headers
 ```
 
-### 1.2 查看最新日志
+### 1.2 查看最新日志（当前脚本产出在 logs/ 下）
 ```bash
-# 查看最新的日志文件
-ls -lt /home/cx/tigertrade/demo_run_20h_*.log | head -1 | awk '{print $NF}' | xargs tail -50
+cd /home/cx/tigertrade
+
+# 当前日志路径：logs/demo_20h_YYYYMMDD_HHMMSS.log
+# 查看最新 50 行
+ls -t logs/demo_20h_*.log 2>/dev/null | head -1 | xargs tail -50
 
 # 实时监控日志（推荐）
-ls -lt /home/cx/tigertrade/demo_run_20h_*.log | head -1 | awk '{print $NF}' | xargs tail -f
+tail -f logs/demo_20h_*.log
+# 或指定最新文件
+ls -t logs/demo_20h_*.log 2>/dev/null | head -1 | xargs tail -f
 ```
 
 ### 1.3 查看关键信息
