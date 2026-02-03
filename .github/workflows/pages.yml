@@ -4,6 +4,9 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main, kline-indicators-fix]
+  schedule:
+    # 每日 UTC 0:00 重部署，避免仅依赖 push 导致页面长期不更新
+    - cron: '0 0 * * *'
   workflow_dispatch:
 
 permissions:
@@ -27,9 +30,9 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@3
+        uses: actions/upload-pages-artifact@v3
         with:
           path: 'docs'
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@4
+        uses: actions/deploy-pages@v4
