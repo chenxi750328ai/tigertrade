@@ -95,25 +95,51 @@ def calculate_profitability(orders):
 
 
 def analyze_strategy_performance():
-    """分析策略表现"""
+    """分析策略表现：从 DEMO 日志、today_yield 等汇总可用的运行效果，供策略报告展示。"""
     logger.info("📈 分析策略表现...")
     
     try:
-        # 分析不同策略的表现
         strategies = ['moe_transformer', 'lstm', 'grid', 'boll']
-        
         performance_data = {}
-        
-        for strategy in strategies:
-            logger.info(f"📊 分析策略: {strategy}")
-            # 这里可以运行回测或分析历史数据
-            performance_data[strategy] = {
+        for s in strategies:
+            performance_data[s] = {
                 'profitability': 0,
                 'win_rate': 0,
                 'sharpe_ratio': 0,
                 'max_drawdown': 0
             }
-        
+
+        # 从所有 DEMO 日志汇总统计（多日多文件，主推 DEMO 策略为 moe_transformer）
+        try:
+            from scripts.analyze_demo_log import aggregate_demo_logs
+            demo = aggregate_demo_logs()
+            if demo and demo.get('logs_scanned', 0) > 0:
+                performance_data['moe_transformer']['demo_order_success'] = demo.get('order_success', 0)
+                performance_data['moe_transformer']['demo_sl_tp_log'] = demo.get('sl_tp_log', 0)
+                performance_data['moe_transformer']['demo_execute_buy_calls'] = demo.get('execute_buy_calls', 0)
+                performance_data['moe_transformer']['demo_success_orders_sum'] = demo.get('success_orders_sum', 0)
+                performance_data['moe_transformer']['demo_fail_orders_sum'] = demo.get('fail_orders_sum', 0)
+                performance_data['moe_transformer']['demo_logs_scanned'] = demo.get('logs_scanned', 0)
+                logger.info("  DEMO 多日志汇总: 扫描 %s 个日志, order_success=%s, sl_tp=%s",
+                            demo.get('logs_scanned'), demo.get('order_success'), demo.get('sl_tp_log'))
+        except Exception as e:
+            logger.debug("DEMO 日志统计未合并: %s", e)
+
+        # 从 today_yield 补充今日收益率
+        try:
+            yield_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'docs', 'today_yield.json')
+            if os.path.isfile(yield_path):
+                with open(yield_path, 'r', encoding='utf-8') as f:
+                    y = json.load(f)
+                pct = y.get('yield_pct') or y.get('yield_note')
+                if pct and str(pct).strip() not in ('', '—'):
+                    try:
+                        performance_data['moe_transformer']['today_yield_pct'] = str(pct)
+                    except Exception:
+                        performance_data['moe_transformer']['today_yield_pct'] = str(pct)
+        except Exception as e:
+            logger.debug("today_yield 未合并: %s", e)
+
         return performance_data
         
     except Exception as e:
@@ -177,12 +203,14 @@ def generate_optimization_report(profitability, performance, optimal_params):
                 'suggestion': '需要重新评估策略有效性'
             })
     
-    # 保存报告
-    with open('algorithm_optimization_report.json', 'w') as f:
-        json.dump(report, f, indent=2, default=str)
+    # 保存报告到 docs/reports/，与策略报告生成器读取路径一致
+    reports_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'docs', 'reports')
+    os.makedirs(reports_dir, exist_ok=True)
+    with open(os.path.join(reports_dir, 'algorithm_optimization_report.json'), 'w', encoding='utf-8') as f:
+        json.dump(report, f, indent=2, default=str, ensure_ascii=False)
     
     # 生成Markdown报告
-    with open('algorithm_optimization_report.md', 'w') as f:
+    with open(os.path.join(reports_dir, 'algorithm_optimization_report.md'), 'w', encoding='utf-8') as f:
         f.write("# 算法优化和收益率分析报告\n\n")
         f.write(f"生成时间: {report['timestamp']}\n\n")
         
