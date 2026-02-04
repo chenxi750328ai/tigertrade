@@ -76,7 +76,7 @@ python -m unittest discover -s tests -p "test_feature_*.py" -v
 
 如果遇到授权错误：
 ```
-account '21415812702670778' is not authorized to the api user
+account 'xxx' is not authorized to the api user（需在 Tiger 后台完成授权）
 ```
 
 需要在Tiger后台配置account授权。

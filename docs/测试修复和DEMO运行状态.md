@@ -80,7 +80,7 @@ nohup python scripts/run_moe_demo.py moe_transformer 20 > demo_run_20h_$(date +%
 ### 2.3 已知问题
 
 **account授权问题**:
-- ⚠️ 日志显示：`account '21415812702670778' is not authorized to the api user`
+- ⚠️ 日志显示：`account 'xxx' is not authorized to the api user`（需在 Tiger 后台完成账户授权）
 - ⚠️ 这是外部配置问题，需要在Tiger后台配置授权
 - ⚠️ DEMO可以运行，但下单会失败
 

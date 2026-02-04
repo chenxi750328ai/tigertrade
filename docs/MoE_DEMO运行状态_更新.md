@@ -9,15 +9,15 @@
 ## ✅ API连接状态
 
 ### 成功连接
-- **账户**: 21415812702670778
-- **Tiger ID**: 20157140
+- **账户**: （来自 openapicfg_dem，勿提交配置文件）
+- **Tiger ID**: （来自配置文件）
 - **Quote API**: RealQuoteApiAdapter ✅
 - **Trade API**: RealTradeApiAdapter ✅
 - **Mock模式**: False ✅
 
 ### API初始化
 ```python
-✅ 配置加载成功: account=21415812702670778, tiger_id=20157140
+✅ 配置加载成功: account=<配置>, tiger_id=<配置>
 ✅ API连接初始化成功
    Quote API: RealQuoteApiAdapter
    Trade API: RealTradeApiAdapter

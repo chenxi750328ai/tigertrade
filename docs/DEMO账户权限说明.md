@@ -52,7 +52,7 @@ FUTURE_SYMBOL = "SIL.COMEX.202603"
 
 1. **授权失败**：
    ```
-   account '21415812702670778' is not authorized to the api user
+   account 'xxx' is not authorized to the api user（需在 Tiger 后台完成授权）
    ```
    - **原因**: account没有授权给API用户
    - **解决**: 需要在Tiger后台配置授权

@@ -9,12 +9,12 @@
 
 ✅ **成功初始化真实API（DEMO账户）**:
 ```
-配置加载成功: account=21415812702670778, tiger_id=20157140
-使用account: 21415812702670778
+配置加载成功: account=<来自配置文件>, tiger_id=<来自配置文件>
+使用account: <来自配置文件>
 API初始化成功
    Quote API: RealQuoteApiAdapter
    Trade API: RealTradeApiAdapter
-   Account: 21415812702670778
+   Account: <来自 openapicfg_dem，勿提交>
    Mock模式: False
 ```
 
@@ -31,16 +31,16 @@ API初始化成功
 
 ❌ **下单失败**:
 ```
-错误: code=1010 msg=biz param error(account '21415812702670778' is not authorized to the api user)
+错误: code=1010 msg=biz param error(account 'xxx' is not authorized to the api user)
 ```
 
-**原因**: account没有授权给API用户
+**原因**: account 没有在 Tiger 后台授权给 API 用户（tiger_id）
 
 ### 2.2 查询订单测试
 
 ❌ **查询订单失败**:
 ```
-错误: code=1010 msg=biz param error(account '21415812702670778' is not authorized to the api user)
+错误: code=1010 msg=biz param error(account 'xxx' is not authorized to the api user)
 ```
 
 **原因**: 同样的授权问题
@@ -49,12 +49,12 @@ API初始化成功
 
 ### 3.1 授权问题
 
-**错误信息**: `account '21415812702670778' is not authorized to the api user`
+**错误信息**: `account 'xxx' is not authorized to the api user`
 
 **可能的原因**:
-1. account配置不正确
-2. API用户（tiger_id=20157140）没有权限访问account '21415812702670778'
-3. 需要在Tiger后台配置account授权
+1. account 配置不正确
+2. API 用户（tiger_id）未在后台授权访问该 account
+3. 需要在 Tiger 后台完成「账户 → API 用户」授权
 
 ### 3.2 测试验证
 
@@ -68,9 +68,9 @@ API初始化成功
 
 ### 4.1 需要做的事情
 
-1. **检查Tiger后台配置**:
-   - 确认account '21415812702670778' 是否授权给API用户（tiger_id=20157140）
-   - 如果没有授权，需要在Tiger后台配置授权
+1. **检查 Tiger 后台配置**:
+   - 确认你使用的 account 是否已授权给当前 API 用户（tiger_id）
+   - 若未授权，请在 Tiger 后台完成授权（参见 [后台看不到订单_必读_授权配置步骤](后台看不到订单_必读_授权配置步骤.md)）
 
 2. **验证account配置**:
    - 确认 `openapicfg_dem/tiger_openapi_config.properties` 中的account配置是否正确

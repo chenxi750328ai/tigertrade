@@ -16,9 +16,9 @@
 
 最新日志显示：
 ```
-🔍 [下单调试] account=21415812702670778, symbol=SIL.COMEX.202603, side=BUY, order_type=LMT, quantity=1, limit_price=112.99832349004788
-🔍 [下单调试] 准备创建Order: account=21415812702670778, symbol=SIL.COMEX.202603, side=BUY, order_type=LMT, quantity=1, limit_price=112.99832349004788
-🔍 [下单调试] Order创建成功: order.account=21415812702670778, order.contract=SIL.COMEX.202603/STK/USD
+🔍 [下单调试] account=<配置>, symbol=SIL.COMEX.202603, side=BUY, order_type=LMT, quantity=1, limit_price=...
+🔍 [下单调试] 准备创建Order: account=<配置>, symbol=SIL.COMEX.202603, ...
+🔍 [下单调试] Order创建成功: order.account=<配置>, order.contract=SIL.COMEX.202603/STK/USD
 ```
 
 ✅ **account已正确传递，Order创建成功**
@@ -75,7 +75,7 @@ if not api_manager._account or not api_manager.trade_api.account:
 
 ### 3.2 下单状态
 
-- ✅ account正确传递: `21415812702670778`
+- ✅ account 正确传递（来自配置，勿提交配置文件）
 - ✅ Order对象创建成功
 - ✅ 订单参数正确: symbol, side, order_type, quantity, limit_price
 

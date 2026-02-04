@@ -106,3 +106,17 @@ site/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+# 私密信息文档（含真实 ID、账户、交易记录、账单等，勿提交）
+docs/*账单*
+docs/*报表*.pdf
+docs/今年以来*.pdf
+docs/SIL交易原始数据.txt
+docs/SIL交易记录.txt
+docs/账单报表_提取.txt
+docs/SIL交易轮次分析.xlsx
+docs/SIL白银期货交易分析.xlsx
+**/私密/
+**/*交易记录*.txt
+**/*账单*.pdf
+**/*报表*.pdf

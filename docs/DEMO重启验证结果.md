@@ -53,7 +53,7 @@
 - ✅ **symbol格式**: SIL2603（正确）
 
 ### 3.2 授权问题
-- ⚠️ **错误**: `account '21415812702670778' is not authorized to the api user`
+- ⚠️ **错误**: `account 'xxx' is not authorized to the api user`（需在 Tiger 后台完成账户→API 用户授权）
 - **原因**: account没有授权给API用户（tiger_id）
 - **解决**: 需要在Tiger后台配置授权（外部配置问题）
 - **影响**: 代码修复已生效，但授权问题阻止了实际下单
