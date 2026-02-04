@@ -229,6 +229,17 @@ def run_optimization_workflow():
     # 5. 生成报告
     report = generate_optimization_report(profitability, performance, optimal_params)
     
+    # 6. 生成各策略算法说明与运行效果报告（含对比），供 STATUS 页链接、每日刷新
+    try:
+        import subprocess
+        subprocess.run(
+            [sys.executable, os.path.join(os.path.dirname(__file__), 'generate_strategy_reports.py')],
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            check=False,
+        )
+    except Exception as e:
+        logger.warning("⚠️ 策略报告生成未执行: %s", e)
+    
     logger.info("="*70)
     logger.info("✅ 算法优化和收益率分析完成")
     logger.info("="*70)

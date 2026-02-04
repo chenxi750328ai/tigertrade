@@ -54,6 +54,9 @@
 |------|------|
 | [项目计划（月度/周）](项目计划_月度周计划.md) | 任务项、责任者、时间、步骤、材料、风险、进展 |
 | [订单执行流程说明](订单执行流程说明.md) | 下单路径、止盈止损、api_adapter、OrderExecutor、DEMO 重置 |
+| [策略算法与运行效果报告](reports/strategy_reports_index.html) | 各策略算法说明与运行效果、对比报告（每日刷新） |
+| [SKILLs 设计与交易后端解耦](SKILLs设计与交易后端解耦.md) | 开放 Tiger 能力（数据分析、量化算法与参数、交易后端）；后端解耦可接老虎或其他平台 |
+| [SKILLs 清单](skills/README.md) | 各 SKILL 文档：tiger-data-analysis、tiger-quant-algo-params、tiger-trading-backend |
 | [README 项目状态](../README.md#-项目状态) | 根目录项目状态与已知问题 |
 | [DEMO 运行状态查询指南](DEMO运行状态查询指南.md) | DEMO 进程与日志查看 |
 | [PL / 发布约定](PL.md) | 项目 PL 与发布约定 |
@@ -65,3 +68,4 @@
 - **STATUS 更新**：完成关键任务或状态变化时，更新本文「当前状态摘要」「近期完成项」「已知风险与求助」。
 - **计划更新**：在 [项目计划_月度周计划.md](项目计划_月度周计划.md) 中填写「实际完成时间」「进展」「备注」，并视需要增删周/月任务。
 - **链接约定**：README、日报、周报等引用「项目 STATUS」时，统一指向本文档（`docs/STATUS.md`）；引用「项目计划」时，指向项目计划文档。
+- **策略报告每日刷新**：运行 `python scripts/generate_strategy_reports.py` 或执行「收益与算法优化」流程后，会更新 `docs/reports/strategy_reports/` 与 `strategy_reports_index.html`。

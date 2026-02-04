@@ -101,7 +101,9 @@ class RealQuoteApiAdapter(QuoteApiInterface):
 
 
 class RealTradeApiAdapter(TradeApiInterface):
-    """真实交易API适配器"""
+    """真实交易 API 适配器（老虎 Tiger 实现）。
+    实现统一交易接口，与 src.trading.protocol.TradingBackendProtocol 对齐；
+    通过 TRADING_BACKEND=tiger 或初始化真实 API 时使用。"""
     
     def __init__(self, client, account=None):
         self.client = client
@@ -527,7 +529,9 @@ class MockQuoteApiAdapter(QuoteApiInterface):
 
 
 class MockTradeApiAdapter(TradeApiInterface):
-    """模拟交易API适配器"""
+    """模拟交易 API 适配器（实现统一交易接口，供测试/DEMO）。
+    与 src.trading.protocol.TradingBackendProtocol 对齐；
+    通过 TRADING_BACKEND=mock 或初始化 Mock API 时使用。"""
     
     def __init__(self, account=None):
         import random
