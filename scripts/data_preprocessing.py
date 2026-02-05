@@ -200,6 +200,13 @@ class TigerTradeDataProcessor:
         print(f"清洗后数据：{len(self.df)} 条")
         
         n = len(self.df)
+        if n == 0:
+            print("⚠️ 清洗后无有效数据，跳过分割（保留现有 train/val/test 不覆盖）")
+            self.train_df = pd.DataFrame()
+            self.val_df = pd.DataFrame()
+            self.test_df = pd.DataFrame()
+            return self
+        
         train_size = int(n * train_ratio)
         val_size = int(n * val_ratio)
         
@@ -223,18 +230,19 @@ class TigerTradeDataProcessor:
         self.df.to_csv(full_output, index=False)
         print(f"✅ 完整数据: {full_output}")
         
-        # 保存分割数据
         train_output = self.output_dir / "train.csv"
         val_output = self.output_dir / "val.csv"
         test_output = self.output_dir / "test.csv"
         
-        self.train_df.to_csv(train_output, index=False)
-        self.val_df.to_csv(val_output, index=False)
-        self.test_df.to_csv(test_output, index=False)
-        
-        print(f"✅ 训练集: {train_output}")
-        print(f"✅ 验证集: {val_output}")
-        print(f"✅ 测试集: {test_output}")
+        if len(self.train_df) > 0 and len(self.test_df) > 0:
+            self.train_df.to_csv(train_output, index=False)
+            self.val_df.to_csv(val_output, index=False)
+            self.test_df.to_csv(test_output, index=False)
+            print(f"✅ 训练集: {train_output}")
+            print(f"✅ 验证集: {val_output}")
+            print(f"✅ 测试集: {test_output}")
+        else:
+            print("⚠️ 训练/测试集为空，不覆盖现有 train/val/test.csv，保留原数据供回测使用")
         
         # 保存特征列表
         feature_cols = [c for c in self.df.columns if c not in ['time', 'open', 'high', 'low', 'close', 'volume'] 
@@ -277,9 +285,13 @@ class TigerTradeDataProcessor:
         report.append(f"{'='*70}")
         report.append(f"原始数据: {len(pd.read_csv(self.input_file))} 条")
         report.append(f"清洗后: {len(self.df)} 条")
-        report.append(f"训练集: {len(self.train_df)} 条 ({len(self.train_df)/len(self.df)*100:.1f}%)")
-        report.append(f"验证集: {len(self.val_df)} 条 ({len(self.val_df)/len(self.df)*100:.1f}%)")
-        report.append(f"测试集: {len(self.test_df)} 条 ({len(self.test_df)/len(self.df)*100:.1f}%)")
+        n = len(self.df)
+        if n > 0:
+            report.append(f"训练集: {len(self.train_df)} 条 ({len(self.train_df)/n*100:.1f}%)")
+            report.append(f"验证集: {len(self.val_df)} 条 ({len(self.val_df)/n*100:.1f}%)")
+            report.append(f"测试集: {len(self.test_df)} 条 ({len(self.test_df)/n*100:.1f}%)")
+        else:
+            report.append("训练集/验证集/测试集: 未分割（清洗后无有效数据，保留原有文件）")
         
         feature_cols = [c for c in self.df.columns if c not in ['time', 'open', 'high', 'low', 'close', 'volume'] 
                        and not c.startswith('target_')]
