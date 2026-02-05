@@ -195,8 +195,20 @@ class TigerTradeDataProcessor:
         """时间序列分割"""
         print("\n✂️  数据分割（时间序列）...")
         
-        # 删除包含NaN的行
-        self.df.dropna(inplace=True)
+        # 先仅按目标列 dropna，保留更多行（目标列因 shift(-horizon) 末尾为 NaN）
+        target_cols = [c for c in self.df.columns if c.startswith("target_")]
+        if target_cols:
+            self.df.dropna(subset=target_cols, inplace=True)
+        # 再对剩余列中关键列 dropna，避免全 NaN 列导致整行无效
+        required = [c for c in ["close", "open"] if c in self.df.columns]
+        if not required:
+            required = [c for c in ["close", "price_current"] if c in self.df.columns]
+        if required:
+            self.df.dropna(subset=required, inplace=True)
+        # 若仍有过量 NaN，只丢弃全 NaN 行
+        self.df.dropna(how="all", inplace=True)
+        # 剩余 NaN 填 0，保证分割后可直接用于训练/回测
+        self.df = self.df.fillna(0)
         print(f"清洗后数据：{len(self.df)} 条")
         
         n = len(self.df)
