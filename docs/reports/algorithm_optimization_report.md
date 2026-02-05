@@ -1,4 +1,36 @@
 # 算法优化和收益率分析报告
 
-生成时间: 2026-02-01T12:08:50.305435
+生成时间: 2026-02-05T11:25:53.593240
+
+## 效果数据来源（本次例行用了啥）
+
+- 收益率/胜率：API 历史订单 暂无或未解析
+- DEMO：多日志汇总（订单成功次数、止损止盈条数等）
+- 网格/BOLL：回测（data/processed/test.csv）产出最优参数与 return_pct/win_rate
+
+## 优化后的参数
+
+### grid
+
+```json
+{
+  "rsi_buy": 30,
+  "rsi_sell": 60,
+  "ma_short": 5,
+  "ma_long": 20,
+  "use_or": false
+}
+```
+
+### boll
+
+```json
+{
+  "rsi_buy": 30,
+  "rsi_sell": 60,
+  "ma_short": 5,
+  "ma_long": 20,
+  "use_or": false
+}
+```
 
