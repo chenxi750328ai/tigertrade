@@ -18,6 +18,30 @@ if str(ROOT) not in sys.path:
 REPORTS_DIR = ROOT / "docs" / "reports"
 STRATEGY_REPORTS_DIR = REPORTS_DIR / "strategy_reports"
 
+# 回测效果：来自历史数据回测（如 parameter_grid_search）
+BACKTEST_KEYS = ("return_pct", "win_rate", "num_trades")
+# 实盘/DEMO 效果：来自 API 订单、today_yield、DEMO 日志汇总
+LIVE_DEMO_KEYS = ("profitability", "win_rate", "today_yield_pct", "demo_order_success",
+                  "demo_sl_tp_log", "demo_execute_buy_calls", "demo_success_orders_sum",
+                  "demo_fail_orders_sum", "demo_logs_scanned", "max_position")
+
+# 每日收益与算法优化：在干啥、咋干的（写入策略报告与索引页）
+ROUTINE_WHAT_HOW = """
+**每日「收益与算法优化」在干啥**
+- **结果分析**：用 API 历史订单算收益率/胜率（若有）；用 DEMO 多日志汇总订单与止损止盈统计；用 today_yield 展示今日收益率。
+- **算法优化**：对网格/BOLL 做参数网格回测（需 `data/processed/test.csv`），得到最优参数与回测收益/胜率，写入报告。
+- **报告产出**：更新 `algorithm_optimization_report.json`/`.md`、本策略算法与运行效果报告；报告内「效果数据来源」会写明本次用了哪些数据。
+
+**咋干的（步骤）**
+1. 加载历史订单（API）→ 若无则收益率为空。
+2. 计算收益率（解析订单盈亏）→ 当前未解析时为空。
+3. 分析策略表现：汇总所有 DEMO 日志（demo_*.log、demo_run_20h_*.log）→ 主单成功、止损止盈条数等；读 today_yield.json。
+4. 优化参数：对 grid、boll 跑网格回测（parameter_grid_search）→ 最优参数与 return_pct、win_rate。
+5. 生成算法优化报告（含效果数据来源说明）并调用本脚本刷新策略报告。
+
+**脚本**：`python scripts/optimize_algorithm_and_profitability.py`。详见 `docs/每日例行_效果数据说明.md`。
+"""
+
 # 各策略算法说明与设计文档链接（可随代码更新而维护）
 # design_doc: 相对于 docs/ 的路径，报告内会生成「设计文档」节并链接到该文件
 STRATEGY_ALGORITHMS = {
@@ -134,32 +158,52 @@ def write_strategy_report(strategy_id: str, meta: dict, run_effect: dict):
         lines.append("")
     lines.append("## 运行效果")
     lines.append("")
-    # 判断是否为“全占位 0”（未写入真实回测/DEMO 数据）
-    numeric_vals = [v for k, v in (row or {}).items() if isinstance(v, (int, float)) and not isinstance(v, bool)]
-    all_zeros = len(numeric_vals) > 0 and all(x == 0 for x in numeric_vals)
-    if row and not all_zeros:
+    row = row or {}
+    # 回测效果：仅当存在明确回测指标（return_pct 或 num_trades）时展示，避免占位 0 混入
+    backtest_row = {k: row.get(k) for k in BACKTEST_KEYS if row.get(k) is not None}
+    if (row.get("return_pct") is not None or row.get("num_trades") is not None) and backtest_row:
+        lines.append("### 回测效果")
+        lines.append("")
+        lines.append("（来自历史数据回测，如 `parameter_grid_search`、训练阶段回测。）")
+        lines.append("")
         lines.append("| 指标 | 值 |")
         lines.append("| --- | --- |")
-        for k, v in row.items():
-            if isinstance(v, (int, float)) and not isinstance(v, bool):
-                lines.append(f"| {k} | {v} |")
-            else:
-                lines.append(f"| {k} | {v} |")
+        for k, v in backtest_row.items():
+            lines.append(f"| {k} | {v} |")
         lines.append("")
-    else:
-        demo_stats = run_effect.get("demo_log_stats")
-        if demo_stats and demo_stats.get("logs_scanned", 0) > 0:
-            if strategy_id == "moe_transformer":
-                lines.append("回测/优化指标（profitability、win_rate 等）当前为占位或未写入；DEMO 多日汇总见上方 **DEMO 运行统计**。")
+    # 实盘/DEMO 效果（API 订单收益率、今日收益率、DEMO 日志汇总等）
+    live_demo_row = {k: row.get(k) for k in LIVE_DEMO_KEYS if row.get(k) is not None}
+    # 若回测里已有 win_rate，实盘表可省略重复的 win_rate（来自 API 时再写）
+    if backtest_row and "win_rate" in live_demo_row and strategy_id in ("grid", "boll"):
+        live_demo_row = {k: v for k, v in live_demo_row.items() if k != "win_rate"}
+    if live_demo_row:
+        lines.append("### 实盘/DEMO 效果")
+        lines.append("")
+        lines.append("（来自 API 历史订单、`today_yield.json`、DEMO 多日志汇总。）")
+        lines.append("")
+        lines.append("| 指标 | 值 |")
+        lines.append("| --- | --- |")
+        for k, v in live_demo_row.items():
+            lines.append(f"| {k} | {v} |")
+        lines.append("")
+    # 无回测且无实盘数据时的提示
+    if not backtest_row and not live_demo_row:
+        numeric_vals = [v for k, v in row.items() if isinstance(v, (int, float)) and not isinstance(v, bool)]
+        all_zeros = len(numeric_vals) > 0 and all(x == 0 for x in numeric_vals)
+        if row and all_zeros:
+            demo_stats = run_effect.get("demo_log_stats")
+            if demo_stats and demo_stats.get("logs_scanned", 0) > 0:
+                if strategy_id == "moe_transformer":
+                    lines.append("回测/实盘指标当前为占位或未写入；DEMO 多日汇总见下方 **DEMO 运行统计**。")
+                else:
+                    lines.append("回测/实盘指标当前为占位或未写入；DEMO 多日汇总见 **MoE Transformer** 策略报告中的「DEMO 运行统计」。")
             else:
-                lines.append("回测/优化指标当前为占位或未写入；DEMO 多日汇总见 **MoE Transformer** 策略报告中的「DEMO 运行统计」。")
-        else:
-            lines.append("**暂无运行数据**（当前数据源为占位 0，且未发现 DEMO 日志）。")
-            lines.append("- 请确认已运行 DEMO（如 `python scripts/run_moe_demo.py moe 20`），日志位于项目根目录或 `logs/` 下的 `demo_*.log`、`demo_run_20h_*.log`。")
-        algo_mtime = run_effect.get("algo_report_mtime")
-        if algo_mtime:
-            lines.append(f"- 数据源更新时间：{algo_mtime}（`algorithm_optimization_report.json`）")
-        lines.append("- 运行 **收益与算法优化**（`python scripts/optimize_algorithm_and_profitability.py`）或回测后，再运行 `python scripts/generate_strategy_reports.py` 可刷新。")
+                lines.append("**暂无运行数据**（当前数据源为占位 0，且未发现 DEMO 日志）。")
+                lines.append("- 请确认已运行 DEMO（如 `python scripts/run_moe_demo.py moe 20`），日志位于项目根目录或 `logs/` 下的 `demo_*.log`、`demo_run_20h_*.log`。")
+            algo_mtime = run_effect.get("algo_report_mtime")
+            if algo_mtime:
+                lines.append(f"- 数据源更新时间：{algo_mtime}（`algorithm_optimization_report.json`）")
+            lines.append("- 运行 **收益与算法优化**（`python scripts/optimize_algorithm_and_profitability.py`）或回测后，再运行 `python scripts/generate_strategy_reports.py` 可刷新。")
         lines.append("")
     # DEMO 多日/多日志汇总（扫描所有 demo_*.log、demo_run_20h_*.log）
     demo_stats = run_effect.get("demo_log_stats")
@@ -186,6 +230,13 @@ def write_strategy_report(strategy_id: str, meta: dict, run_effect: dict):
         lines.append("")
         lines.append(f"- {today_yield.get('yield_pct', today_yield.get('yield_note', '—'))}")
         lines.append("")
+    # 每日收益与算法优化在干啥、咋干的（输出到策略报告里）
+    lines.append("## 每日收益与算法优化在干啥")
+    lines.append("")
+    lines.append(ROUTINE_WHAT_HOW.strip())
+    lines.append("")
+    lines.append("详见：[每日例行_效果数据说明](../../每日例行_效果数据说明.md)。")
+    lines.append("")
 
     path = STRATEGY_REPORTS_DIR / f"strategy_{strategy_id}.md"
     path.write_text("\n".join(lines), encoding="utf-8")
@@ -193,7 +244,7 @@ def write_strategy_report(strategy_id: str, meta: dict, run_effect: dict):
 
 
 def write_comparison_report(run_effect: dict):
-    """写对比报告：多策略指标对比表。"""
+    """写对比报告：回测效果表 + 实盘/DEMO 效果表 + 每日例行说明。"""
     perf = run_effect.get("strategy_performance") or {}
     ts = run_effect.get("timestamp", "")
 
@@ -202,21 +253,44 @@ def write_comparison_report(run_effect: dict):
         "",
         f"*报告生成时间：{ts}*",
         "",
-        "## 各策略运行效果对比",
+        "## 回测效果对比",
+        "",
+        "（来自历史数据回测，如 `parameter_grid_search`。）",
         "",
     ]
     if perf:
         strategies = list(perf.keys())
-        if strategies:
-            keys = list(perf[strategies[0]].keys()) if perf[strategies[0]] else []
-            header = "| 策略 | " + " | ".join(keys) + " |"
-            sep = "| --- | " + " | ".join("---" for _ in keys) + " |"
+        bk = [k for k in BACKTEST_KEYS if any((perf.get(s) or {}).get(k) is not None for s in strategies)]
+        if bk:
+            header = "| 策略 | " + " | ".join(bk) + " |"
+            sep = "| --- | " + " | ".join("---" for _ in bk) + " |"
             lines.append(header)
             lines.append(sep)
             for s in strategies:
-                row = perf[s] or {}
-                cells = [str(row.get(k, "—")) for k in keys]
+                row = perf.get(s) or {}
+                cells = [str(row.get(k, "—")) for k in bk]
                 lines.append("| " + s + " | " + " | ".join(cells) + " |")
+            lines.append("")
+        else:
+            lines.append("（暂无回测数据。）")
+            lines.append("")
+        lines.append("## 实盘/DEMO 效果对比")
+        lines.append("")
+        lines.append("（来自 API 订单、today_yield、DEMO 多日志汇总。）")
+        lines.append("")
+        lk = [k for k in LIVE_DEMO_KEYS if any((perf.get(s) or {}).get(k) is not None for s in strategies)]
+        if lk:
+            header = "| 策略 | " + " | ".join(lk) + " |"
+            sep = "| --- | " + " | ".join("---" for _ in lk) + " |"
+            lines.append(header)
+            lines.append(sep)
+            for s in strategies:
+                row = perf.get(s) or {}
+                cells = [str(row.get(k, "—")) for k in lk]
+                lines.append("| " + s + " | " + " | ".join(cells) + " |")
+            lines.append("")
+        else:
+            lines.append("（暂无实盘/DEMO 效果数据。）")
             lines.append("")
     else:
         lines.append("（暂无对比数据，由每日算法优化/回测流程更新。）")
@@ -224,11 +298,17 @@ def write_comparison_report(run_effect: dict):
 
     if run_effect.get("today_yield"):
         y = run_effect["today_yield"]
-        lines.append("## 今日收益率（DEMO/回测）")
+        lines.append("## 今日收益率（DEMO/实盘）")
         lines.append("")
         lines.append(f"- 日期：{y.get('date', '—')}")
         lines.append(f"- 收益率：{y.get('yield_pct', y.get('yield_note', '—'))}")
         lines.append("")
+    lines.append("## 每日收益与算法优化在干啥")
+    lines.append("")
+    lines.append(ROUTINE_WHAT_HOW.strip())
+    lines.append("")
+    lines.append("详见：[每日例行_效果数据说明](../../每日例行_效果数据说明.md)。")
+    lines.append("")
 
     path = STRATEGY_REPORTS_DIR / "strategy_comparison.md"
     path.write_text("\n".join(lines), encoding="utf-8")
@@ -281,6 +361,7 @@ def write_index_html(run_effect: dict):
   <ul>
 {chr(10).join(links)}
   </ul>
+  <p class="meta"><strong>每日收益与算法优化</strong>：结果分析（API 订单/DEMO 日志/today_yield）+ 算法优化（网格/BOLL 回测）→ 产出本报告；脚本 <code>scripts/optimize_algorithm_and_profitability.py</code>，详见 <a href="../每日例行_效果数据说明.md" target="_blank" rel="noopener">每日例行_效果数据说明</a>。</p>
   <p class="meta"><a href="../status.html">← 返回状态页</a></p>
 </body>
 </html>
