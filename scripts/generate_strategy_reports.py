@@ -105,6 +105,7 @@ def load_run_effect():
                 data = json.load(f)
             out["strategy_performance"] = data.get("strategy_performance") or {}
             out["profitability"] = data.get("profitability")
+            out["algorithm_version"] = data.get("algorithm_version") or ""
         except Exception:
             pass
     # 今日收益率（保证 yield_pct 不为空字符串，避免报告里「收益率：」后面空白）
@@ -254,10 +255,13 @@ def write_comparison_report(run_effect: dict):
 
     perf = run_effect.get("strategy_performance") or {}
     has_perf = len(perf) > 0 and any(perf.get(s) for s in perf)
+    algo_ver = run_effect.get("algorithm_version") or "—"
     lines = [
         "# 策略对比报告",
         "",
         f"*报告生成时间：{ts}*",
+        "",
+        f"**算法版本**：{algo_ver}（重大变更与对比见 [algorithm_versions.md](../../algorithm_versions.md)）",
         "",
     ]
     if not has_perf:

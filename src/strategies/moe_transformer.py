@@ -102,88 +102,72 @@ class MoELayer(nn.Module):
 
 class SparseMultiheadAttention(nn.Module):
     """稀疏多头注意力：只关注局部窗口或随机屏蔽部分注意力头"""
-    def __init__(self, embed_dim, num_heads, dropout=0.1, window_size=None, 
-                 attention_dropout_rate=0.1):
+    def __init__(self, embed_dim, num_heads, dropout=0.1, window_size=None,
+                 attention_dropout_rate=0.1, causal_mask=True):
         """
         Args:
             embed_dim: 嵌入维度
             num_heads: 注意力头数
             dropout: Dropout率
-            window_size: 局部窗口大小（None表示全局注意力）
-            attention_dropout_rate: 注意力头的dropout率（随机屏蔽部分头）
+            window_size: 局部窗口大小（None表示全局）；与因果同用时仅过去窗口
+            attention_dropout_rate: 注意力头dropout率
+            causal_mask: 是否因果掩码（True=仅可关注当前及过去，金融场景防未来泄露）
         """
         super(SparseMultiheadAttention, self).__init__()
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.window_size = window_size
         self.attention_dropout_rate = attention_dropout_rate
-        
-        # 标准多头注意力
+        self.causal_mask = causal_mask
         self.attention = nn.MultiheadAttention(
             embed_dim=embed_dim,
             num_heads=num_heads,
             dropout=dropout,
             batch_first=True
         )
-    
-    def forward(self, query, key, value, key_padding_mask=None):
-        """
-        稀疏注意力：如果window_size不为None，只计算局部窗口内的注意力
-        """
-        batch_size, seq_len, _ = query.shape
-        
-        if self.window_size is not None and self.window_size < seq_len:
-            # 局部窗口注意力：每个位置只关注window_size内的邻居
-            # 创建掩码
-            mask = torch.zeros(seq_len, seq_len, device=query.device, dtype=torch.bool)
-            for i in range(seq_len):
-                start = max(0, i - self.window_size // 2)
-                end = min(seq_len, i + self.window_size // 2 + 1)
-                mask[i, start:end] = True
-            
-            # 应用掩码（通过key_padding_mask）
-            # 注意：这里简化实现，实际可以使用更复杂的稀疏注意力机制
-            attn_output, attn_weights = self.attention(
-                query, key, value, 
-                key_padding_mask=key_padding_mask
-            )
-            
-            # 应用窗口掩码到注意力权重
-            if attn_weights is not None:
-                attn_weights = attn_weights.masked_fill(~mask.unsqueeze(0).unsqueeze(0), float('-inf'))
-                attn_weights = F.softmax(attn_weights, dim=-1)
+
+    def _build_attn_mask(self, query_len, key_len, device):
+        """因果（query i 只能看 key j<=i）+ 可选局部窗口。True=被屏蔽。"""
+        if self.causal_mask and query_len == key_len:
+            causal = torch.triu(torch.ones(query_len, key_len, device=device, dtype=torch.bool), diagonal=1)
         else:
-            # 全局注意力
-            attn_output, attn_weights = self.attention(
-                query, key, value,
-                key_padding_mask=key_padding_mask
-            )
-        
-        # 随机屏蔽部分注意力头（训练时）
+            causal = torch.zeros(query_len, key_len, device=device, dtype=torch.bool)
+        if self.window_size is not None and self.window_size < key_len and self.causal_mask and query_len == key_len:
+            window = torch.ones(query_len, key_len, device=device, dtype=torch.bool)
+            for i in range(query_len):
+                start = max(0, i - self.window_size)
+                window[i, start:i + 1] = False
+            attn_mask = causal | window
+        else:
+            attn_mask = causal
+        return attn_mask
+
+    def forward(self, query, key, value, key_padding_mask=None):
+        query_len, key_len = query.size(1), key.size(1)
+        attn_mask = self._build_attn_mask(query_len, key_len, query.device)
+        attn_output, attn_weights = self.attention(
+            query, key, value,
+            key_padding_mask=key_padding_mask,
+            attn_mask=attn_mask
+        )
         if self.training and self.attention_dropout_rate > 0:
-            # 随机选择要屏蔽的头
-            num_heads_to_drop = int(self.num_heads * self.attention_dropout_rate)
-            if num_heads_to_drop > 0:
-                # 简化实现：直接应用dropout
-                attn_output = F.dropout(attn_output, p=self.attention_dropout_rate, training=self.training)
-        
+            attn_output = F.dropout(attn_output, p=self.attention_dropout_rate, training=self.training)
         return attn_output, attn_weights
 
 
 class MoETransformerEncoderLayer(nn.Module):
     """使用MoE和稀疏注意力的Transformer编码器层"""
     def __init__(self, d_model, nhead, dim_feedforward, num_experts=8, top_k=2,
-                 dropout=0.1, window_size=None, attention_dropout_rate=0.1):
+                 dropout=0.1, window_size=None, attention_dropout_rate=0.1, causal_mask=True):
         super(MoETransformerEncoderLayer, self).__init__()
         self.d_model = d_model
-        
-        # 稀疏多头注意力
         self.self_attn = SparseMultiheadAttention(
             embed_dim=d_model,
             num_heads=nhead,
             dropout=dropout,
             window_size=window_size,
-            attention_dropout_rate=attention_dropout_rate
+            attention_dropout_rate=attention_dropout_rate,
+            causal_mask=causal_mask
         )
         
         # MoE层（替代标准FFN）
@@ -250,7 +234,7 @@ class MoETradingTransformerWithProfit(nn.Module):
         # 位置编码
         self.register_buffer('pos_encoding', self._create_positional_encoding(1000, d_model))
         
-        # MoE Transformer编码器
+        # MoE Transformer编码器（因果掩码防未来信息泄露）
         encoder_layer = MoETransformerEncoderLayer(
             d_model=d_model,
             nhead=nhead,
@@ -259,17 +243,18 @@ class MoETradingTransformerWithProfit(nn.Module):
             top_k=top_k,
             dropout=0.1,
             window_size=window_size,
-            attention_dropout_rate=attention_dropout_rate
+            attention_dropout_rate=attention_dropout_rate,
+            causal_mask=True
         )
         self.transformer = nn.ModuleList([encoder_layer for _ in range(num_layers)])
-        
-        # 注意力池化
+        # 注意力池化（query=最后时间步，仅看过去，无需显式因果掩码）
         self.attention_pool = SparseMultiheadAttention(
             embed_dim=d_model,
             num_heads=nhead,
             dropout=0.1,
-            window_size=None,  # 池化层使用全局注意力
-            attention_dropout_rate=0.0
+            window_size=None,
+            attention_dropout_rate=0.0,
+            causal_mask=False
         )
         
         self.dropout = nn.Dropout(0.3)

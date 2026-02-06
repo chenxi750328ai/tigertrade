@@ -29,6 +29,7 @@ from src.strategies.enhanced_transformer_with_profit import EnhancedTradingTrans
 from src.strategies.data_augmentation import TradingDataAugmentation
 from src.strategies.advanced_data_augmentation import AdvancedDataAugmentation
 from src.strategies.moe_transformer import MoETradingTransformerWithProfit
+from src.algorithm_version import get_current_version
 
 class ModelComparisonTrainer:
     """多模型对比训练器"""
@@ -36,7 +37,6 @@ class ModelComparisonTrainer:
     def __init__(self, data_dir='/home/cx/trading_data'):
         self.data_dir = data_dir
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        print(f"使用设备: {self.device}")
         
         # 模型结果存储
         self.results = {}
@@ -935,15 +935,19 @@ class ModelComparisonTrainer:
         print(f"  专家数量: 4")
         print(f"  每次激活专家数: 2 (稀疏激活率: 50%)")
         print(f"  稀疏注意力窗口: 20 (局部窗口)")
+        print(f"  因果掩码: 开启 (防未来信息泄露)")
         print(f"  注意力头dropout: 10%")
         print(f"  层数: 6 (从8减少)")
         print(f"  d_model: 256 (从512减少)")
         
-        # 优化器和损失函数
+        # 优化器和损失函数（金融类别不平衡时可用 Focal Loss）
         optimizer = torch.optim.AdamW(model.parameters(), lr=2e-4, weight_decay=1e-3)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50, eta_min=1e-6)
-        
-        action_criterion = LabelSmoothingCrossEntropy(smoothing=0.2, weight=class_weights)
+        use_focal_loss = True  # 设计文档建议：类别不平衡时用 Focal Loss
+        if use_focal_loss:
+            action_criterion = FocalLoss(alpha=class_weights, gamma=2.0).to(self.device)
+        else:
+            action_criterion = LabelSmoothingCrossEntropy(smoothing=0.2, weight=class_weights)
         profit_criterion = nn.MSELoss()
         
         # MoE负载均衡损失的权重
@@ -1125,20 +1129,26 @@ class ModelComparisonTrainer:
                   f"Val Acc={val_acc:.4f}, Val Profit MAE={val_profit_str}, "
                   f"MoE Aux Loss={total_moe_aux_loss/len(train_loader):.6f}, LR={current_lr:.6f}")
             
-            # 保存最佳模型
+            # 保存最佳模型（带算法版本，便于对比）
             if val_acc > best_val_acc or (val_acc == best_val_acc and val_profit_mae is not None and val_profit_mae < best_val_profit_mae):
                 best_val_acc = val_acc
                 if val_profit_mae is not None:
                     best_val_profit_mae = val_profit_mae
-                
-                model_path = os.path.join(self.data_dir, 'best_moe_transformer.pth')
-                torch.save({
+                algo_version = get_current_version()
+                checkpoint = {
                     'model_state_dict': model.state_dict(),
                     'val_acc': best_val_acc,
                     'val_profit_mae': best_val_profit_mae,
-                    'epoch': epoch + 1
-                }, model_path, _use_new_zipfile_serialization=False)
-                print(f"  ✅ 保存最佳模型: Val Acc={best_val_acc:.4f}, Val Profit MAE={val_profit_str}")
+                    'epoch': epoch + 1,
+                    'algorithm_version': algo_version,
+                }
+                # 版本化路径，便于多版本对比
+                model_path_versioned = os.path.join(self.data_dir, f'best_moe_transformer_v{algo_version}.pth')
+                torch.save(checkpoint, model_path_versioned, _use_new_zipfile_serialization=False)
+                # 同时写当前默认路径，便于现有推理/DEMO 直接加载
+                model_path_default = os.path.join(self.data_dir, 'best_moe_transformer.pth')
+                torch.save(checkpoint, model_path_default, _use_new_zipfile_serialization=False)
+                print(f"  ✅ 保存最佳模型 (v{algo_version}): Val Acc={best_val_acc:.4f}, Val Profit MAE={val_profit_str}")
                 patience_counter = 0
             else:
                 patience_counter += 1
@@ -1146,10 +1156,13 @@ class ModelComparisonTrainer:
                     print(f"  早停触发（patience={patience}）")
                     break
         
+        algo_version = get_current_version()
         self.results['moe_transformer'] = {
             'best_val_acc': best_val_acc,
             'best_val_profit_mae': best_val_profit_mae,
-            'model_path': os.path.join(self.data_dir, 'best_moe_transformer.pth')
+            'model_path': os.path.join(self.data_dir, 'best_moe_transformer.pth'),
+            'model_path_versioned': os.path.join(self.data_dir, f'best_moe_transformer_v{algo_version}.pth'),
+            'algorithm_version': algo_version,
         }
         
         return model

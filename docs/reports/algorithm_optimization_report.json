@@ -1,5 +1,6 @@
 {
-  "timestamp": "2026-02-06T09:30:24.182039",
+  "timestamp": "2026-02-06T10:06:38.485998",
+  "algorithm_version": "2.0",
   "profitability": null,
   "strategy_performance": {
     "moe_transformer": {
@@ -13,7 +14,9 @@
       "demo_success_orders_sum": 0,
       "demo_fail_orders_sum": 2131197,
       "demo_logs_scanned": 18,
-      "today_yield_pct": "6.65%"
+      "today_yield_pct": "6.65%",
+      "return_pct": "—",
+      "num_trades": "—"
     },
     "lstm": {
       "profitability": 0,
@@ -26,7 +29,9 @@
       "demo_success_orders_sum": 0,
       "demo_fail_orders_sum": 2131197,
       "demo_logs_scanned": 18,
-      "today_yield_pct": "6.65%"
+      "today_yield_pct": "6.65%",
+      "return_pct": "—",
+      "num_trades": "—"
     },
     "grid": {
       "profitability": 0,

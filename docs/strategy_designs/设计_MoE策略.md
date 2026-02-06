@@ -45,7 +45,7 @@ Transformer 在金融量化中的本质是：用**自注意力（Self-Attention�
 | 输出 | `action_head` | (B, d_model) → (B, 3) | 多层 Linear+GELU+LayerNorm+Dropout → 动作 logits |
 | 输出 | `profit_head` | (B, d_model) → (B, 1) | Linear+LayerNorm+GELU+Dropout → 收益率标量 |
 
-- **MoETransformerEncoderLayer**：内部为 SparseMultiheadAttention（可设 `window_size` 做局部注意力）+ MoELayer（num_experts、top_k）。前向返回序列表示与 MoE 负载均衡辅助损失。
+- **MoETransformerEncoderLayer**：内部为 SparseMultiheadAttention（可设 `window_size` 做局部注意力；**因果掩码 causal_mask=True**，位置 t 仅可关注 t 及过去，防未来信息泄露）+ MoELayer（num_experts、top_k）。前向返回序列表示与 MoE 负载均衡辅助损失。
 - **维度**：`input_size=46`，`d_model`（如 256/512），`num_layers`（如 6～8），`nhead`（如 8），`num_experts`（如 4～8），`top_k`（如 2）。
 
 ---
@@ -87,6 +87,7 @@ Transformer 在金融量化中的本质是：用**自注意力（Self-Attention�
 
 ### 7.2 MoE 与稀疏注意力
 
+- **因果掩码**：编码器自注意力默认 `causal_mask=True`，位置 t 仅可关注 j≤t，避免未来信息泄露（金融回测/实盘必须）。
 - **MoE**：部分层的 FFN 替换为 N 个专家 + 门控，仅 Top-K 专家参与前向；详见 [MoE和稀疏注意力方案说明](../MoE和稀疏注意力方案说明.md)。
 - **稀疏注意力**：可设 `window_size` 做局部注意力或对注意力头做 dropout，减少长序列计算与过拟合。
 

@@ -190,9 +190,14 @@ def optimize_parameters():
 def generate_optimization_report(profitability, performance, optimal_params):
     """生成优化报告"""
     logger.info("📝 生成优化报告...")
-    
+    try:
+        from src.algorithm_version import get_current_version
+        algo_version = get_current_version()
+    except Exception:
+        algo_version = "—"
     report = {
         'timestamp': datetime.now().isoformat(),
+        'algorithm_version': algo_version,
         'profitability': profitability,
         'strategy_performance': performance,
         'optimal_parameters': optimal_params,
@@ -241,6 +246,7 @@ def generate_optimization_report(profitability, performance, optimal_params):
     with open(os.path.join(reports_dir, 'algorithm_optimization_report.md'), 'w', encoding='utf-8') as f:
         f.write("# 算法优化和收益率分析报告\n\n")
         f.write(f"生成时间: {report['timestamp']}\n\n")
+        f.write(f"**算法版本**: {report.get('algorithm_version', '—')}（重大变更见 [algorithm_versions.md](../algorithm_versions.md)）\n\n")
         f.write("## 效果数据来源（本次例行用了啥）\n\n")
         for line in report.get('data_sources', data_sources):
             f.write(f"- {line}\n")

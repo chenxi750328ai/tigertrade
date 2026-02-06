@@ -25,7 +25,24 @@ class DataNormalizer:
         """
         self.method = method
         self.scalers = {}  # 保存每列的scale参数
-    
+
+    def fit_transform_rolling(self, df, feature_cols=None, window=60):
+        """
+        滚动窗口归一化（避免未来信息泄露，适配金融时序）。
+        每列用过去 window 步的滚动均值和标准差做 Z-score。
+        """
+        if feature_cols is None:
+            feature_cols = [c for c in df.columns if df[c].dtype in ('float64', 'int64')]
+        df_norm = df.copy()
+        for col in feature_cols:
+            if col not in df.columns:
+                continue
+            r = df[col].rolling(window=window, min_periods=1)
+            mean_ = r.mean()
+            std_ = r.std()
+            df_norm[col] = (df[col] - mean_) / (std_ + 1e-8)
+        return df_norm
+
     def fit_transform(self, df, feature_cols=None):
         """
         拟合并转换
