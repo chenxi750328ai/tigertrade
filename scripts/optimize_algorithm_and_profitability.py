@@ -96,20 +96,19 @@ def calculate_profitability(orders):
 
 
 def analyze_strategy_performance():
-    """分析策略表现：从 DEMO 日志、today_yield 等汇总可用的运行效果，供策略报告展示。"""
+    """分析策略表现：从 DEMO 日志、today_yield 等汇总可用的运行效果，供策略报告展示。永远返回四策略的 dict，出错也填占位（错误即数据）。"""
     logger.info("📈 分析策略表现...")
-    
-    try:
-        strategies = ['moe_transformer', 'lstm', 'grid', 'boll']
-        performance_data = {}
-        for s in strategies:
-            performance_data[s] = {
-                'profitability': 0,
-                'win_rate': 0,
-                'sharpe_ratio': 0,
-                'max_drawdown': 0
-            }
+    strategies = ['moe_transformer', 'lstm', 'grid', 'boll']
+    performance_data = {}
+    for s in strategies:
+        performance_data[s] = {
+            'profitability': 0,
+            'win_rate': 0,
+            'sharpe_ratio': 0,
+            'max_drawdown': 0
+        }
 
+    try:
         # 从所有 DEMO 日志汇总统计（多日多文件，主推 DEMO 策略为 moe_transformer）
         # 同次汇总一并填入 grid/boll/lstm，避免对比报告里 demo_* 列为空
         try:
@@ -130,7 +129,9 @@ def analyze_strategy_performance():
                 logger.info("  DEMO 多日志汇总: 扫描 %s 个日志, order_success=%s, sl_tp=%s（已填入四策略）",
                             demo.get('logs_scanned'), demo.get('order_success'), demo.get('sl_tp_log'))
         except Exception as e:
-            logger.debug("DEMO 日志统计未合并: %s", e)
+            logger.warning("DEMO 日志统计未合并（已记入占位）: %s", e)
+            for sid in strategies:
+                performance_data[sid]['demo_note'] = f"汇总异常: {str(e)[:80]}"
 
         # 从 today_yield 补充今日收益率（四策略都填，便于报告统一展示）
         try:
@@ -141,16 +142,17 @@ def analyze_strategy_performance():
                     y = json.load(f)
                 pct = y.get('yield_pct') or y.get('yield_note')
                 if pct and str(pct).strip() not in ('', '—'):
-                    for sid in ('moe_transformer', 'lstm', 'grid', 'boll'):
+                    for sid in strategies:
                         performance_data[sid]['today_yield_pct'] = str(pct)
         except Exception as e:
             logger.debug("today_yield 未合并: %s", e)
 
-        return performance_data
-        
     except Exception as e:
-        logger.error(f"❌ 策略表现分析失败: {e}")
-        return None
+        logger.error(f"❌ 策略表现分析失败（仍返回占位数据）: {e}")
+        for sid in strategies:
+            performance_data[sid]['error_note'] = str(e)[:80]
+
+    return performance_data
 
 
 def optimize_parameters():
@@ -282,16 +284,24 @@ def run_optimization_workflow():
     
     # 4. 优化参数（网格/BOLL 回测，产出最优参数与回测效果）
     optimal_params, backtest_metrics = optimize_parameters()
-    # 把回测效果写入 strategy_performance，报告里才有「效果数据」
-    if performance and backtest_metrics:
-        for name, metrics in backtest_metrics.items():
-            if name in performance and isinstance(metrics, dict):
-                if metrics.get('return_pct') is not None:
-                    performance[name]['return_pct'] = metrics['return_pct']
-                if metrics.get('win_rate') is not None:
-                    performance[name]['win_rate'] = metrics['win_rate']
-                if metrics.get('num_trades') is not None:
-                    performance[name]['num_trades'] = metrics['num_trades']
+    # 把回测效果写入 strategy_performance；失败也写占位，保证每日数据完整（错误即数据）
+    if performance:
+        for name in ('grid', 'boll'):
+            if name not in performance:
+                continue
+            m = (backtest_metrics or {}).get(name)
+            if m and isinstance(m, dict):
+                performance[name]['return_pct'] = m.get('return_pct') if m.get('return_pct') is not None else '—'
+                performance[name]['win_rate'] = m.get('win_rate') if m.get('win_rate') is not None else '—'
+                performance[name]['num_trades'] = m.get('num_trades') if m.get('num_trades') is not None else '—'
+            else:
+                performance[name]['return_pct'] = '—'
+                performance[name]['win_rate'] = '—'
+                performance[name]['num_trades'] = '—'
+        for name in ('moe_transformer', 'lstm'):
+            if name in performance and (performance[name].get('return_pct') is None and performance[name].get('num_trades') is None):
+                performance[name]['return_pct'] = '—'
+                performance[name]['num_trades'] = '—'
     
     # 5. 生成报告（含效果数据来源说明）
     report = generate_optimization_report(profitability, performance, optimal_params)

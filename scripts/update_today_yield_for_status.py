@@ -98,6 +98,24 @@ def from_demo_logs():
 def main():
     today = datetime.now().strftime("%Y-%m-%d")
     out = {"date": today, "yield_pct": "—", "yield_note": "待统计（运行收益与算法优化或从 DEMO 日志解析后更新）", "source": "report"}
+    try:
+        _main_impl(out)
+    except Exception as e:
+        out["yield_pct"] = "错误"
+        out["yield_note"] = f"更新失败: {str(e)[:120]}"
+        out["source"] = "error"
+    # 禁止写入空字符串
+    if not out.get("yield_pct") or not str(out["yield_pct"]).strip():
+        out["yield_pct"] = "—"
+    if not out.get("yield_note") or not str(out["yield_note"]).strip():
+        out["yield_note"] = "待统计"
+    DOCS.mkdir(parents=True, exist_ok=True)
+    with open(TODAY_YIELD_JSON, "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False, indent=2)
+    print(f"✅ 已写入 {TODAY_YIELD_JSON}: 今日收益率 -> {out['yield_pct']}")
+
+
+def _main_impl(out):
 
     data = from_report()
     if data:
@@ -109,7 +127,8 @@ def main():
         out["yield_pct"] = (data.get("yield_pct") or "—").strip() or "—"
         out["yield_note"] = (data.get("yield_note") or "待统计").strip() or "待统计"
     else:
-        # 无报告且日志未解析出数字时，用 DEMO 汇总兜底，避免「今日收益率」一直为空
+        # 无报告且日志未解析出数字时，用 DEMO 汇总兜底，避免「今日收益率」一直为空；出错也写入（错误即数据）
+        err_msg = None
         try:
             from scripts.analyze_demo_log import aggregate_demo_logs
             demo = aggregate_demo_logs()
@@ -119,18 +138,19 @@ def main():
                 out["yield_pct"] = f"主单 {n} 笔"
                 out["yield_note"] = f"DEMO 汇总: 主单成功 {n} 笔，扫描 {L} 个日志"
                 out["source"] = "demo_aggregate"
-        except Exception:
-            pass
-    # 禁止写入空字符串，避免报告/状态页「收益率」显示为空白
-    if not out["yield_pct"] or not str(out["yield_pct"]).strip():
+            elif demo and demo.get("logs_scanned", 0) == 0:
+                out["yield_note"] = "DEMO 汇总: 未扫描到日志"
+                out["source"] = "demo_aggregate"
+        except Exception as e:
+            err_msg = str(e)[:120]
+            out["yield_pct"] = "解析失败"
+            out["yield_note"] = f"错误: {err_msg}"
+            out["source"] = "error"
+    # 禁止写入空字符串；出错也是数据，便于改进算法
+    if not out.get("yield_pct") or not str(out["yield_pct"]).strip():
         out["yield_pct"] = "—"
-    if not out["yield_note"] or not str(out["yield_note"]).strip():
+    if not out.get("yield_note") or not str(out["yield_note"]).strip():
         out["yield_note"] = "待统计"
-
-    DOCS.mkdir(parents=True, exist_ok=True)
-    with open(TODAY_YIELD_JSON, "w", encoding="utf-8") as f:
-        json.dump(out, f, ensure_ascii=False, indent=2)
-    print(f"✅ 已写入 {TODAY_YIELD_JSON}: 今日收益率 -> {out['yield_pct']}")
 
 
 if __name__ == "__main__":
