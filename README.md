@@ -1,6 +1,7 @@
-# TigerTrade - AI驱动的期货交易系统
+# TigerTrade - AI 驱动的量化交易系统
 
-> **面向量化开发者/期货研究者**：基于 Tick 级数据与 Transformer，解决「不用人为指标、让模型自动发现特征」的量化研究与回测验证；目标月盈利率 20%，支持与 agent江湖 多 Agent 协作分工。
+> **面向量化开发者/期货研究者**：基于 Tick 级数据与 Transformer，解决「不用人为指标、让模型自动发现特征」的量化研究与回测验证；目标月盈利率 20%，支持与 agent江湖 多 Agent 协作分工。  
+> **标的说明**：量化交易标的不限于白银期货；**白银期货（如 SIL2603）为第一阶段测试标的**，系统设计支持多标的扩展。详见 [标的与阶段说明](docs/标的与阶段说明.md)。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
@@ -31,7 +32,7 @@
 
 > **本项目基于 [AgentFuture](/home/cx/agentfuture/) 多Agent协作框架构建** 🤝
 
-TigerTrade是一个结合传统量化交易和现代深度学习的期货交易系统。通过Tiger Open API获取秒级真实市场数据，使用Transformer模型自动学习市场特征，实现智能化交易决策。
+TigerTrade 是一个结合传统量化交易和现代深度学习的**量化交易系统**。通过 Tiger Open API 获取秒级真实市场数据，使用 Transformer 模型自动学习市场特征，实现智能化交易决策。**当前阶段以白银期货（SIL 等）为测试标的**，标的不限于期货或单一品种。
 
 **特点**: 
 - 利用AgentFuture的多Agent协作能力，实现数据采集、模型训练、策略回测的并行处理
@@ -94,7 +95,7 @@ TigerTrade是一个结合传统量化交易和现代深度学习的期货交易�
 - [ ] 自动化交易系统
 - [ ] 持续学习和模型迭代
 
-**风险提示**: 期货交易具有高风险，20%月盈利率是挑战性目标，需要严格的风险控制和持续优化。
+**风险提示**：期货等衍生品交易具有高风险，20% 月盈利率是挑战性目标，需要严格的风险控制和持续优化。
 
 ---
 
@@ -154,9 +155,9 @@ python src/feature_discovery_from_model.py
 
 ### 适用场景
 
-- 期货量化研究、Tick 级策略开发
+- 量化研究（含期货）、Tick 级策略开发
 - Transformer 在金融时序中的应用与实验
-- 白银/期货 API（Tiger Open API）数据采集与回测
+- 多标的/期货 API（Tiger Open API）数据采集与回测；当前阶段以白银期货等为测试标的
 - 与 agent江湖 多 Agent 协作：数据采集、模型训练、回测分工
 
 ---
@@ -620,4 +621,4 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 ---
 
 **⚠️ 风险提示**: 
-本项目仅供学习和研究使用，不构成任何投资建议。期货交易具有高风险，可能导致本金损失。请在充分理解风险的情况下谨慎决策。
+本项目仅供学习和研究使用，不构成任何投资建议。期货等衍生品交易具有高风险，可能导致本金损失。请在充分理解风险的情况下谨慎决策。
