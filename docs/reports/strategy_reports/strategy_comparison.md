@@ -1,6 +1,12 @@
 # 策略对比报告
 
-*报告生成时间：2026-02-05T11:54:18.471664*
+*报告生成时间：2026-02-06T09:16:31.830738*
+
+## 数据来源与「结果不全」说明
+
+- **回测效果**：当前仅 **grid / boll** 由 `parameter_grid_search`（data/processed/test.csv）产出；moe_transformer、lstm 需单独回测或训练阶段产出，故表中可能为 —。
+- **实盘/DEMO 效果**：**demo_*** 等列来自 DEMO 多日志汇总，当前仅 **MoE 策略**有日志汇总；其他策略对应列为 — 属正常。
+- **今日收益率**：来自 `docs/today_yield.json`。若为 —，请运行 **收益与算法优化**（`python scripts/optimize_algorithm_and_profitability.py`）或单独运行 `python scripts/update_today_yield_for_status.py`，会从报告或 DEMO 日志更新后再刷新本报告。
 
 ## 回测效果对比
 
@@ -24,10 +30,12 @@
 | grid | 0 | 100.0 | — | — | — | — | — | — |
 | boll | 0 | 100.0 | — | — | — | — | — | — |
 
+**数据完整度**：回测 2/4 策略有数据；实盘/DEMO 1/4 策略有日志汇总；今日收益率见下。
+
 ## 今日收益率（DEMO/实盘）
 
-- 日期：
-- 收益率：—
+- 日期：2026-02-06
+- 收益率：6.65%
 
 ## 每日收益与算法优化在干啥
 
