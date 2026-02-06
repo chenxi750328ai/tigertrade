@@ -107,12 +107,17 @@ def load_run_effect():
             out["profitability"] = data.get("profitability")
         except Exception:
             pass
-    # 今日收益率
+    # 今日收益率（保证 yield_pct 不为空字符串，避免报告里「收益率：」后面空白）
     yield_path = ROOT / "docs" / "today_yield.json"
     if yield_path.exists():
         try:
             with open(yield_path, "r", encoding="utf-8") as f:
-                out["today_yield"] = json.load(f)
+                y = json.load(f)
+            if y.get("yield_pct") == "" or y.get("yield_pct") is None:
+                y["yield_pct"] = "—"
+            if y.get("yield_note") == "" or y.get("yield_note") is None:
+                y["yield_note"] = "待统计"
+            out["today_yield"] = y
         except Exception:
             pass
     # DEMO 多日/多日志汇总（扫描所有 demo_*.log、demo_run_20h_*.log，避免“没数据”）
@@ -245,19 +250,33 @@ def write_strategy_report(strategy_id: str, meta: dict, run_effect: dict):
 
 def write_comparison_report(run_effect: dict):
     """写对比报告：回测效果表 + 实盘/DEMO 效果表 + 每日例行说明。"""
-    perf = run_effect.get("strategy_performance") or {}
     ts = run_effect.get("timestamp", "")
 
+    perf = run_effect.get("strategy_performance") or {}
+    has_perf = len(perf) > 0 and any(perf.get(s) for s in perf)
     lines = [
         "# 策略对比报告",
         "",
         f"*报告生成时间：{ts}*",
         "",
+    ]
+    if not has_perf:
+        lines.extend([
+            "> **若您看到下方表格或今日收益率为空**：请在本机 **tigertrade 根目录**执行：`python3 scripts/optimize_algorithm_and_profitability.py`，再执行 `python3 scripts/generate_strategy_reports.py`，然后刷新本页或重新打开报告。",
+            "",
+        ])
+    lines.extend([
+        "## 数据来源与「结果不全」说明",
+        "",
+        "- **回测效果**：当前仅 **grid / boll** 由 `parameter_grid_search`（data/processed/test.csv）产出；moe_transformer、lstm 需单独回测或训练阶段产出，故表中可能为 —。",
+        "- **实盘/DEMO 效果**：**demo_*** 等列来自 DEMO 多日志汇总；同次运行四策略共用统计，故 grid/boll/lstm 与 MoE 数字一致。",
+        "- **今日收益率**：来自 `docs/today_yield.json`。若为 —，请运行 **收益与算法优化**（`python scripts/optimize_algorithm_and_profitability.py`）或单独运行 `python scripts/update_today_yield_for_status.py`，会从报告或 DEMO 日志更新后再刷新本报告。",
+        "",
         "## 回测效果对比",
         "",
         "（来自历史数据回测，如 `parameter_grid_search`。）",
         "",
-    ]
+    ])
     if perf:
         strategies = list(perf.keys())
         bk = [k for k in BACKTEST_KEYS if any((perf.get(s) or {}).get(k) is not None for s in strategies)]
@@ -292,17 +311,28 @@ def write_comparison_report(run_effect: dict):
         else:
             lines.append("（暂无实盘/DEMO 效果数据。）")
             lines.append("")
+        # 数据完整度：一眼看出多少策略有回测 / DEMO 数据
+        n_backtest = sum(1 for s in strategies if (perf.get(s) or {}).get("return_pct") is not None or (perf.get(s) or {}).get("num_trades") is not None)
+        n_demo = sum(1 for s in strategies if any((perf.get(s) or {}).get(k) is not None for k in LIVE_DEMO_KEYS if k.startswith("demo_")))
+        lines.append("**数据完整度**：回测 " + str(n_backtest) + "/" + str(len(strategies)) + " 策略有数据；实盘/DEMO " + str(n_demo) + "/" + str(len(strategies)) + " 策略有日志汇总；今日收益率见下。")
+        lines.append("")
     else:
         lines.append("（暂无对比数据，由每日算法优化/回测流程更新。）")
         lines.append("")
 
-    if run_effect.get("today_yield"):
-        y = run_effect["today_yield"]
-        lines.append("## 今日收益率（DEMO/实盘）")
-        lines.append("")
-        lines.append(f"- 日期：{y.get('date', '—')}")
-        lines.append(f"- 收益率：{y.get('yield_pct', y.get('yield_note', '—'))}")
-        lines.append("")
+    # 今日收益率：始终输出一节；无文件或 date 为空时用当天日期，收益率禁止显示为空
+    y = run_effect.get("today_yield") or {}
+    date_display = (y.get("date") or "").strip() or datetime.now().strftime("%Y-%m-%d")
+    yield_display = (y.get("yield_pct") or y.get("yield_note") or "—").strip()
+    if not yield_display:
+        yield_display = "—"
+    lines.append("## 今日收益率（DEMO/实盘）")
+    lines.append("")
+    lines.append(f"- 日期：{date_display}")
+    lines.append(f"- 收益率：{yield_display}")
+    if str(yield_display).strip() in ("—", ""):
+        lines.append("- （若为 —：运行 `python scripts/optimize_algorithm_and_profitability.py` 会自动更新今日收益率并刷新本报告，或单独运行 `python scripts/update_today_yield_for_status.py`。）")
+    lines.append("")
     lines.append("## 每日收益与算法优化在干啥")
     lines.append("")
     lines.append(ROUTINE_WHAT_HOW.strip())
@@ -373,6 +403,18 @@ def write_index_html(run_effect: dict):
 
 def main():
     ensure_dir(STRATEGY_REPORTS_DIR)
+    # 先刷新今日收益率，再加载数据，使对比报告里「今日收益率」尽量不全为 —
+    try:
+        import subprocess
+        subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "update_today_yield_for_status.py")],
+            cwd=str(ROOT),
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+    except Exception:
+        pass
     run_effect = load_run_effect()
 
     for sid, meta in STRATEGY_ALGORITHMS.items():

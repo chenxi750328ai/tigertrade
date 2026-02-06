@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-02-05T11:54:18.446120",
+  "timestamp": "2026-02-06T09:30:24.182039",
   "profitability": null,
   "strategy_performance": {
     "moe_transformer": {
@@ -12,19 +12,34 @@
       "demo_execute_buy_calls": 33354,
       "demo_success_orders_sum": 0,
       "demo_fail_orders_sum": 2131197,
-      "demo_logs_scanned": 18
+      "demo_logs_scanned": 18,
+      "today_yield_pct": "6.65%"
     },
     "lstm": {
       "profitability": 0,
       "win_rate": 0,
       "sharpe_ratio": 0,
-      "max_drawdown": 0
+      "max_drawdown": 0,
+      "demo_order_success": 8662,
+      "demo_sl_tp_log": 89334,
+      "demo_execute_buy_calls": 33354,
+      "demo_success_orders_sum": 0,
+      "demo_fail_orders_sum": 2131197,
+      "demo_logs_scanned": 18,
+      "today_yield_pct": "6.65%"
     },
     "grid": {
       "profitability": 0,
       "win_rate": 100.0,
       "sharpe_ratio": 0,
       "max_drawdown": 0,
+      "demo_order_success": 8662,
+      "demo_sl_tp_log": 89334,
+      "demo_execute_buy_calls": 33354,
+      "demo_success_orders_sum": 0,
+      "demo_fail_orders_sum": 2131197,
+      "demo_logs_scanned": 18,
+      "today_yield_pct": "6.65%",
       "return_pct": 8.447142857142854,
       "num_trades": 1
     },
@@ -33,6 +48,13 @@
       "win_rate": 100.0,
       "sharpe_ratio": 0,
       "max_drawdown": 0,
+      "demo_order_success": 8662,
+      "demo_sl_tp_log": 89334,
+      "demo_execute_buy_calls": 33354,
+      "demo_success_orders_sum": 0,
+      "demo_fail_orders_sum": 2131197,
+      "demo_logs_scanned": 18,
+      "today_yield_pct": "6.65%",
       "return_pct": 8.447142857142854,
       "num_trades": 1
     }
@@ -56,7 +78,7 @@
   "recommendations": [],
   "data_sources": [
     "收益率/胜率：API 历史订单 暂无或未解析",
-    "DEMO：多日志汇总（订单成功次数、止损止盈条数等）",
+    "DEMO：多日志汇总（同次运行，四策略共用统计；订单成功、止损止盈等）",
     "网格/BOLL：回测（data/processed/test.csv）产出最优参数与 return_pct/win_rate"
   ]
 }

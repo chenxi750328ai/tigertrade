@@ -1,11 +1,11 @@
 # 策略对比报告
 
-*报告生成时间：2026-02-06T09:16:31.830738*
+*报告生成时间：2026-02-06T09:30:24.291658*
 
 ## 数据来源与「结果不全」说明
 
 - **回测效果**：当前仅 **grid / boll** 由 `parameter_grid_search`（data/processed/test.csv）产出；moe_transformer、lstm 需单独回测或训练阶段产出，故表中可能为 —。
-- **实盘/DEMO 效果**：**demo_*** 等列来自 DEMO 多日志汇总，当前仅 **MoE 策略**有日志汇总；其他策略对应列为 — 属正常。
+- **实盘/DEMO 效果**：**demo_*** 等列来自 DEMO 多日志汇总；同次运行四策略共用统计，故 grid/boll/lstm 与 MoE 数字一致。
 - **今日收益率**：来自 `docs/today_yield.json`。若为 —，请运行 **收益与算法优化**（`python scripts/optimize_algorithm_and_profitability.py`）或单独运行 `python scripts/update_today_yield_for_status.py`，会从报告或 DEMO 日志更新后再刷新本报告。
 
 ## 回测效果对比
@@ -23,14 +23,14 @@
 
 （来自 API 订单、today_yield、DEMO 多日志汇总。）
 
-| 策略 | profitability | win_rate | demo_order_success | demo_sl_tp_log | demo_execute_buy_calls | demo_success_orders_sum | demo_fail_orders_sum | demo_logs_scanned |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| moe_transformer | 0 | 0 | 8662 | 89334 | 33354 | 0 | 2131197 | 18 |
-| lstm | 0 | 0 | — | — | — | — | — | — |
-| grid | 0 | 100.0 | — | — | — | — | — | — |
-| boll | 0 | 100.0 | — | — | — | — | — | — |
+| 策略 | profitability | win_rate | today_yield_pct | demo_order_success | demo_sl_tp_log | demo_execute_buy_calls | demo_success_orders_sum | demo_fail_orders_sum | demo_logs_scanned |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| moe_transformer | 0 | 0 | 6.65% | 8662 | 89334 | 33354 | 0 | 2131197 | 18 |
+| lstm | 0 | 0 | 6.65% | 8662 | 89334 | 33354 | 0 | 2131197 | 18 |
+| grid | 0 | 100.0 | 6.65% | 8662 | 89334 | 33354 | 0 | 2131197 | 18 |
+| boll | 0 | 100.0 | 6.65% | 8662 | 89334 | 33354 | 0 | 2131197 | 18 |
 
-**数据完整度**：回测 2/4 策略有数据；实盘/DEMO 1/4 策略有日志汇总；今日收益率见下。
+**数据完整度**：回测 2/4 策略有数据；实盘/DEMO 4/4 策略有日志汇总；今日收益率见下。
 
 ## 今日收益率（DEMO/实盘）
 
