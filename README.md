@@ -23,6 +23,7 @@
 - [项目状态](#项目状态)
 - [参考资源](#参考资源)
 - [团队协作](#团队协作)
+- [项目目录与文档说明](#项目目录与文档说明)
 
 **说明**：更多说明类文档见 `docs/readme/`；项目 PL 与发布约定见 `docs/PL.md`。
 
@@ -574,6 +575,46 @@ update_todo(id="task-xxx", status="completed")
 - [ ] 更新了相关文档
 - [ ] 记录到RAG系统
 - [ ] 通过所有测试
+
+---
+
+## 📁 项目目录与文档说明
+
+以下说明本仓库各子目录与主要文档的用途，便于新人或 Agent 快速定位。完整版见 [docs/项目目录与文档说明.md](docs/项目目录与文档说明.md)。
+
+### 根目录
+
+| 文件/目录 | 用途 |
+|-----------|------|
+| **README.md** | 项目主入口：简介、快速开始、架构、计划、状态页链接等。 |
+| **docs/PL.md** | 项目 PL（Project Lead）与发布约定、推送说明。 |
+| **AGENT_TASKS.md** | Agent 任务清单与待办，供协作与 RAG 使用。 |
+| **Makefile** | 常用命令封装（测试、覆盖率、清理等）。 |
+| **requirements.txt** | Python 依赖。**pytest.ini** / **.coveragerc**：测试与覆盖率配置。 |
+
+### 子目录概览
+
+| 目录 | 用途 |
+|------|------|
+| **config/** | **trading.json**：交易后端、标的、tick_size（环境变量优先）；**strategy_config.json**：策略与模型配置。详见 [config/README_trading.md](config/README_trading.md)。 |
+| **src/** | **tiger1.py** 主入口（行情、策略、下单、DEMO）；**api_adapter.py** API 适配；**executor/** 订单执行；**strategies/** 各策略与模型；**data_collector/**、**data_processor/** 数据采集与处理；**trading/** 交易后端抽象；**risk/** 风控；**coordinator/** 多 Agent 协作。 |
+| **scripts/** | DEMO：`run_moe_demo.py`、`run_20h_demo.sh`；例行：`optimize_algorithm_and_profitability.py`、`generate_strategy_reports.py`、`update_today_yield_for_status.py`；推送 `push_until_success.sh`；监控、数据/训练、测试脚本等。 |
+| **tests/** | 单元与集成测试；`real_api` 标记用例 CI 默认排除。 |
+| **docs/** | **status.html** 状态页；**DEMO运行状态查询指南.md**；**每日例行_效果数据说明.md**；**reports/** 策略与算法报告；**guides/**、**readme/**、**strategy_designs/** 等。 |
+| **shared_rag/** | **best_practices/** 例行工作清单、协作分工、状态页规范等（Agent 必读）；**insights/** 经验复盘；**trading_strategy/** 策略参考。 |
+| **archive/**、**examples/**、**models/**、**tools/**、**.github/workflows/** | 历史归档、示例、模型元数据、调试/性能工具、CI 与 Pages 工作流。 |
+
+### 常用入口速查
+
+| 需求 | 入口 |
+|------|------|
+| 跑 DEMO | `python scripts/run_moe_demo.py [策略] [时长]` 或 `bash scripts/run_20h_demo.sh` |
+| 查 DEMO 状态 | [docs/DEMO运行状态查询指南.md](docs/DEMO运行状态查询指南.md)、`logs/demo_20h_*.log` |
+| 例行 7 项 | [shared_rag/best_practices/例行工作清单_agent必读.md](shared_rag/best_practices/例行工作清单_agent必读.md) |
+| 收益率与报告 | `python scripts/optimize_algorithm_and_profitability.py`、`python scripts/generate_strategy_reports.py` |
+| 状态页 | [docs/status.html](docs/status.html)，更新后提交并推送 |
+| 交易/标的配置 | [config/trading.json](config/trading.json)、[config/README_trading.md](config/README_trading.md) |
+| 测试 | `pytest tests/ -m "not real_api"`、Makefile |
 
 ---
 
