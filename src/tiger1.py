@@ -289,12 +289,22 @@ if client_config is not None:
 
 # 合约配置（SIL2603：COMEX白银2026年3月期货）
 # 老虎证券期货合约格式：{品种}.{交易所}.{到期月}，需确认实际合约代码
-FUTURE_SYMBOL = "SIL.COMEX.202603"
+# 交易标的：优先 config/trading.json（TradingConfig），其次环境变量
+try:
+    from src.config import TradingConfig
+    FUTURE_SYMBOL = TradingConfig.SYMBOL
+except Exception:
+    try:
+        from config import TradingConfig
+        FUTURE_SYMBOL = TradingConfig.SYMBOL
+    except Exception:
+        FUTURE_SYMBOL = os.getenv("TRADING_SYMBOL", "SIL.COMEX.202603")
 FUTURE_CURRENCY = Currency.USD
 FUTURE_MULTIPLIER = 1000  # 白银期货每手1000盎司
 
 # 网格策略核心参数（匹配之前讨论的规则）
-GRID_MAX_POSITION = 3          # 最大持仓手数
+GRID_MAX_POSITION = 3          # 最大持仓手数（默认）
+DEMO_MAX_POSITION = 3          # DEMO/沙箱硬顶，不可被时段自适应覆盖（回溯：时段曾把 GRID_MAX_POSITION 改为 8/10 导致超限）
 GRID_ATR_PERIOD = 14           # ATR计算周期
 GRID_BOLL_PERIOD = 20          # BOLL带周期
 GRID_BOLL_STD = 2              # BOLL标准差
@@ -585,8 +595,11 @@ def adjust_grid_interval(trend, indicators):
                     grid_upper = period_grid_upper
                     grid_lower = period_grid_lower
                 
-                # 更新最大仓位（时段自适应）
-                GRID_MAX_POSITION = grid_params['max_position']
+                # 更新最大仓位（时段自适应）；DEMO 不得被时段抬高，始终用 DEMO_MAX_POSITION
+                raw_max = grid_params['max_position']
+                GRID_MAX_POSITION = min(raw_max, DEMO_MAX_POSITION) if RUN_ENV == 'sandbox' else raw_max
+                if RUN_ENV == 'sandbox' and raw_max > DEMO_MAX_POSITION:
+                    logger.warning("DEMO 最大仓位已限制为 %s 手（时段配置为 %s 手）", DEMO_MAX_POSITION, raw_max)
                 
                 use_time_period_strategy = True
                 period_name = grid_params['period_name']
@@ -677,53 +690,38 @@ def get_future_brief_info(symbol):
                 "min_tick": MIN_TICK,
                 "expire_date": datetime.strptime(FUTURE_EXPIRE_DATE, "%Y-%m-%d").date() if FUTURE_EXPIRE_DATE != "2026-03-28" else date.today() + timedelta(days=90)
             }
-        #global FUTURE_MULTIPLIER
-        #FUTURE_MULTIPLIER = 1000
-        # 修复：统一返回字典格式
-        return {
-            "multiplier": FUTURE_MULTIPLIER,
-            "min_tick": MIN_TICK,
-            "expire_date": datetime.strptime(FUTURE_EXPIRE_DATE, "%Y-%m-%d").date() if FUTURE_EXPIRE_DATE != "2026-03-28" else date.today() + timedelta(days=90)
-        }
-        
-        # 通过合约代码获取合约详情
+        # 通过合约代码获取合约详情（此前误加提前 return 导致从未走 API，tick 一直用 0.01；COMEX 白银为 0.005）
         brief_info = api_manager.quote_api.get_future_brief([symbol])
-        
-        # 从返回的数据中提取乘数、最小变动价位等信息
         if not brief_info.empty and len(brief_info) > 0:
-            # 示例：假设返回的数据包含所需信息
             row = brief_info.iloc[0]
             multiplier = getattr(row, "multiplier", FUTURE_MULTIPLIER)
-            min_tick = getattr(row, "min_tick", MIN_TICK)
+            # API 可能返回 tick_size 或 min_tick
+            min_tick = getattr(row, "tick_size", None) or getattr(row, "min_tick", None)
+            if min_tick is None:
+                min_tick = MIN_TICK
+            else:
+                min_tick = float(min_tick)
             
-            # 获取到期日（如果API支持的话）
             expire_date_str = getattr(row, "expire_date", FUTURE_EXPIRE_DATE)
             expire_date = datetime.strptime(expire_date_str, "%Y-%m-%d").date() if expire_date_str != "2026-03-28" else date.today() + timedelta(days=90)
-            
             return {
                 "multiplier": multiplier,
                 "min_tick": min_tick,
                 "expire_date": expire_date
             }
-        else:
-            logger.debug("获取概要信息失败，使用默认参数")
-            # 如果获取不到，返回默认值
-            return {
-                "multiplier": FUTURE_MULTIPLIER,
-                "min_tick": MIN_TICK,
-                "expire_date": datetime.strptime(FUTURE_EXPIRE_DATE, "%Y-%m-%d").date() if FUTURE_EXPIRE_DATE != "2026-03-28" else date.today() + timedelta(days=90)
-            }
-    except Exception as e:
-        logger.debug("获取概要信息失败：%s，使用默认参数", e)
-        # 异常情况下返回默认值
+        logger.debug("获取概要信息失败，使用默认参数")
         return {
             "multiplier": FUTURE_MULTIPLIER,
             "min_tick": MIN_TICK,
             "expire_date": datetime.strptime(FUTURE_EXPIRE_DATE, "%Y-%m-%d").date() if FUTURE_EXPIRE_DATE != "2026-03-28" else date.today() + timedelta(days=90)
         }
-        #global FUTURE_MULTIPLIER
-        #FUTURE_MULTIPLIER = 1000
-        return True
+    except Exception as e:
+        logger.debug("获取概要信息失败：%s，使用默认参数", e)
+        return {
+            "multiplier": FUTURE_MULTIPLIER,
+            "min_tick": MIN_TICK,
+            "expire_date": datetime.strptime(FUTURE_EXPIRE_DATE, "%Y-%m-%d").date() if FUTURE_EXPIRE_DATE != "2026-03-28" else date.today() + timedelta(days=90)
+        }
 
 def _to_api_identifier(symbol: str) -> str:
     """Convert known symbol patterns into the compact identifier expected by the
@@ -1814,6 +1812,64 @@ def check_timeout_take_profits(current_price):
         return True
     
     return False
+
+
+def check_orphan_position_timeout_and_stoploss(current_price, atr=None, grid_lower=None):
+    """
+    对「孤儿持仓」做超时止盈/止损：没有挂在 active_take_profit_orders 里的持仓
+    （例如由 OrderExecutor 开的单）也要在超时或触发止损时平掉，防止裸奔、爆仓。
+    """
+    global current_position, position_entry_times, position_entry_prices, active_take_profit_orders
+    import time
+
+    if current_position <= 0:
+        return False
+
+    to_close = []  # [(pos_id, reason_str)]
+    for pos_id in list(position_entry_times.keys()):
+        entry_time = position_entry_times.get(pos_id)
+        entry_price = position_entry_prices.get(pos_id, 0)
+        if entry_time is None:
+            continue
+        elapsed_minutes = (time.time() - entry_time) / 60
+        # 止损：有 atr/grid_lower 时算止损价
+        if atr is not None and grid_lower is not None and entry_price > 0:
+            try:
+                stop_loss_price, _ = compute_stop_loss(entry_price, atr, grid_lower)
+                if stop_loss_price is not None and current_price <= stop_loss_price:
+                    to_close.append((pos_id, 'stop_loss'))
+                    continue
+            except Exception:
+                pass
+        # 超时：持仓超过 TAKE_PROFIT_TIMEOUT 分钟即平仓（避免无限扛单）
+        if elapsed_minutes >= TAKE_PROFIT_TIMEOUT:
+            to_close.append((pos_id, 'timeout'))
+
+    if not to_close:
+        return False
+
+    for pos_id, reason in to_close:
+        qty = 1
+        entry_price = position_entry_prices.get(pos_id, 0)
+        print(f"🛡️ [持仓看门狗] {reason} 平仓 pos_id={pos_id} 买入价={entry_price:.2f} 当前价={current_price:.2f}")
+        place_tiger_order('SELL', qty, current_price, reason=reason)
+        if pos_id in active_take_profit_orders:
+            del active_take_profit_orders[pos_id]
+        if pos_id in position_entry_times:
+            del position_entry_times[pos_id]
+        if pos_id in position_entry_prices:
+            del position_entry_prices[pos_id]
+    return True
+
+
+def run_position_watchdog(current_price, atr=None, grid_lower=None):
+    """
+    每轮必跑：主动止盈、超时止盈、孤儿持仓超时/止损，防止有仓无卖、裸奔爆仓。
+    TradingExecutor 等路径必须在循环里调用，否则持仓可能永远不平。
+    """
+    check_active_take_profits(current_price)
+    check_timeout_take_profits(current_price)
+    return check_orphan_position_timeout_and_stoploss(current_price, atr, grid_lower)
 
 
 def place_take_profit_order(entry_side: str, quantity: int, take_profit_price: float) -> bool:
@@ -3236,12 +3292,19 @@ if __name__ == "__main__":
                 use_rule_strategy = (confidence <= 0.6)  # 置信度低时使用规则策略
                 
                 if use_llm_prediction:
-                    # LLM模型预测（高置信度）
+                    # LLM模型预测（高置信度）：买入必须带止损+止盈，与 grid_trading_strategy_pro1 一致
                     if action == 1:  # 买入
                         if check_risk_control(tick_price, 'BUY'):
                             stop_loss_price, projected_loss = compute_stop_loss(tick_price, atr, grid_lower_val)
-                            print(f"✅ [LLM预测] 执行买入操作 | 价格={tick_price:.3f}, 止损={stop_loss_price:.3f}")
-                            place_tiger_order('BUY', 1, tick_price, stop_loss_price)
+                            tp_offset = max(TAKE_PROFIT_ATR_OFFSET * (atr if atr else 0), TAKE_PROFIT_MIN_OFFSET)
+                            take_profit_price = max(tick_price + getattr(sys.modules[__name__], 'MIN_TICK', 0.01),
+                                                    (grid_upper_val - tp_offset) if grid_upper_val is not None else tick_price + 0.02)
+                            print(f"✅ [LLM预测] 执行买入操作 | 价格={tick_price:.3f}, 止损={stop_loss_price:.3f}, 止盈={take_profit_price:.3f}")
+                            place_tiger_order('BUY', 1, tick_price, stop_loss_price, take_profit_price)
+                            try:
+                                place_take_profit_order('BUY', 1, take_profit_price)
+                            except Exception:
+                                pass
                         else:
                             logger.debug("风控阻止买入")
                     elif action == 2:  # 卖出
@@ -3257,12 +3320,19 @@ if __name__ == "__main__":
                     near_lower = current_data.get('near_lower', False)
                     rsi_ok = current_data.get('rsi_ok', False)
                     
-                    # 买入条件：接近下轨 + RSI超卖
+                    # 买入条件：接近下轨 + RSI超卖；必须带止损+止盈
                     if current_position == 0 and near_lower and rsi_ok:
                         if check_risk_control(tick_price, 'BUY'):
                             stop_loss_price, projected_loss = compute_stop_loss(tick_price, atr, grid_lower_val)
-                            print(f"✅ [规则策略] 执行买入操作 | 价格={tick_price:.3f}, 止损={stop_loss_price:.3f}")
-                            place_tiger_order('BUY', 1, tick_price, stop_loss_price)
+                            tp_offset = max(TAKE_PROFIT_ATR_OFFSET * (atr if atr else 0), TAKE_PROFIT_MIN_OFFSET)
+                            take_profit_price = max(tick_price + getattr(sys.modules[__name__], 'MIN_TICK', 0.01),
+                                                    (grid_upper_val - tp_offset) if grid_upper_val is not None else tick_price + 0.02)
+                            print(f"✅ [规则策略] 执行买入操作 | 价格={tick_price:.3f}, 止损={stop_loss_price:.3f}, 止盈={take_profit_price:.3f}")
+                            place_tiger_order('BUY', 1, tick_price, stop_loss_price, take_profit_price)
+                            try:
+                                place_take_profit_order('BUY', 1, take_profit_price)
+                            except Exception:
+                                pass
                         else:
                             logger.debug("风控阻止买入")
                     
@@ -3511,9 +3581,10 @@ def check_risk_control(price, side):
         logger.warning("风控检查失败: 当日亏损已达上限 (当前:%.2f 上限:%s)", daily_loss, DAILY_LOSS_LIMIT)
         return False
 
-    # Prevent buys beyond max position
-    if side == 'BUY' and current_position >= GRID_MAX_POSITION:
-        logger.warning("风控检查失败: 持仓已达上限 (当前:%s 上限:%s)", current_position, GRID_MAX_POSITION)
+    # Prevent buys beyond max position；DEMO 一律用 DEMO_MAX_POSITION（时段自适应曾把 GRID_MAX_POSITION 改为 8/10，导致账户 8 手超标）
+    effective_max = DEMO_MAX_POSITION if RUN_ENV == 'sandbox' else GRID_MAX_POSITION
+    if side == 'BUY' and current_position >= effective_max:
+        logger.warning("风控检查失败: 持仓已达上限 (当前:%s 上限:%s)", current_position, effective_max)
         return False
 
     # conservative per-trade loss check: estimate stop loss and projected loss
@@ -3535,8 +3606,16 @@ def check_risk_control(price, side):
     return True  # This is the actual end of the function
 
 
-FUTURE_TICK_SIZE = 0.01  # 最小变动价位
-MIN_TICK = 0.01  # 最小变动价位
+try:
+    from src.config import TradingConfig as _TC
+    FUTURE_TICK_SIZE = _TC.TICK_SIZE
+except Exception:
+    try:
+        from config import TradingConfig as _TC
+        FUTURE_TICK_SIZE = _TC.TICK_SIZE
+    except Exception:
+        FUTURE_TICK_SIZE = float(os.getenv("TICK_SIZE", "0.005"))
+MIN_TICK = FUTURE_TICK_SIZE
 FUTURE_EXPIRE_DATE = '2026-03-28'  # 合约到期日
 
 # 策略参数

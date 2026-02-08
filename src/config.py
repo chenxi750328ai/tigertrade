@@ -3,8 +3,29 @@
 配置文件 - 移除所有硬编码参数
 """
 
+import json
 import os
 from datetime import datetime, timedelta
+
+def _load_trading_file():
+    """从 config/trading.json 读取交易配置（若存在）。环境变量优先于文件。"""
+    for base in (os.getcwd(), os.path.dirname(os.path.dirname(os.path.abspath(__file__)))):
+        path = os.path.join(base, "config", "trading.json")
+        if os.path.isfile(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                pass
+    return {}
+
+_trading_file = _load_trading_file()
+
+class TradingConfig:
+    """交易后端与标的配置，供下单、DEMO、行情使用。优先环境变量，其次 config/trading.json，不再硬编码。"""
+    BACKEND = os.getenv("TRADING_BACKEND") or _trading_file.get("trading_backend", "tiger")
+    SYMBOL = os.getenv("TRADING_SYMBOL") or _trading_file.get("symbol", "SIL.COMEX.202603")
+    TICK_SIZE = float(os.getenv("TICK_SIZE") or _trading_file.get("tick_size") or "0.005")
 
 class DataConfig:
     """数据采集配置"""
@@ -183,7 +204,6 @@ class TrainingConfig:
         print(f"Dropout: {cls.DROPOUT}")
         print(f"梯度裁剪: {cls.GRAD_CLIP}")
         print(f"早停耐心值: {cls.EARLY_STOP_PATIENCE}")
-        print(f"设备: {cls.DEVICE}")
         print(f"调试模式: {cls.DEBUG_MODE}")
         print(f"梯度检查: {cls.CHECK_GRADIENTS}")
         print("=" * 80)

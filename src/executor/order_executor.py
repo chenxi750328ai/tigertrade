@@ -3,6 +3,7 @@
 统一的订单执行逻辑 - 直接调用API，不依赖tiger1.place_tiger_order
 """
 from typing import Tuple, Optional
+import math
 import sys
 import time
 import random
@@ -132,30 +133,29 @@ class OrderExecutor:
         Returns:
             (是否成功, 消息)
         """
+        # 解析实际用于风控的模块（日志显示曾出现 __main__ 无 check_risk_control，调用时动态回退到 t1）
+        risk = self.risk_manager if callable(getattr(self.risk_manager, 'check_risk_control', None)) else t1
         # 若使用了 t1 回退，先同步 __main__ 的 state 到 t1，保证风控看到的是当前运行状态
         if self._risk_fallback is not None:
             for attr in ('current_position', 'daily_loss', 'grid_lower', 'grid_upper', 'atr_5m'):
                 if hasattr(self._risk_fallback, attr):
-                    setattr(self.risk_manager, attr, getattr(self._risk_fallback, attr))
+                    setattr(risk, attr, getattr(self._risk_fallback, attr))
         # 风控检查 - 需要传入grid_lower参数（check_risk_control内部需要）
-        # 设置全局grid_lower，让check_risk_control能正确计算止损
-        original_grid_lower = getattr(self.risk_manager, 'grid_lower', None)
-        self.risk_manager.grid_lower = grid_lower
+        original_grid_lower = getattr(risk, 'grid_lower', None)
+        risk.grid_lower = grid_lower
         try:
-            risk_check_result = self.risk_manager.check_risk_control(price, 'BUY')
+            risk_check_result = risk.check_risk_control(price, 'BUY')
             if not risk_check_result:
                 return False, "风控检查未通过"
         finally:
-            # 恢复原始值
             if original_grid_lower is not None:
-                self.risk_manager.grid_lower = original_grid_lower
-            elif hasattr(self.risk_manager, 'grid_lower'):
-                delattr(self.risk_manager, 'grid_lower')
+                risk.grid_lower = original_grid_lower
+            elif hasattr(risk, 'grid_lower'):
+                delattr(risk, 'grid_lower')
         
-        # 计算止损价格
-        stop_loss_price, projected_loss = self.risk_manager.compute_stop_loss(
-            price, atr, grid_lower
-        )
+        # 计算止损价格（同样用 risk，避免 compute_stop_loss 缺失）
+        compute_sl = getattr(risk, 'compute_stop_loss', None) or getattr(t1, 'compute_stop_loss')
+        stop_loss_price, projected_loss = compute_sl(price, atr, grid_lower)
         
         if stop_loss_price is None:
             return False, "止损计算失败"
@@ -215,7 +215,8 @@ class OrderExecutor:
             if min_tick <= 0:
                 min_tick = 0.01
             limit_price = round(price / min_tick) * min_tick if min_tick > 0 else price
-            limit_price = round(limit_price, 2)
+            nd = max(0, int(round(-math.log10(min_tick)))) if min_tick > 0 else 2
+            limit_price = round(limit_price, nd)
             
             # 提交订单（使用位置参数，兼容Tiger API）
             order_result = trade_api.place_order(
@@ -334,7 +335,8 @@ class OrderExecutor:
             if min_tick <= 0:
                 min_tick = 0.01
             limit_price = round(price / min_tick) * min_tick if min_tick > 0 else price
-            limit_price = round(limit_price, 2)
+            nd = max(0, int(round(-math.log10(min_tick)))) if min_tick > 0 else 2
+            limit_price = round(limit_price, nd)
             
             # 提交订单（使用位置参数，兼容Tiger API）
             order_result = trade_api.place_order(
