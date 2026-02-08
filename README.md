@@ -17,6 +17,7 @@
 - [项目简介](#项目简介)
 - [核心特性](#核心特性)
 - [快速开始](#快速开始)
+- [测试与 DEMO 运行](#测试与-demo-运行)
 - [项目架构](#项目架构)
 - [技术栈](#技术栈)
 - [项目计划](#项目计划)
@@ -271,6 +272,69 @@ python -m coverage html  # 生成HTML报告，打开 htmlcov/index.html
 ```
 
 **注意**：若系统中有 ROS/launch_testing_ros，pytest 可能报错「found no collectors」或「unknown hook pytest_launch_collect_makemodule」。请先执行 `unset PYTHONPATH` 再运行 pytest，或使用 `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`。详见 [docs/pytest使用指南.md](docs/pytest使用指南.md)。
+
+---
+
+## 🧪 测试与 DEMO 运行
+
+新人/AG 按下面两步即可：**先跑测试（无需真实 API）**，再按需**用 DEMO 账户真实运行**。
+
+### 一、如何跑测试（不依赖真实 API）
+
+大部分用例不连 Tiger API 即可通过，适合验代码、CI、新成员自测。
+
+```bash
+cd tigertrade
+pip install -r requirements.txt
+
+# 推荐：排除依赖真实 API 的用例（无 API 配置时也能全绿）
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/ -m "not real_api" -q
+
+# 带覆盖率
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/ -m "not real_api" --cov=src --cov-report=term-missing -q
+```
+
+- 标记为 `real_api` 的用例需要配置 DEMO/真实 API 才会跑，默认被排除。
+- 若本机有 ROS 等插件干扰，先 `unset PYTHONPATH` 或使用 `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`。详见 [pytest使用指南](docs/pytest使用指南.md)。
+
+### 二、如何用 DEMO 账户真实运行
+
+要用 **DEMO 账户** 跑策略、真实下单（或仅行情），需先配置 Tiger API，再启动 DEMO。
+
+**1. 配置 Tiger API（DEMO）**
+
+- 在项目根目录下使用 **DEMO 配置目录** `openapicfg_dem/`（勿提交敏感文件）：
+  - 复制或编辑 `openapicfg_dem/tiger_openapi_config.properties`
+  - 填写：`tiger_id`、`private_key_path`（私钥路径）、`account`（DEMO 账户号）
+- 确保该 **account** 在 Tiger 后台已授权给当前 API 用户（tiger_id），否则会报授权错误。
+
+**2. 交易标的（可选）**
+
+- 默认使用白银期货等，见 `config/trading.json`（或环境变量 `TRADING_SYMBOL`、`TICK_SIZE`）。
+- DEMO 账户需具备对应标的权限，详见 [DEMO账户权限说明](docs/DEMO账户权限说明.md)。
+
+**3. 启动 DEMO 运行**
+
+```bash
+cd tigertrade
+
+# 方式一：MoE 策略，默认 20 小时
+python scripts/run_moe_demo.py moe_transformer 20
+
+# 方式二：使用 20h 脚本（内部调用 tiger1）
+bash scripts/run_20h_demo.sh
+```
+
+- 日志目录：`logs/demo_20h_*.log`，查看最新：`ls -t logs/demo_20h_*.log | head -1 | xargs tail -f`
+- 运行状态、异常订单检查、常见问题见 [DEMO运行状态查询指南](docs/DEMO运行状态查询指南.md)。
+
+**4. 小结**
+
+| 目的           | 操作 |
+|----------------|------|
+| 只跑测试、不连 API | `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/ -m "not real_api"` |
+| 用 DEMO 真实运行 | 配置 `openapicfg_dem/` → `python scripts/run_moe_demo.py [策略] [时长]` 或 `bash scripts/run_20h_demo.sh` |
+| 查 DEMO 状态/日志 | [DEMO运行状态查询指南](docs/DEMO运行状态查询指南.md)、`logs/demo_20h_*.log` |
 
 ---
 
