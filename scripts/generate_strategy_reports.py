@@ -409,13 +409,16 @@ def write_comparison_report(run_effect: dict):
     lines.append(f"- 日期：{date_display}")
     _verified = yp if src in ("tiger_backend", "report") and yp and yp != "—" else "—"
     if src == "none" and _verified == "—":
-        _verified = "—（需老虎后台数据核对）"
+        _verified = "—（根因见 [算法优化报告](../algorithm_optimization_report.md) 中「本报告空项根因说明」）"
     _estimated = "—"
     if src == "none" and yp and yp != "—":
         _estimated = yp + "（未核对）"
+    if _estimated == "—":
+        _estimated = "—（根因见 [算法优化报告](../algorithm_optimization_report.md) 中「本报告空项根因说明」）"
     lines.append(f"- **实际收益率（老虎后台核对）**：{_verified}")
     lines.append(f"- **推算收益率（未核对）**：{_estimated}")
     lines.append(f"- 当前展示：{yp}")
+    lines.append("- **空项根因**：实际/推算收益率为空时，原因均写在 [算法优化报告](../algorithm_optimization_report.md) 的「本报告空项根因说明」中，须追根问底、不忽悠。")
     if yp == "—" or not yp:
         lines.append("- （若为 —：运行 `python scripts/optimize_algorithm_and_profitability.py` 或 `update_today_yield_for_status.py` 更新。）")
     lines.append("")
@@ -575,6 +578,8 @@ def main():
     print("策略报告已生成：")
     print(f"  - {STRATEGY_REPORTS_DIR}/")
     print(f"  - {REPORTS_DIR}/strategy_reports_index.html")
+    print("")
+    print("⚠️ 报告自检须到网页上查看，本地不算。push 后等待 GitHub Pages 部署完成，再打开部署后的 status 与报告页核对内容是否最新。")
     return 0
 
 

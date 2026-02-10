@@ -24,74 +24,161 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def load_trading_history():
-    """加载历史交易记录"""
-    logger.info("📊 加载历史交易记录...")
-    
+def _normalize_order(order):
+    """将订单统一为 dict，便于解析（与 fetch_tiger_yield_for_demo 一致）。"""
+    def _attr(o, *keys, default=None):
+        for k in keys:
+            if hasattr(o, k):
+                v = getattr(o, k)
+                if v is not None:
+                    return v
+            if isinstance(o, dict):
+                v = o.get(k)
+                if v is not None:
+                    return v
+        return default
+    if isinstance(order, dict):
+        return order
+    return {
+        "order_id": _attr(order, "order_id", "id"),
+        "status": _attr(order, "status", "order_status"),
+        "side": _attr(order, "side", "action"),
+        "quantity": _attr(order, "quantity", "qty"),
+        "filled_quantity": _attr(order, "filled_quantity", "filled_qty"),
+        "avg_fill_price": _attr(order, "avg_fill_price", "average_price"),
+        "limit_price": _attr(order, "limit_price", "price"),
+        "realized_pnl": _attr(order, "realized_pnl", "realized_pnL"),
+    }
+
+
+def _fetch_orders_from_tiger_direct(limit=1000):
+    """当 api_manager 未初始化或无 get_orders 时，用 openapicfg_dem 直接拉老虎订单（与 fetch_tiger_yield_for_demo 一致）。
+    返回 (orders_list_or_none, reason_if_fail)。orders 非空时 reason 为 None。"""
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    config_path = os.path.join(root, "openapicfg_dem")
+    if not os.path.isdir(config_path):
+        return None, "openapicfg_dem 目录不存在"
     try:
-        # 从API获取历史订单
+        from tigeropen.tiger_open_config import TigerOpenClientConfig
+        from tigeropen.trade.trade_client import TradeClient
+    except ImportError as e:
+        return None, "tigeropen 未安装或不可用: %s" % (e,)
+    try:
+        config = TigerOpenClientConfig(props_path=config_path)
+        client = TradeClient(config)
+        acc = getattr(config, "account", None)
+        if not acc:
+            return None, "openapicfg_dem 中 account 为空"
+        try:
+            from src import tiger1 as t1
+            symbol_api = t1._to_api_identifier(getattr(t1, "FUTURE_SYMBOL", "SIL.COMEX.202603"))
+        except Exception:
+            symbol_api = "SIL2603"
+        orders = client.get_orders(account=acc, symbol=symbol_api, limit=limit)
+        if orders is None:
+            return [], "老虎 API get_orders 返回 None"
+        if len(orders) == 0:
+            return [], "老虎 API 返回 0 笔订单（该账户/合约可能无订单或未授权）"
+        return orders, None
+    except Exception as e:
+        logger.debug("直接拉取老虎订单失败: %s", e)
+        return None, "openapicfg_dem 拉取异常: %s" % (str(e)[:200],)
+
+
+def load_trading_history():
+    """加载历史交易记录：先试 api_manager，若无订单则用 openapicfg_dem 直接拉老虎。
+    返回 (orders, backend_empty_reason)。orders 非空时 backend_empty_reason 为 None；
+    orders 为空时 backend_empty_reason 为字符串，供报告写入「实际收益率为空」的根因。"""
+    logger.info("📊 加载历史交易记录...")
+    orders = []
+    reasons = []
+
+    try:
         from src.api_adapter import api_manager
-        
         if api_manager.trade_api and hasattr(api_manager.trade_api, 'get_orders'):
-            # 转换symbol格式：SIL.COMEX.202603 -> SIL2603
             from src import tiger1 as t1
             symbol_to_query = t1._to_api_identifier('SIL.COMEX.202603')
             orders = api_manager.trade_api.get_orders(
-                account=api_manager._account,
-                symbol=symbol_to_query,  # 使用转换后的格式 SIL2603
+                account=getattr(api_manager, '_account', None),
+                symbol=symbol_to_query,
                 limit=1000
             )
-            
             if orders:
-                logger.info(f"✅ 加载了 {len(orders)} 条历史订单")
-                return orders
-        
-        logger.warning("⚠️ 无法加载历史交易记录，使用模拟数据")
-        return []
-        
+                logger.info("✅ 从 api_manager 加载了 %s 条历史订单", len(orders))
+                return orders, None
+            reasons.append("api_manager.get_orders 返回 0 笔")
+        else:
+            reasons.append("api_manager 未初始化或 trade_api 无 get_orders")
     except Exception as e:
-        logger.error(f"❌ 加载历史交易记录失败: {e}")
-        return []
+        reasons.append("api_manager 拉取异常: %s" % (str(e)[:150],))
+
+    # 无订单时：用 openapicfg_dem 直接拉老虎（报告生成环境常未初始化 api_manager）
+    direct, direct_reason = _fetch_orders_from_tiger_direct(limit=1000)
+    if direct is not None and len(direct) > 0:
+        logger.info("✅ 从老虎 API（openapicfg_dem）加载了 %s 条历史订单", len(direct))
+        return direct, None
+    if direct_reason:
+        reasons.append("openapicfg_dem: %s" % direct_reason)
+    elif direct is not None:
+        reasons.append("openapicfg_dem 拉取返回 0 笔")
+
+    backend_empty_reason = "；".join(reasons) if reasons else "未拉取到订单（原因未记录）"
+    logger.warning("⚠️ 无法加载历史交易记录：%s", backend_empty_reason)
+    return [], backend_empty_reason
 
 
 def calculate_profitability(orders):
-    """计算收益率"""
+    """根据订单列表计算收益率；订单可为老虎 API 返回的对象或 dict，仅统计已成交（FILLED）且能解析盈亏的。"""
     logger.info("💰 计算收益率...")
-    
+
     if not orders:
         logger.warning("⚠️ 没有交易记录，无法计算收益率")
         return None
-    
+
     try:
-        # 分析订单数据
-        total_profit = 0
-        total_trades = 0
+        filled = []
+        for o in orders:
+            row = _normalize_order(o)
+            st = (row.get("status") or "").upper()
+            if st in ("FILLED", "FILLED_ALL", "FINISHED"):
+                filled.append(row)
+
+        total_profit = 0.0
+        total_trades = len(filled)
         winning_trades = 0
         losing_trades = 0
-        
-        for order in orders:
-            # 这里需要根据实际的订单对象结构来解析
-            # 假设订单有price, quantity, side等属性
-            pass
-        
+
+        for r in filled:
+            pnl = r.get("realized_pnl")
+            if pnl is not None:
+                try:
+                    p = float(pnl)
+                    total_profit += p
+                    if p > 0:
+                        winning_trades += 1
+                    elif p < 0:
+                        losing_trades += 1
+                except (TypeError, ValueError):
+                    pass
+
         profitability = {
             'total_profit': total_profit,
             'total_trades': total_trades,
             'winning_trades': winning_trades,
             'losing_trades': losing_trades,
-            'win_rate': winning_trades / total_trades * 100 if total_trades > 0 else 0,
-            'average_profit': total_profit / total_trades if total_trades > 0 else 0
+            'win_rate': (winning_trades / total_trades * 100) if total_trades > 0 else 0,
+            'average_profit': (total_profit / total_trades) if total_trades > 0 else 0
         }
-        
-        logger.info(f"✅ 收益率计算完成")
-        logger.info(f"  总交易数: {profitability['total_trades']}")
-        logger.info(f"  胜率: {profitability['win_rate']:.2f}%")
-        logger.info(f"  平均收益: {profitability['average_profit']:.2f}")
-        
+
+        logger.info("✅ 收益率计算完成（已成交笔数=%s）", profitability["total_trades"])
+        logger.info("  总交易数: %s", profitability["total_trades"])
+        logger.info("  胜率: %.2f%%", profitability["win_rate"])
+        logger.info("  平均收益: %.2f", profitability["average_profit"])
+
         return profitability
-        
+
     except Exception as e:
-        logger.error(f"❌ 计算收益率失败: {e}")
+        logger.error("❌ 计算收益率失败: %s", e)
         return None
 
 
@@ -242,8 +329,8 @@ def optimize_parameters():
         return {}, {}
 
 
-def generate_optimization_report(profitability, performance, optimal_params):
-    """生成优化报告"""
+def generate_optimization_report(profitability, performance, optimal_params, backend_empty_reason=None):
+    """生成优化报告。backend_empty_reason：当实际收益率（老虎核对）为空时，写入报告的空项根因说明。"""
     logger.info("📝 生成优化报告...")
     try:
         from src.algorithm_version import get_current_version
@@ -282,7 +369,7 @@ def generate_optimization_report(profitability, performance, optimal_params):
     if profitability and profitability.get('total_trades'):
         data_sources.append("收益率/胜率：来自 API 历史订单（老虎后台可核对）")
     else:
-        data_sources.append("收益率/胜率：API 历史订单 暂无或未解析")
+        data_sources.append("收益率/胜率：API 历史订单 暂无或未解析（原因与后台订单来源见 [为何报告里后台核对数据为空_说明](../为何报告里后台核对数据为空_说明.md)）")
     perf = report.get('strategy_performance') or {}
     if perf.get('moe_transformer', {}).get('demo_order_success') or perf.get('moe_transformer', {}).get('demo_logs_scanned'):
         data_sources.append("DEMO：多日志汇总（同次运行，四策略共用统计；订单成功、止损止盈等）")
@@ -308,6 +395,12 @@ def generate_optimization_report(profitability, performance, optimal_params):
         for line in report.get('data_sources', data_sources):
             f.write(f"- {line}\n")
         f.write("\n**数据来源与指标含义**（return_pct、num_trades、win_rate、demo_sl_tp_log、demo_execute_buy_calls 等）见 [每日例行_效果数据说明](../每日例行_效果数据说明.md)、[需求分析和Feature测试设计](../需求分析和Feature测试设计.md) 附录。\n\n")
+        # 本报告空项根因说明（必须写清为何空，不能留白让用户猜）
+        f.write("## 本报告空项根因说明\n\n")
+        f.write("以下为空时，**原因均写明**，便于追根问底、不忽悠。\n\n")
+        _ver_reason = "无（本次已从老虎拉取到订单并解析）" if (profitability and profitability.get('total_trades')) else (backend_empty_reason or "未记录拉取步骤，无法给出根因")
+        f.write("- **实际收益率（老虎后台核对）为空** → 原因：%s\n" % _ver_reason)
+        f.write("- **推算收益率（未核对）为空** → 原因：order_log 仅有主单/止损单/止盈单的**提交记录**，无每笔「最后是止损还是止盈」及**平仓价**，无法在无老虎成交或日志平仓记录的前提下做可信推算；若将来实现须与老虎对账验证。详见 [回溯_执行失败为何出现收益率与推算收益率](../回溯_执行失败为何出现收益率与推算收益率.md)。\n\n")
         f.write("## 日志与老虎后台差异说明（必读）\n\n")
         f.write("系统日志（order_log、DEMO 运行日志）记录的是**本进程的每次下单尝试与结果**，包含：模拟单（未发老虎）、真实但被拒单、真实且成功单。**只有「mode=real 且 status=success」的才会在老虎后台出现**，故日志条数/内容与老虎后台不一致是正常现象。DEMO 实盘收益率须以老虎后台为准；核对规则：**DEMO 运行的单在老虎后台都能查到就算通过**，老虎后台可以更多（含人工单）。详见 [DEMO实盘收益率_定义与数据来源](../DEMO实盘收益率_定义与数据来源.md)、[order_log_analysis](order_log_analysis.md)。\n\n")
         f.write("**执行失败（含 API 被拒）**：发了 API 被拒属于**执行失败**，状态页与订单日志分析中会体现「成功 N 笔、失败（含API被拒）M 笔」。**若多为失败则不应有实盘收益率**；今日收益率仅来自老虎后台成交，执行失败时无实盘收益。\n\n")
@@ -324,10 +417,12 @@ def generate_optimization_report(profitability, performance, optimal_params):
                 f.write("| --- | --- | --- |\n")
                 _ver = yp if ysrc in ('tiger_backend', 'report') and yp != '—' else '—'
                 if ysrc == 'none' and _ver == '—':
-                    _ver = '—（需老虎后台数据核对）'
+                    _ver = '—（原因见上方「本报告空项根因说明」）'
                 _est = (yp + '（未核对）') if ysrc == 'none' and yp != '—' else '—'
-                f.write(f"| **实际收益率（老虎后台核对）** | {_ver} | 仅老虎后台订单/成交计算；未拉取或未核对时为 —。 |\n")
-                f.write(f"| **推算收益率（未核对）** | {_est} | 未与老虎核对时的推算值；无推算时为 —。 |\n")
+                if _est == '—':
+                    _est = '—（原因见上方「本报告空项根因说明」）'
+                f.write("| **实际收益率（老虎后台核对）** | %s | 仅老虎后台订单/成交计算；未拉取或未核对时见上方空项根因。 |\n" % _ver)
+                f.write("| **推算收益率（未核对）** | %s | 未与老虎核对时的推算值；无推算时见上方空项根因。 |\n" % _est)
                 f.write("\n")
         except Exception:
             pass
@@ -429,10 +524,13 @@ def run_optimization_workflow():
     logger.info("="*70)
     
     # 1. 加载历史交易记录（API 订单 → 若有则算收益率）
-    orders = load_trading_history()
+    orders, backend_empty_reason = load_trading_history()
     
     # 2. 计算收益率（依赖订单解析，暂无则 profitability 为 None）
     profitability = calculate_profitability(orders)
+    # 有订单但无成交/未解析时，补全根因供报告写入
+    if orders and (not profitability or not profitability.get('total_trades')):
+        backend_empty_reason = (backend_empty_reason or "").strip() or "已拉取到订单但无已成交（FILLED）笔或无法解析 realized_pnl"
     
     # 3. 分析策略表现（DEMO 多日志汇总 + today_yield）
     performance = analyze_strategy_performance()
@@ -459,7 +557,7 @@ def run_optimization_workflow():
                 performance[name]['top_per_trade_pct'] = '—'
     
     # 5. 生成报告（含效果数据来源说明）
-    report = generate_optimization_report(profitability, performance, optimal_params)
+    report = generate_optimization_report(profitability, performance, optimal_params, backend_empty_reason=backend_empty_reason)
     
     # 5.5 更新今日收益率（写入 docs/today_yield.json），策略报告中的「今日收益率」才不全为 —
     try:
@@ -498,6 +596,7 @@ def run_optimization_workflow():
     
     logger.info("="*70)
     logger.info("✅ 算法优化和收益率分析完成")
+    logger.info("报告自检须到网页上查看，本地不算。push 后等待 GitHub Pages 部署完成，再打开部署后的 status 与报告页核对。")
     logger.info("="*70)
     
     return report
