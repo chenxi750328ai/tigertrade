@@ -11,6 +11,7 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import List, Tuple
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -299,9 +300,16 @@ def write_comparison_report(run_effect: dict):
             lines.append("")
         lines.append("## 实盘/DEMO 效果对比")
         lines.append("")
-        lines.append("（来自 API 订单、today_yield、DEMO 多日志汇总。）")
+        lines.append("（来自 API 订单、today_yield、DEMO 多日志汇总。**胜率**仅来自 API 历史订单解析，无 API 数据时为 —；勿与回测胜率混淆。）")
         lines.append("")
-        lk = [k for k in LIVE_DEMO_KEYS if any((perf.get(s) or {}).get(k) is not None for s in strategies)]
+        # 实盘 win_rate 只来自 profitability（API），不从 strategy_performance 取（grid/boll 里是回测 win_rate，误入实盘列会变成「实盘100%」）
+        profitability = run_effect.get("profitability")
+        live_win_rate = "—"
+        if isinstance(profitability, dict) and (profitability.get("total_trades") or 0) > 0:
+            w = profitability.get("win_rate")
+            if w is not None:
+                live_win_rate = f"{w:.1f}" if isinstance(w, (int, float)) else str(w)
+        lk = [k for k in LIVE_DEMO_KEYS if any((perf.get(s) or {}).get(k) is not None for s in strategies) or (k == "win_rate")]
         if lk:
             header = "| 策略 | " + " | ".join(lk) + " |"
             sep = "| --- | " + " | ".join("---" for _ in lk) + " |"
@@ -309,7 +317,12 @@ def write_comparison_report(run_effect: dict):
             lines.append(sep)
             for s in strategies:
                 row = perf.get(s) or {}
-                cells = [str(row.get(k, "—")) for k in lk]
+                cells = []
+                for k in lk:
+                    if k == "win_rate":
+                        cells.append(str(live_win_rate))
+                    else:
+                        cells.append(str(row.get(k, "—")))
                 lines.append("| " + s + " | " + " | ".join(cells) + " |")
             lines.append("")
         else:
@@ -349,8 +362,54 @@ def write_comparison_report(run_effect: dict):
     return path
 
 
+def check_report_reasonableness(run_effect: dict, comparison_path: Path) -> Tuple[bool, List[str]]:
+    """自检：实盘/DEMO 表胜率是否与数据来源一致（无 API 时不应出现 100%）。返回 (通过, 警告列表)。"""
+    warnings = []
+    profitability = run_effect.get("profitability")
+    has_api = isinstance(profitability, dict) and (profitability.get("total_trades") or 0) > 0
+    if has_api:
+        return True, []
+    if not comparison_path.exists():
+        return True, []
+    text = comparison_path.read_text(encoding="utf-8")
+    if "## 实盘/DEMO 效果对比" not in text:
+        return True, []
+    # 找到表头行，确定 win_rate 列下标
+    lines = text.splitlines()
+    in_table = False
+    header_idx = -1
+    win_rate_col = -1
+    for i, line in enumerate(lines):
+        if "## 实盘/DEMO 效果对比" in line:
+            in_table = True
+            continue
+        if in_table and line.startswith("|"):
+            cells = [c.strip() for c in line.split("|")[1:-1]]
+            if "win_rate" in cells:
+                win_rate_col = cells.index("win_rate")
+                header_idx = i
+                break
+            if header_idx >= 0:
+                break
+    if win_rate_col < 0:
+        return True, []
+    for i in range(header_idx + 2, len(lines)):  # 跳过表头与分隔行
+        line = lines[i]
+        if not line.startswith("|"):
+            break
+        cells = [c.strip() for c in line.split("|")[1:-1]]
+        if len(cells) <= win_rate_col:
+            continue
+        val = cells[win_rate_col]
+        if val == "100.0" or val == "100":
+            warnings.append(
+                f"实盘/DEMO 表第{i+1}行 win_rate={val}%，但无 API 订单数据，疑似回测胜率误入实盘列，请检查。"
+            )
+    return len(warnings) == 0, warnings
+
+
 def write_index_html(run_effect: dict):
-    """写 index 页（HTML），供 STATUS 页链接，每日刷新。"""
+    """写 index 页（HTML），供 STATUS 页链接，每日刷新。链接为 GitHub 地址，push 后即看到最新。"""
     ts = run_effect.get("timestamp", "")[:19].replace("T", " ")
     base_url = "https://github.com/chenxi750328ai/tigertrade/blob/main/docs/reports/strategy_reports"
     design_base = "https://github.com/chenxi750328ai/tigertrade/blob/main/docs/strategy_designs"
@@ -377,6 +436,8 @@ def write_index_html(run_effect: dict):
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>策略算法与运行效果报告</title>
   <style>
     body {{ font-family: "Noto Sans SC", sans-serif; background: #0d0f12; color: #e5e7eb; padding: 2rem; max-width: 640px; margin: 0 auto; }}
@@ -423,9 +484,15 @@ def main():
 
     for sid, meta in STRATEGY_ALGORITHMS.items():
         write_strategy_report(sid, meta, run_effect)
-    write_comparison_report(run_effect)
+    comp_path = write_comparison_report(run_effect)
     write_index_html(run_effect)
 
+    ok, warn_list = check_report_reasonableness(run_effect, comp_path)
+    if ok:
+        print("报告自检: 通过（实盘胜率列与 API 数据一致）")
+    else:
+        for w in warn_list:
+            print(f"报告自检: 警告 — {w}")
     print("策略报告已生成：")
     print(f"  - {STRATEGY_REPORTS_DIR}/")
     print(f"  - {REPORTS_DIR}/strategy_reports_index.html")

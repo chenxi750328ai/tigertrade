@@ -1,6 +1,6 @@
 # 策略对比报告
 
-*报告生成时间：2026-02-10T09:21:33.783602*
+*报告生成时间：2026-02-10T11:05:28.825612*
 
 **算法版本**：2.0（重大变更与对比见 [algorithm_versions.md](../../algorithm_versions.md)）
 
@@ -23,21 +23,22 @@
 
 ## 实盘/DEMO 效果对比
 
-（来自 API 订单、today_yield、DEMO 多日志汇总。）
+（来自 API 订单、today_yield、DEMO 多日志汇总。**胜率**仅来自 API 历史订单解析，无 API 数据时为 —；勿与回测胜率混淆。）
 
-| 策略 | profitability | win_rate | today_yield_pct | demo_order_success | demo_sl_tp_log | demo_execute_buy_calls | demo_success_orders_sum | demo_fail_orders_sum | demo_logs_scanned |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| moe_transformer | 0 | 0 | 6.65% | 8662 | 89334 | 33354 | 0 | 2131197 | 18 |
-| lstm | 0 | 0 | 6.65% | 8662 | 89334 | 33354 | 0 | 2131197 | 18 |
-| grid | 0 | 100.0 | 6.65% | 8662 | 89334 | 33354 | 0 | 2131197 | 18 |
-| boll | 0 | 100.0 | 6.65% | 8662 | 89334 | 33354 | 0 | 2131197 | 18 |
+| 策略 | profitability | win_rate | demo_order_success | demo_sl_tp_log | demo_execute_buy_calls | demo_success_orders_sum | demo_fail_orders_sum | demo_logs_scanned |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| moe_transformer | 0 | — | 8746 | 89502 | 33475 | 2819 | 2134944 | 19 |
+| lstm | 0 | — | 8746 | 89502 | 33475 | 2819 | 2134944 | 19 |
+| grid | 0 | — | 8746 | 89502 | 33475 | 2819 | 2134944 | 19 |
+| boll | 0 | — | 8746 | 89502 | 33475 | 2819 | 2134944 | 19 |
 
 **数据完整度**：回测 4/4 策略有数据；实盘/DEMO 4/4 策略有日志汇总；今日收益率见下。
 
 ## 今日收益率（DEMO/实盘）
 
 - 日期：2026-02-10
-- 收益率：6.65%
+- 收益率：—
+- （若为 —：运行 `python scripts/optimize_algorithm_and_profitability.py` 会自动更新今日收益率并刷新本报告，或单独运行 `python scripts/update_today_yield_for_status.py`。）
 
 ## 每日收益与算法优化在干啥
 

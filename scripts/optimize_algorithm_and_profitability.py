@@ -222,8 +222,10 @@ def generate_optimization_report(profitability, performance, optimal_params):
     
     # 效果数据来源说明（避免「每天在干啥」说不清）
     data_sources = []
+    data_sources.append("**DEMO 实盘收益率须以老虎后台为准**，未核对上的数据不得作为实盘收益率。见 docs/DEMO实盘收益率_定义与数据来源.md")
+    data_sources.append("**日志与老虎后台不一致说明**：日志含模拟单与失败单，只有 mode=real 且 status=success 的才在老虎后台；核对规则为「DEMO 的单在老虎都能查到即通过」，老虎可更多（含人工单）。")
     if profitability and profitability.get('total_trades'):
-        data_sources.append("收益率/胜率：来自 API 历史订单")
+        data_sources.append("收益率/胜率：来自 API 历史订单（老虎后台可核对）")
     else:
         data_sources.append("收益率/胜率：API 历史订单 暂无或未解析")
     perf = report.get('strategy_performance') or {}
@@ -250,7 +252,10 @@ def generate_optimization_report(profitability, performance, optimal_params):
         f.write("## 效果数据来源（本次例行用了啥）\n\n")
         for line in report.get('data_sources', data_sources):
             f.write(f"- {line}\n")
-        f.write("\n")
+        f.write("\n**数据来源与指标含义**（return_pct、num_trades、win_rate、demo_sl_tp_log、demo_execute_buy_calls 等）见 [每日例行_效果数据说明](../每日例行_效果数据说明.md)、[需求分析和Feature测试设计](../需求分析和Feature测试设计.md) 附录。\n\n")
+        f.write("## 日志与老虎后台差异说明（必读）\n\n")
+        f.write("系统日志（order_log、DEMO 运行日志）记录的是**本进程的每次下单尝试与结果**，包含：模拟单（未发老虎）、真实但被拒单、真实且成功单。**只有「mode=real 且 status=success」的才会在老虎后台出现**，故日志条数/内容与老虎后台不一致是正常现象。DEMO 实盘收益率须以老虎后台为准；核对规则：**DEMO 运行的单在老虎后台都能查到就算通过**，老虎后台可以更多（含人工单）。详见 [DEMO实盘收益率_定义与数据来源](../DEMO实盘收益率_定义与数据来源.md)、[order_log_analysis](order_log_analysis.md)。\n\n")
+        f.write("**执行失败（含 API 被拒）**：发了 API 被拒属于**执行失败**，状态页与订单日志分析中会体现「成功 N 笔、失败（含API被拒）M 笔」。**若多为失败则不应有实盘收益率**；今日收益率仅来自老虎后台成交，执行失败时无实盘收益。\n\n")
         if profitability:
             f.write("## 收益率分析\n\n")
             f.write(f"- 总交易数: {profitability['total_trades']}\n")
@@ -259,9 +264,18 @@ def generate_optimization_report(profitability, performance, optimal_params):
         
         if optimal_params:
             f.write("## 优化后的参数\n\n")
+            perf = report.get('strategy_performance') or {}
             for strategy, params in optimal_params.items():
                 f.write(f"### {strategy}\n\n")
                 f.write(f"```json\n{json.dumps(params, indent=2)}\n```\n\n")
+            nt_list = []
+            for s in optimal_params:
+                if isinstance(perf.get(s), dict):
+                    nt = perf[s].get('num_trades')
+                    if isinstance(nt, (int, float)) and nt <= 1:
+                        nt_list.append(nt)
+            if nt_list:
+                f.write("**回测胜率说明**：本次回测部分策略成交笔数≤1，此时胜率 100% 或 0% 无参考意义，**非算法假定 100% 胜率**；回测逻辑会既有止损也有止盈，多笔时胜率会正常。详见 [回溯_执行失败为何出现收益率与推算收益率](../回溯_执行失败为何出现收益率与推算收益率.md)。\n\n")
         
         if report['recommendations']:
             f.write("## 优化建议\n\n")
@@ -270,6 +284,29 @@ def generate_optimization_report(profitability, performance, optimal_params):
                 f.write(f"   - {rec['suggestion']}\n\n")
     
     logger.info("✅ 优化报告已生成")
+
+    # 报告自检：回测仅 1 笔时应有胜率说明；无 API 时数据来源应标明
+    reports_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'docs', 'reports')
+    md_path = os.path.join(reports_dir, 'algorithm_optimization_report.md')
+    if os.path.exists(md_path):
+        with open(md_path, 'r', encoding='utf-8') as f:
+            md_content = f.read()
+        algo_warnings = []
+        perf = report.get('strategy_performance') or {}
+        has_single_trade = any(
+            isinstance((perf.get(s) or {}).get('num_trades'), (int, float)) and (perf.get(s) or {}).get('num_trades') <= 1
+            for s in ('grid', 'boll')
+        )
+        if has_single_trade and '回测胜率说明' not in md_content and '无参考意义' not in md_content:
+            algo_warnings.append("回测存在 num_trades≤1 但报告中未含「回测胜率说明」，易误导。")
+        if not (report.get('profitability') and report['profitability'].get('total_trades')):
+            if 'API 历史订单 暂无' not in md_content and '暂无或未解析' not in md_content:
+                algo_warnings.append("无 API 订单数据但报告未标明「API 历史订单 暂无」。")
+        if algo_warnings:
+            for w in algo_warnings:
+                logger.warning("报告自检: %s", w)
+        else:
+            logger.info("报告自检: 通过（数据来源与回测说明符合预期）")
     return report
 
 
@@ -323,6 +360,18 @@ def run_optimization_workflow():
         )
     except Exception as e:
         logger.debug("update_today_yield_for_status 未执行: %s", e)
+
+    # 5.6 订单执行状态（成功/失败含API被拒）写入 docs/order_execution_status.json，供状态页展示
+    try:
+        import subprocess
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        subprocess.run(
+            [sys.executable, os.path.join(os.path.dirname(__file__), 'export_order_log_and_analyze.py')],
+            cwd=root,
+            check=False,
+        )
+    except Exception as e:
+        logger.debug("export_order_log_and_analyze 未执行: %s", e)
 
     # 6. 生成各策略算法说明与运行效果报告（含对比），供 STATUS 页链接、每日刷新
     try:

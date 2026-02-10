@@ -1,6 +1,6 @@
 # BOLL 网格策略 策略
 
-*报告生成时间：2026-02-10T09:21:33.783602*
+*报告生成时间：2026-02-10T11:05:28.825612*
 
 ## 📄 设计文档（算法与参数详解）
 
@@ -34,17 +34,12 @@
 | 指标 | 值 |
 | --- | --- |
 | profitability | 0 |
-| today_yield_pct | 6.65% |
-| demo_order_success | 8662 |
-| demo_sl_tp_log | 89334 |
-| demo_execute_buy_calls | 33354 |
-| demo_success_orders_sum | 0 |
-| demo_fail_orders_sum | 2131197 |
-| demo_logs_scanned | 18 |
-
-### 今日收益率
-
-- 6.65%
+| demo_order_success | 8746 |
+| demo_sl_tp_log | 89502 |
+| demo_execute_buy_calls | 33475 |
+| demo_success_orders_sum | 2819 |
+| demo_fail_orders_sum | 2134944 |
+| demo_logs_scanned | 19 |
 
 ## 每日收益与算法优化在干啥
 

@@ -79,7 +79,7 @@
   <div class="wrap">
     <header class="hero">
       <h1>🐯 TigerTrade</h1>
-      <p class="meta">状态 <strong style="color:var(--wip)">开发中</strong> · 目标 月盈利率 20% · <strong>今日收益率：<span id="today-yield">—</span></strong>（例行更新） · 回测 grid/boll 8.45% · 算法版本 v2.0（因果掩码+Focal） · 数据已合并至 02-05 · 最近例行：CI 538 通过 · 收益与算法优化已跑 · <strong>内容更新 2026-02-10</strong> · 刷新 <span id="updated">--</span></p>
+      <p class="meta">状态 <strong style="color:var(--wip)">开发中</strong> · 目标 月盈利率 20% · <strong>今日收益率：<span id="today-yield">—</span></strong>（仅老虎后台；失败无实盘收益） · <strong>订单执行：成功 <span id="order-success">—</span> 笔，失败（含API被拒）<span id="order-fail">—</span> 笔</strong> · 回测 grid/boll 8.45% · 算法版本 v2.0 · 数据已合并至 02-05 · 最近例行：CI 538 通过 · 内容更新 2026-02-10 · 刷新 <span id="updated">--</span></p>
     </header>
 
     <!-- 特性 × 需求/设计/开发/测试 矩阵 -->
@@ -170,7 +170,6 @@
         <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/docs/PL.md" target="_blank" rel="noopener">查</a></span>
         <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/docs/PL.md" target="_blank" rel="noopener">责</a></span>
       </div>
-
       <div class="legend">
         <span><i class="dot ok"></i> 已完成</span>
         <span><i class="dot wip"></i> 进行中</span>
@@ -268,7 +267,8 @@
   </div>
   <script>
     document.getElementById('updated').textContent = new Date().toISOString().replace('T',' ').slice(0,19);
-    fetch('today_yield.json').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+    var q = '?t=' + Date.now();
+    fetch('today_yield.json' + q).then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
       var el = document.getElementById('today-yield');
       var val = document.getElementById('today-yield-value');
       var pct = (d && (d.yield_pct != null && d.yield_pct !== '')) ? String(d.yield_pct).trim() : '';
@@ -277,6 +277,10 @@
       if (el) el.textContent = show;
       if (val) val.textContent = show;
     }).catch(function(){ if (document.getElementById('today-yield')) document.getElementById('today-yield').textContent = '—'; });
+    fetch('order_execution_status.json' + q).then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+      if (d && document.getElementById('order-success')) document.getElementById('order-success').textContent = d.real_success_count != null ? d.real_success_count : '—';
+      if (d && document.getElementById('order-fail')) document.getElementById('order-fail').textContent = d.real_fail_count != null ? d.real_fail_count : '—';
+    }).catch(function(){});
   </script>
 </body>
 </html>
