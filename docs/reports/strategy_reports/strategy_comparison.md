@@ -1,6 +1,6 @@
 # 策略对比报告
 
-*报告生成时间：2026-02-10T16:46:48.370137*
+*报告生成时间：2026-02-10T17:31:40.007242*
 
 **算法版本**：2.0（重大变更与对比见 [algorithm_versions.md](../../algorithm_versions.md)）
 
@@ -30,19 +30,20 @@
 
 | 策略 | win_rate | yield_verified | yield_estimated | today_yield_pct | profitability | demo_order_success | demo_sl_tp_log | demo_execute_buy_calls | demo_success_orders_sum | demo_fail_orders_sum | demo_logs_scanned |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| moe_transformer | — | — | — | — | 0 | 9103 | 90216 | 33874 | 38576 | 2222179 | 20 |
-| lstm | — | — | — | — | 0 | 9103 | 90216 | 33874 | 38576 | 2222179 | 20 |
-| grid | — | — | — | — | 0 | 9103 | 90216 | 33874 | 38576 | 2222179 | 20 |
-| boll | — | — | — | — | 0 | 9103 | 90216 | 33874 | 38576 | 2222179 | 20 |
+| moe_transformer | — | — | — | — | 0 | 9169 | 90348 | 33948 | 53703 | 2270098 | 20 |
+| lstm | — | — | — | — | 0 | 9169 | 90348 | 33948 | 53703 | 2270098 | 20 |
+| grid | — | — | — | — | 0 | 9169 | 90348 | 33948 | 53703 | 2270098 | 20 |
+| boll | — | — | — | — | 0 | 9169 | 90348 | 33948 | 53703 | 2270098 | 20 |
 
 **数据完整度**：回测 4/4 策略有数据；实盘/DEMO 4/4 策略有日志汇总。
 
 ## 今日收益率（DEMO/实盘）
 
 - 日期：2026-02-10
-- **实际收益率（老虎后台核对）**：—（需老虎后台数据核对）
-- **推算收益率（未核对）**：—
+- **实际收益率（老虎后台核对）**：—（根因见 [算法优化报告](../algorithm_optimization_report.md) 中「本报告空项根因说明」）
+- **推算收益率（未核对）**：—（根因见 [算法优化报告](../algorithm_optimization_report.md) 中「本报告空项根因说明」）
 - 当前展示：—
+- **空项根因**：实际/推算收益率为空时，原因均写在 [算法优化报告](../algorithm_optimization_report.md) 的「本报告空项根因说明」中，须追根问底、不忽悠。
 - （若为 —：运行 `python scripts/optimize_algorithm_and_profitability.py` 或 `update_today_yield_for_status.py` 更新。）
 
 ## 指标说明（含义与计算方式）
