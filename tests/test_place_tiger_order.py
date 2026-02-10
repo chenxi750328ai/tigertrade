@@ -7,6 +7,7 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 from src import tiger1 as t1
+from src.api_adapter import api_manager
 
 
 def reset_globals():
@@ -15,16 +16,12 @@ def reset_globals():
     t1.RUN_ENV = 'sandbox'
     if hasattr(t1, 'trade_client'):
         t1.trade_client = None
+    # 测试走 mock 路径，不依赖 tigeropen 与真实 API，避免 OrderSide 等导入失败
+    api_manager.initialize_mock_apis(account='ACC123')
 
 
 def test_place_order_success():
     reset_globals()
-
-    class FakeClient:
-        def place_order(self, order):
-            return SimpleNamespace(id=999)
-
-    t1.trade_client = FakeClient()
     t1.client_config = SimpleNamespace(account='ACC123')
 
     ok = t1.place_tiger_order('BUY', 1, 100.0, 90.0)
@@ -34,12 +31,6 @@ def test_place_order_success():
 
 def test_place_order_sdk_failure_simulate():
     reset_globals()
-
-    class FakeClient:
-        def place_order(self, order):
-            raise RuntimeError('network')
-
-    t1.trade_client = FakeClient()
     t1.client_config = SimpleNamespace(account='ACC123')
 
     ok = t1.place_tiger_order('BUY', 2, 200.0, 190.0)
@@ -52,13 +43,6 @@ def test_production_refuses_without_env():
     t1.RUN_ENV = 'production'
     if 'ALLOW_REAL_TRADING' in os.environ:
         del os.environ['ALLOW_REAL_TRADING']
-
-    # even with a working client, it should refuse
-    class FakeClient:
-        def place_order(self, order):
-            return SimpleNamespace(id=111)
-
-    t1.trade_client = FakeClient()
     t1.client_config = SimpleNamespace(account='ACC123')
 
     ok = t1.place_tiger_order('BUY', 1, 50.0, 45.0)
@@ -68,11 +52,6 @@ def test_production_refuses_without_env():
 
 def test_sell_updates_daily_loss():
     reset_globals()
-    class FakeClient:
-        def place_order(self, order):
-            return SimpleNamespace(id=222)
-
-    t1.trade_client = FakeClient()
     t1.client_config = SimpleNamespace(account='ACC123')
 
     # start with 2 long positions

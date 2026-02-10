@@ -223,6 +223,13 @@ def main():
     print(f"\n🎯 下一步: Agent 2 使用这些数据训练模型")
     print(f"{'='*80}\n")
 
+    return report
+
+
+def prepare_training_data():
+    """供每日例行脚本调用，与 main() 一致，返回数据报告摘要。"""
+    return main()
+
 
 if __name__ == '__main__':
     main()

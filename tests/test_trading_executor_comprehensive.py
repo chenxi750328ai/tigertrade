@@ -194,6 +194,37 @@ class TestTradingExecutorComprehensive(unittest.TestCase):
         self.assertIsInstance(stats, dict)
         self.assertIn('total_predictions', stats)
 
+    def test_run_loop_calls_position_watchdog(self):
+        """回归：run_loop 每轮必须调用持仓看门狗（超时止盈/止损），否则有仓无卖可能爆仓"""
+        from unittest.mock import patch
+        with patch.object(t1, 'run_position_watchdog') as mock_watchdog:
+            mock_watchdog.return_value = False
+            self.data_provider.get_market_data = Mock(return_value={
+                'tick_price': 100.0,
+                'kline_price': 100.0,
+                'atr': 0.5,
+                'grid_lower': 98.0,
+                'grid_upper': 105.0,
+                'current_data': {'price_current': 100.0},
+                'historical_data': [],
+            })
+            self.strategy.predict_action = Mock(return_value=(0, 0.5, None))  # 不操作，减少干扰
+            self.order_executor.execute_buy = Mock(return_value=(False, "风控未通过"))
+            self.order_executor.execute_sell = Mock(return_value=(False, "无持仓"))
+            import threading
+            def run_short():
+                try:
+                    self.executor.run_loop(duration_hours=0.0002)  # 多跑几轮
+                except Exception:
+                    pass
+            thread = threading.Thread(target=run_short)
+            thread.start()
+            thread.join(timeout=3)
+            self.assertGreaterEqual(
+                mock_watchdog.call_count, 1,
+                "run_loop 每轮应调用 run_position_watchdog，否则超时止盈/止损不生效"
+            )
+
 
 if __name__ == '__main__':
     unittest.main()

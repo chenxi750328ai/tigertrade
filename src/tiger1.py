@@ -922,9 +922,88 @@ def _make_synthetic_klines(count, base_price=90.0):
     }, index=idx)
 
 
-def get_kline_data(symbol, period, count=100, start_time=None, end_time=None):
-    """Fetch K-line data (candles) and normalize to a pandas.DataFrame.
+def load_klines_from_file(filepath: str, period: str, count: Optional[int] = None) -> pd.DataFrame:
+    """从本地 CSV 加载 K 线，返回与 get_kline_data 相同格式的 DataFrame（index=time Asia/Shanghai，列 open/high/low/close/volume）。
+    实盘与回测仅数据源不同，此处为「文件」分支；API 分支在 get_kline_data 内。
+    CSV 需含列：time 或 timestamp 或 date（可选），open/high/low/close，volume（可选）。若仅有 close，则 open=high=low=close，volume=0。"""
+    if not filepath or not os.path.isfile(filepath):
+        return pd.DataFrame()
+    try:
+        df = pd.read_csv(filepath)
+        if df.empty:
+            return df
+        # 时间列
+        time_col = None
+        for c in ('time', 'timestamp', 'date', 'datetime'):
+            if c in df.columns:
+                time_col = c
+                break
+        if time_col:
+            df['time'] = pd.to_datetime(df[time_col], errors='coerce')
+        else:
+            df['time'] = pd.date_range(start='2020-01-01', periods=len(df), freq='1min' if period in ('1min', '1m') else '5min')
+        df = df.dropna(subset=['time'])
+        if df.empty:
+            return pd.DataFrame()
+        if df['time'].dt.tz is None:
+            df['time'] = df['time'].dt.tz_localize('UTC', ambiguous='infer')
+        df['time'] = df['time'].dt.tz_convert('Asia/Shanghai')
+        # OHLCV：缺列时用 close 补齐
+        if 'close' not in df.columns:
+            return pd.DataFrame()
+        for col in ('open', 'high', 'low'):
+            if col not in df.columns:
+                df[col] = df['close']
+        if 'volume' not in df.columns:
+            df['volume'] = 0
+        out = df[['time', 'open', 'high', 'low', 'close', 'volume']].copy()
+        out = out.set_index('time').sort_index()
+        if count is not None:
+            out = out.tail(int(count))
+        return out
+    except Exception as e:
+        logger.exception("load_klines_from_file %s: %s", filepath, e)
+        return pd.DataFrame()
 
+
+def load_ticks_from_file(filepath: str, count: Optional[int] = None) -> pd.DataFrame:
+    """从本地 CSV 加载 Tick，返回 DataFrame（index=time Asia/Shanghai，列至少含 price）。
+    训练有 tick 回测也应有；与实盘 get_tick_data 同粒度，仅数据源为文件。"""
+    if not filepath or not os.path.isfile(filepath):
+        return pd.DataFrame()
+    try:
+        df = pd.read_csv(filepath)
+        if df.empty:
+            return df
+        time_col = None
+        for c in ('time', 'timestamp', 'date', 'datetime'):
+            if c in df.columns:
+                time_col = c
+                break
+        if not time_col:
+            return pd.DataFrame()
+        df['time'] = pd.to_datetime(df[time_col], errors='coerce')
+        df = df.dropna(subset=['time'])
+        if df.empty or 'price' not in df.columns:
+            return pd.DataFrame()
+        if df['time'].dt.tz is None:
+            df['time'] = df['time'].dt.tz_localize('UTC', ambiguous='infer')
+        df['time'] = df['time'].dt.tz_convert('Asia/Shanghai')
+        out = df[['time', 'price']].copy()
+        if 'volume' in df.columns:
+            out['volume'] = df['volume']
+        out = out.set_index('time').sort_index()
+        if count is not None:
+            out = out.tail(int(count))
+        return out
+    except Exception as e:
+        logger.exception("load_ticks_from_file %s: %s", filepath, e)
+        return pd.DataFrame()
+
+
+def get_kline_data(symbol, period, count=100, start_time=None, end_time=None, from_file: Optional[str] = None):
+    """Fetch K-line data (candles) and normalize to a pandas.DataFrame.
+    数据源二选一：from_file 为路径时从文件加载（回测），否则从 API 获取（实盘）。其余处理与算法一致。
     Supports optional `start_time` and `end_time` (both `datetime` or epoch ms) and
     best-effort automatic paging using `QuoteClient.get_future_bars_by_page` for
     single-symbol time-range or large requests.
@@ -947,6 +1026,8 @@ def get_kline_data(symbol, period, count=100, start_time=None, end_time=None):
         # - 能接受 pandas.DataFrame（含 time 列）或可迭代的 bar 对象（具有 .time/.open/.close 等属性）
         # - 对数字时间戳会尝试自动判断单位（s/ms/us/ns），并在 tz-naive 时默认视为 UTC
         # - 当获取到的数据少于 MIN_KLINES（默认10）时，会返回空 DataFrame，便于上层判定数据不足
+    if from_file is not None:
+        return load_klines_from_file(from_file, period, count)
     period_map = {
         "1min": BarPeriod.ONE_MINUTE,
         "3min": BarPeriod.THREE_MINUTES,
@@ -1538,9 +1619,8 @@ def place_tiger_order(side, quantity, price, stop_loss_price=None, take_profit_p
             if order_log:
                 order_log.log_order(side, quantity, price or 0, order_id, "success", "real", stop_loss_price, take_profit_price, reason=reason, source=source, symbol=symbol_for_log, order_type=log_order_type)
             
-            # 主单成功后，立即提交止损单和止盈单（仅对买入单），避免股价突变来不及止损
+            # 主单成功后，立即提交止损单和止盈单（仅对买入单），避免股价突变来不及止损（使用上文已导入的 OrderSide）
             if side == 'BUY' and (stop_loss_price is not None or take_profit_price is not None):
-                from tigeropen.common.consts import OrderSide
                 _sl_rounded = round(stop_loss_price / min_tick) * min_tick if stop_loss_price is not None and min_tick > 0 else None
                 _tp_rounded = round(take_profit_price / min_tick) * min_tick if take_profit_price is not None and min_tick > 0 else None
                 if _sl_rounded is not None:
@@ -2021,39 +2101,18 @@ def grid_trading_strategy():
             place_tiger_order('SELL', current_position, price_current, reason='stop_loss')
 
 
-def grid_trading_strategy_pro1():
-    """Enhanced grid strategy variant (pro1):
-    - Adds a small buffer above `grid_lower` (based on ATR) to allow "near lower" entries
-    - Relaxes 1m RSI slightly
-    - Accepts momentum (last > prev) or volume spike as alternative confirmations
-    - Keeps `check_risk_control` as the final gate
-    """
-    global current_position
-
-    # Track whether we executed a sell in this iteration to prevent multiple sells in one cycle
-    initial_position = current_position
-    sold_this_iteration = False
-
-    # Fetch market data
-    df_1m = get_kline_data([FUTURE_SYMBOL], '1min', count=30)
-    df_5m = get_kline_data([FUTURE_SYMBOL], '5min', count=50)
-    if df_1m.empty or df_5m.empty:
-        logger.debug("数据不足，跳过 grid_trading_strategy_pro1")
-        return
-
+def evaluate_grid_pro1_signal(df_1m: pd.DataFrame, df_5m: pd.DataFrame) -> Tuple[bool, Optional[float], Optional[float], Optional[float]]:
+    """与 grid_trading_strategy_pro1 完全相同的信号与止损/止盈计算逻辑，仅不执行下单与风控检查。
+    实盘与回测共用此函数，保证算法一致。返回 (buy_signal, stop_loss_price, take_profit_price, price_current)。"""
     indicators = calculate_indicators(df_1m, df_5m)
     if not indicators or '5m' not in indicators or '1m' not in indicators:
-        logger.debug("指标计算失败，跳过 grid_trading_strategy_pro1")
-        return
-
+        return (False, None, None, None)
     trend = judge_market_trend(indicators)
     adjust_grid_interval(trend, indicators)
-
     price_current = indicators['1m']['close']
     rsi_1m = indicators['1m']['rsi']
     rsi_5m = indicators['5m']['rsi']
     atr = indicators['5m']['atr']
-
     rsi_low_map = {
         'boll_divergence_down': 15,
         'osc_bear': 22,
@@ -2062,41 +2121,22 @@ def grid_trading_strategy_pro1():
         'osc_normal': 25
     }
     rsi_low = rsi_low_map.get(trend, 25)
-
-    # 1) buffer above lower band (safe fallback when atr==0)
     buffer = max(0.3 * (atr if atr else 0), 0.0025)
     near_lower = price_current <= (grid_lower + buffer)
-
-    # 计算是否接近下轨
-    near_lower = price_current <= (grid_lower + buffer)
-
-    # 2) RSI acceptance: oversold OR reversal OR bullish divergence
     oversold_ok = False
     rsi_rev_ok = False
     rsi_div_ok = False
-    
     try:
-        rsi_1m = indicators['1m']['rsi']
-        rsi_5m = indicators['5m']['rsi']
-        rsi_low = rsi_low_map.get(trend, 25)
-
         oversold_ok = (rsi_1m is not None) and (rsi_1m <= (rsi_low + 5))
-
-        # build recent RSI series (prefer precomputed, else compute)
         try:
             rsis = df_1m['rsi']
         except Exception:
             rsis = talib.RSI(df_1m['close'], timeperiod=GRID_RSI_PERIOD_1M)
-
         rsis = rsis.dropna() if hasattr(rsis, 'dropna') else rsis
         rsi_prev = float(rsis.iloc[-2]) if hasattr(rsis, 'iloc') and len(rsis) >= 2 else None
         rsi_cap = (rsi_low + 12)
-
-        # reversal: RSI crosses above 50 from below
         if (rsi_prev is not None) and (rsi_1m is not None):
             rsi_rev_ok = (rsi_prev < 50) and (rsi_1m >= 50)
-
-        # bullish divergence: price makes lower low while RSI makes higher low
         try:
             lows = df_1m['low'].dropna()
             low_prev = float(lows.iloc[-2]) if len(lows) >= 2 else None
@@ -2109,17 +2149,11 @@ def grid_trading_strategy_pro1():
         oversold_ok = False
         rsi_rev_ok = False
         rsi_div_ok = False
-
     rsi_ok = oversold_ok or rsi_rev_ok or rsi_div_ok
-
-    # 3) relaxed trend check
     trend_check = (trend in ['osc_bull', 'bull_trend'] and rsi_5m > 45) or \
                   (trend in ['osc_bear', 'boll_divergence_down'] and rsi_5m < 55)
-
-    # 4) momentum / volume backups
     rebound = False
     vol_ok = False
-    vol_ratio = 0.0  # 初始化vol_ratio变量
     try:
         closes = df_1m['close'].dropna()
         last = float(closes.iloc[-1])
@@ -2134,114 +2168,120 @@ def grid_trading_strategy_pro1():
             mean_up = recent_mean * 1.05
             med_up = recent_median * 1.01
             vol_ok = (recent_mean > mean_up) or (recent_median > med_up) or (rmax > recent_mean * 1.1)
-            
-            # Calculate vol_ratio for logging
-            avg_vol = recent_mean
-            current_vol = float(vols.iloc[-1]) if len(vols) > 0 else 0
-            vol_ratio = current_vol / avg_vol if avg_vol > 0 else 0
     except Exception:
         rebound = False
         vol_ok = False
-        vol_ratio = 0.0
-
-    # Final buy decision: near_lower + rsi_ok + (trend_check or rebound or vol_ok)
     final_decision = near_lower and rsi_ok and (trend_check or rebound or vol_ok)
-    
-    # 计算偏差百分比
+    if not final_decision:
+        return (False, None, None, price_current)
+    stop_loss_price, projected_loss = compute_stop_loss(price_current, atr, grid_lower)
+    if stop_loss_price is None or not isinstance(projected_loss, (int, float)) or not np.isfinite(projected_loss):
+        return (False, None, None, price_current)
+    min_tick = 0.01
+    try:
+        min_tick = float(FUTURE_TICK_SIZE)
+    except Exception:
+        pass
+    tp_offset = max(TAKE_PROFIT_ATR_OFFSET * (atr if atr else 0), TAKE_PROFIT_MIN_OFFSET)
+    take_profit_price = max(price_current + min_tick,
+                            (grid_upper - tp_offset) if grid_upper is not None else price_current + min_tick)
+    return (True, stop_loss_price, take_profit_price, price_current)
+
+
+def grid_trading_strategy_pro1():
+    """Enhanced grid strategy variant (pro1). 数据从 API 获取，信号与 pro1 回测共用 evaluate_grid_pro1_signal。"""
+    global current_position
+
+    initial_position = current_position
+    sold_this_iteration = False
+
+    # 数据源：实盘用 API（不传 from_file）
+    df_1m = get_kline_data([FUTURE_SYMBOL], '1min', count=30)
+    df_5m = get_kline_data([FUTURE_SYMBOL], '5min', count=50)
+    if df_1m.empty or df_5m.empty:
+        logger.debug("数据不足，跳过 grid_trading_strategy_pro1")
+        return
+
+    buy_signal, stop_loss_price, take_profit_price, price_current = evaluate_grid_pro1_signal(df_1m, df_5m)
+    if not buy_signal or price_current is None:
+        # 仍可记录未触发时的数据点（与原有逻辑一致需 indicators/trend，这里简化：仅无下单）
+        try:
+            indicators = calculate_indicators(df_1m, df_5m)
+            if indicators and '5m' in indicators and '1m' in indicators:
+                trend = judge_market_trend(indicators)
+                adjust_grid_interval(trend, indicators)
+                buffer = max(0.3 * (indicators['5m'].get('atr') or 0), 0.0025)
+                threshold = grid_lower + buffer
+                deviation_percent = (price_current - grid_lower) / (grid_upper - grid_lower) if (grid_upper and grid_upper != grid_lower) else np.nan
+                data_collector.collect_data_point(
+                    price_current=indicators['1m']['close'],
+                    grid_lower=grid_lower, grid_upper=grid_upper,
+                    atr=indicators['5m'].get('atr'), rsi_1m=indicators['1m'].get('rsi'), rsi_5m=indicators['5m'].get('rsi'),
+                    buffer=buffer, threshold=threshold, near_lower=False, rsi_ok=False, trend_check=False, rebound=False, vol_ok=False,
+                    final_decision=False, deviation_percent=deviation_percent, atr_multiplier=0.05, min_buffer_val=0.0025,
+                    side='NO_ACTION', market_regime=trend,
+                    boll_upper=getattr(sys.modules[__name__], 'boll_upper', None),
+                    boll_mid=getattr(sys.modules[__name__], 'boll_mid', None), boll_lower=getattr(sys.modules[__name__], 'boll_lower', None)
+                )
+        except Exception:
+            pass
+        return
+
+    # 计算偏差等用于 data_collector
     if grid_upper and grid_upper != grid_lower:
         deviation_percent = (price_current - grid_lower) / (grid_upper - grid_lower)
     else:
         deviation_percent = np.nan
-    
-    # 设置默认参数值
-    atr_multiplier = 0.05  # 默认值
-    min_buffer_val = 0.0025  # 默认值
-    threshold = grid_lower + buffer  # 使用已计算的buffer
-    
-    if final_decision and check_risk_control(price_current, 'BUY'):
-        stop_loss_price, projected_loss = compute_stop_loss(price_current, atr, grid_lower)
-        if stop_loss_price is None or not isinstance(projected_loss, (int, float)) or not np.isfinite(projected_loss):
-            logger.debug("止损计算异常，跳过买入")
-            return
-        # compute TP with buffer below grid_upper
-        import math
-        min_tick = 0.01
-        try:
-            min_tick = float(FUTURE_TICK_SIZE)
-        except Exception:
-            pass
-        tp_offset = max(TAKE_PROFIT_ATR_OFFSET * (atr if atr else 0), TAKE_PROFIT_MIN_OFFSET)
-        take_profit_price = max(price_current + min_tick, 
-                               (grid_upper - tp_offset) if grid_upper is not None else price_current + min_tick)
-        
-        # 更新数据记录，包含止盈止损价格
-        data_collector.collect_data_point(
-            price_current=price_current,
-            grid_lower=grid_lower,
-            grid_upper=grid_upper,
-            atr=atr,
-            rsi_1m=rsi_1m,
-            rsi_5m=rsi_5m,
-            buffer=buffer,
-            threshold=threshold,
-            near_lower=near_lower,
-            rsi_ok=rsi_ok,
-            trend_check=trend_check,
-            rebound=rebound,
-            vol_ok=vol_ok,
-            final_decision=final_decision,
-            take_profit_price=take_profit_price,
-            stop_loss_price=stop_loss_price,
-            position_size=1,
-            deviation_percent=deviation_percent,
-            atr_multiplier=atr_multiplier,
-            min_buffer_val=min_buffer_val,
-            side='BUY',
-            market_regime=trend,
-            boll_upper=getattr(sys.modules[__name__], 'boll_upper', None),
-            boll_mid=getattr(sys.modules[__name__], 'boll_mid', None),
-            boll_lower=getattr(sys.modules[__name__], 'boll_lower', None)
-        )
-        
-        print(f"🎯 grid_trading_strategy_pro1: 买入 | 价={price_current:.3f}, 停损={stop_loss_price:.3f}, 止盈={take_profit_price:.3f}")
-        place_tiger_order('BUY', 1, price_current, stop_loss_price)
-        try:
-            place_take_profit_order('BUY', 1, take_profit_price)
-        except Exception:
-            pass
-    else:
-        # 打印简要分析
-        if not (near_lower and rsi_ok and trend_check and rebound and vol_ok):
-            print(f"🔸 grid_trading_strategy_pro1: 未触发 | 价={price_current:.3f}, 网格=[{grid_lower:.3f},{grid_upper:.3f}]")
-        else:
-            final_decision = True
-            print(f"✅ grid_trading_strategy_pro1: 买入信号 | 价={price_current:.3f}, 网格=[{grid_lower:.3f},{grid_upper:.3f}]")
+    try:
+        indicators = calculate_indicators(df_1m, df_5m)
+        atr = indicators['5m'].get('atr') if indicators and '5m' in indicators else 0
+        buffer = max(0.3 * (atr or 0), 0.0025)
+        threshold = grid_lower + buffer
+        trend = judge_market_trend(indicators)
+        rsi_1m = indicators['1m'].get('rsi')
+        rsi_5m = indicators['5m'].get('rsi')
+    except Exception:
+        buffer = 0.0025
+        atr = 0
+        threshold = grid_lower + 0.0025
+        trend = 'osc_normal'
+        rsi_1m = rsi_5m = 50
 
-        # 记录数据点
-        data_collector.collect_data_point(
-            price_current=price_current,
-            grid_lower=grid_lower,
-            grid_upper=grid_upper,
-            atr=atr,
-            rsi_1m=rsi_1m,
-            rsi_5m=rsi_5m,
-            buffer=buffer,
-            threshold=threshold,
-            near_lower=near_lower,
-            rsi_ok=rsi_ok,
-            trend_check=trend_check,
-            rebound=rebound,
-            vol_ok=vol_ok,
-            final_decision=final_decision,
-            deviation_percent=deviation_percent,
-            atr_multiplier=atr_multiplier,
-            min_buffer_val=min_buffer_val,
-            side='BUY' if final_decision else 'NO_ACTION',
-            market_regime=trend,
-            boll_upper=getattr(sys.modules[__name__], 'boll_upper', None),
-            boll_mid=getattr(sys.modules[__name__], 'boll_mid', None),
-            boll_lower=getattr(sys.modules[__name__], 'boll_lower', None)
-        )
+    if not check_risk_control(price_current, 'BUY'):
+        return
+    data_collector.collect_data_point(
+        price_current=price_current,
+        grid_lower=grid_lower,
+        grid_upper=grid_upper,
+        atr=atr,
+        rsi_1m=rsi_1m,
+        rsi_5m=rsi_5m,
+        buffer=buffer,
+        threshold=threshold,
+        near_lower=True,
+        rsi_ok=True,
+        trend_check=True,
+        rebound=True,
+        vol_ok=True,
+        final_decision=True,
+        take_profit_price=take_profit_price,
+        stop_loss_price=stop_loss_price,
+        position_size=1,
+        deviation_percent=deviation_percent,
+        atr_multiplier=0.05,
+        min_buffer_val=0.0025,
+        side='BUY',
+        market_regime=trend,
+        boll_upper=getattr(sys.modules[__name__], 'boll_upper', None),
+        boll_mid=getattr(sys.modules[__name__], 'boll_mid', None),
+        boll_lower=getattr(sys.modules[__name__], 'boll_lower', None)
+    )
+    print(f"🎯 grid_trading_strategy_pro1: 买入 | 价={price_current:.3f}, 停损={stop_loss_price:.3f}, 止盈={take_profit_price:.3f}")
+    place_tiger_order('BUY', 1, price_current, stop_loss_price)
+    try:
+        place_take_profit_order('BUY', 1, take_profit_price)
+    except Exception:
+        pass
 
     # 检查主动止盈 - 仅在有持仓时检查
     if current_position > 0:
@@ -2270,17 +2310,17 @@ def grid_trading_strategy_pro1():
                 rsi_5m=rsi_5m,
                 buffer=buffer,
                 threshold=grid_lower + buffer,  # 使用计算好的buffer
-                near_lower=near_lower,
-                rsi_ok=rsi_ok,
-                trend_check=trend_check,
-                rebound=rebound,
-                vol_ok=vol_ok,
+                near_lower=False,
+                rsi_ok=False,
+                trend_check=False,
+                rebound=False,
+                vol_ok=False,
                 final_decision=True,  # 因为触发了卖出
                 take_profit_price=tp_level,
                 position_size=1,
                 deviation_percent=(price_current - grid_lower) / (grid_upper - grid_lower) if grid_upper and grid_upper != grid_lower else np.nan,
-                atr_multiplier=0.05,  # 默认值
-                min_buffer_val=0.0025,  # 默认值
+                atr_multiplier=0.05,
+                min_buffer_val=0.0025,
                 side='SELL_TP',
                 market_regime=trend,
                 boll_upper=getattr(sys.modules[__name__], 'boll_upper', None),
@@ -2315,12 +2355,12 @@ def grid_trading_strategy_pro1():
                 rsi_1m=rsi_1m,
                 rsi_5m=rsi_5m,
                 buffer=buffer,
-                threshold=grid_lower + buffer,  # 使用计算好的buffer
-                near_lower=near_lower,
-                rsi_ok=rsi_ok,
-                trend_check=trend_check,
-                rebound=rebound,
-                vol_ok=vol_ok,
+                threshold=grid_lower + buffer,
+                near_lower=False,
+                rsi_ok=False,
+                trend_check=False,
+                rebound=False,
+                vol_ok=False,
                 final_decision=False,  # 因为是止损
                 stop_loss_price=stop_loss_price,
                 position_size=current_position,
@@ -2448,175 +2488,163 @@ def boll1m_grid_strategy():
         sold_this_iteration = True
 
 
-def backtest_grid_trading_strategy_pro1(symbol: str = FUTURE_SYMBOL, bars_1m: int = 2000, bars_5m: int = 1000, lookahead: int = 120):
-    """Run a simple event-driven backtest for `grid_trading_strategy_pro1`.
-
-    Method:
-    - Walk forward through 1m bars; at each step, compute indicators on history-to-date
-      and apply the pro1 buy logic (near_lower + rsi_ok + trend/rebound/vol_ok).
-        - When a buy triggers, set target at current `grid_upper` and stop via
-            `compute_stop_loss` (ATR 下限 + 下轨结构缓冲 + 单笔亏损上限)。
-    - Scan forward up to `lookahead` 1m bars: if low <= stop first -> loss; if high >= target first -> win.
-      If neither is hit within the window, count as unresolved and skip from metrics.
-
-    Returns a dict with metrics and prints a concise summary.
-    """
+def backtest_grid_trading_strategy_pro1(symbol: str = FUTURE_SYMBOL, bars_1m: int = 2000, bars_5m: int = 1000, lookahead: int = 120,
+                                         csv_path_1m: Optional[str] = None, csv_path_5m: Optional[str] = None,
+                                         single_csv_path: Optional[str] = None,
+                                         step_seconds: int = 0,
+                                         csv_path_tick: Optional[str] = None):
+    """与实盘从目的上对齐：同一套信号；数据源文件；step_seconds>0 时用虚拟时间前进 N 秒模拟 sleep（按时间戳取数）；支持 tick 文件。"""
     try:
-        df_1m = get_kline_data([symbol], '1min', count=bars_1m)
-        df_5m = get_kline_data([symbol], '5min', count=bars_5m)
+        # 数据源：单 CSV（视为 1m 并重采样 5m）、双 CSV、或 API
+        if single_csv_path and os.path.isfile(single_csv_path):
+            df_1m = load_klines_from_file(single_csv_path, '1min', count=bars_1m)
+            if df_1m.empty or len(df_1m) < 10:
+                print("⚠️ backtest_pro1: 单文件数据不足。")
+                return None
+            df_1m = df_1m.sort_index()
+            try:
+                df_5m = df_1m.resample('5min').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'}).dropna()
+            except Exception:
+                n = len(df_1m) // 5
+                if n < 2:
+                    print("⚠️ backtest_pro1: 单文件行数不足以合成 5m。")
+                    return None
+                df_5m = pd.DataFrame({
+                    'open': df_1m['open'].iloc[::5].values[:n],
+                    'high': df_1m['high'].rolling(5).max().iloc[4::5].values[:n],
+                    'low': df_1m['low'].rolling(5).min().iloc[4::5].values[:n],
+                    'close': df_1m['close'].iloc[4::5].values[:n],
+                    'volume': df_1m['volume'].rolling(5).sum().iloc[4::5].values[:n],
+                }, index=df_1m.index[4::5].values[:n])
+                df_5m.index = pd.to_datetime(df_5m.index)
+            if df_5m.empty or len(df_5m) < 2:
+                print("⚠️ backtest_pro1: 5m 数据不足。")
+                return None
+        elif csv_path_1m and csv_path_5m:
+            df_1m = get_kline_data([symbol], '1min', count=bars_1m, from_file=csv_path_1m)
+            df_5m = get_kline_data([symbol], '5min', count=bars_5m, from_file=csv_path_5m)
+        else:
+            df_1m = get_kline_data([symbol], '1min', count=bars_1m)
+            df_5m = get_kline_data([symbol], '5min', count=bars_5m)
         if df_1m.empty or df_5m.empty:
-            print("⚠️ backtest_pro1: 数据不足，无法计算。请检查API连接或增大count。")
+            print("⚠️ backtest_pro1: 数据不足。请提供 csv_path_1m/csv_path_5m 或检查 API。")
             return None
+
+        df_1m = df_1m.sort_index()
+        df_5m = df_5m.sort_index()
+        df_tick = load_ticks_from_file(csv_path_tick) if csv_path_tick and os.path.isfile(csv_path_tick) else pd.DataFrame()
 
         wins = 0
         losses = 0
         unresolved = 0
         rr_list = []
+        trade_pcts = []
 
-        i = max(GRID_BOLL_PERIOD, 10)
-        while i < len(df_1m) - 1:
-            # Slice history up to current index
-            sub1 = df_1m.iloc[:i+1]
-            t_cur = sub1.index[-1]
-            sub5 = df_5m[df_5m.index <= t_cur]
-
-            inds = calculate_indicators(sub1, sub5)
-            if '5m' not in inds or '1m' not in inds:
-                i += 1
-                continue
-
-            trend = judge_market_trend(inds)
-            adjust_grid_interval(trend, inds)
-
-            price_current = inds['1m']['close']
-            rsi_1m = inds['1m']['rsi']
-            rsi_5m = inds['5m']['rsi']
-            atr = inds['5m']['atr']
-
-            rsi_low_map = {
-                'boll_divergence_down': 15,
-                'osc_bear': 22,
-                'osc_bull': 55,
-                'bull_trend': 50,
-                'osc_normal': 25
-            }
-            rsi_low = rsi_low_map.get(trend, 25)
-
-            # 1) buffer above lower band (safe fallback when atr==0)
-            buffer = max(0.3 * (atr if atr else 0), 0.0025)
-            near_lower = price_current <= (grid_lower + buffer)
-
-            # 2) RSI acceptance: oversold OR reversal OR bullish divergence
-            oversold_ok = False
-            rsi_rev_ok = False
-            rsi_div_ok = False
-            try:
-                oversold_ok = (rsi_1m is not None) and (rsi_1m <= (rsi_low + 5))
-
-                # recent RSI series from sub1
-                try:
-                    rsis = sub1['rsi']
-                except Exception:
-                    rsis = talib.RSI(sub1['close'], timeperiod=GRID_RSI_PERIOD_1M)
-                rsis = rsis.dropna() if hasattr(rsis, 'dropna') else rsis
-                rsi_prev = float(rsis.iloc[-2]) if hasattr(rsis, 'iloc') and len(rsis) >= 2 else None
-                rsi_cap = (rsi_low + 12)
-
-                # reversal: RSI crosses above 50 from below (backtest mirror)
-                if (rsi_prev is not None) and (rsi_1m is not None):
-                    rsi_rev_ok = (rsi_prev < 50) and (rsi_1m >= 50)
-
-                try:
-                    lows = sub1['low'].dropna()
-                    low_prev = float(lows.iloc[-2]) if len(lows) >= 2 else None
-                    low_cur = float(lows.iloc[-1]) if len(lows) >= 1 else None
-                    rsi_div_ok = (low_cur is not None and low_prev is not None and rsi_prev is not None and
-                                  (low_cur < low_prev) and (rsi_1m is not None) and (rsi_1m > rsi_prev) and (rsi_1m <= rsi_cap))
-                except Exception:
-                    rsi_div_ok = False
-            except Exception:
-                oversold_ok = False
-                rsi_rev_ok = False
-                rsi_div_ok = False
-
-            rsi_ok = oversold_ok or rsi_rev_ok or rsi_div_ok
-
-            trend_check = (trend in ['osc_bull', 'bull_trend'] and rsi_5m > 45) or \
-                          (trend in ['osc_bear', 'boll_divergence_down'] and rsi_5m < 55)
-
-            # momentum & volume spike
-            rebound = False
-            vol_ok = False
-            try:
-                closes = sub1['close'].dropna()
-                last = float(closes.iloc[-1])
-                prev = float(closes.iloc[-2]) if len(closes) >= 2 else None
-                rebound = (prev is not None and last > prev)
-                vols = sub1['volume'].dropna()
-                if len(vols) >= 6:
-                    window = vols.iloc[-6:-1]
-                    recent_mean = window.mean()
-                    recent_median = window.median()
-                    rmax = window.max()
-                    mean_up = recent_mean * 1.05
-                    med_up = recent_median * 1.01
-                    max_up = rmax * 0.95
-                    threshold = max(mean_up, med_up, max_up)
-                    vol_ok = vols.iloc[-1] >= max(threshold, 0)
-            except Exception:
-                rebound = False
-                vol_ok = False
-
-            buy_signal = near_lower and rsi_ok and (trend_check or rebound or vol_ok)
-            if not buy_signal:
-                i += 1
-                continue
-
-            # Determine target & stop at signal time (use buffered TP level like live)
-            tp_offset = max(TAKE_PROFIT_ATR_OFFSET * (atr if atr else 0), TAKE_PROFIT_MIN_OFFSET)
-            target = (grid_upper - tp_offset) if grid_upper is not None else None
-            # ensure target logically above current price
-            if target is not None and target <= price_current:
-                target = price_current + 1e-6
-            stop, _ = compute_stop_loss(price_current, atr, grid_lower)
-            if target is None or stop is None or np.isnan(target) or np.isnan(stop):
-                i += 1
-                continue
-
-            # Walk forward to evaluate outcome
-            forward = df_1m.iloc[i+1:min(i+1+lookahead, len(df_1m))]
-            outcome = None
-            for _, row in forward.iterrows():
-                try:
-                    lo = float(row['low'])
-                    hi = float(row['high'])
-                except Exception:
+        step = max(1, int(step_seconds)) if step_seconds else 0
+        if step > 0:
+            # 虚拟时间推进：模拟实盘 sleep(N)，回测不真等，时间戳往前走 N 秒再按时间戳取数
+            virtual_time = df_1m.index[max(GRID_BOLL_PERIOD, 10)]
+            end_time = df_1m.index[-1]
+            while virtual_time <= end_time:
+                sub1 = df_1m[df_1m.index <= virtual_time].tail(min(bars_1m, len(df_1m)))
+                sub5 = df_5m[df_5m.index <= virtual_time].tail(min(bars_5m, len(df_5m)))
+                if len(sub1) < GRID_BOLL_PERIOD or len(sub5) < 2:
+                    virtual_time += timedelta(seconds=step)
                     continue
-                if lo <= stop:
-                    outcome = 'loss'
-                    break
-                if hi >= target:
-                    outcome = 'win'
-                    break
+                buy_signal, stop, target, price_current = evaluate_grid_pro1_signal(sub1, sub5)
+                if not buy_signal or price_current is None or stop is None or target is None:
+                    virtual_time += timedelta(seconds=step)
+                    continue
+                if np.isnan(target) or np.isnan(stop) or target <= price_current:
+                    target = price_current + 1e-6
+                t_cur = sub1.index[-1]
+                forward = df_1m[df_1m.index > t_cur].head(lookahead)
+                outcome = None
+                resolve_time = t_cur
+                for ts, row in forward.iterrows():
+                    try:
+                        lo = float(row['low'])
+                        hi = float(row['high'])
+                    except Exception:
+                        continue
+                    if lo <= stop:
+                        outcome = 'loss'
+                        resolve_time = ts
+                        break
+                    if hi >= target:
+                        outcome = 'win'
+                        resolve_time = ts
+                        break
+                if outcome is None and len(forward) > 0:
+                    resolve_time = forward.index[-1]
+                risk_pct = 1.0
+                if outcome is None:
+                    unresolved += 1
+                elif outcome == 'win':
+                    wins += 1
+                    risk = max(price_current - stop, 1e-6)
+                    reward = max(target - price_current, 0.0)
+                    rr_list.append(reward / risk)
+                    trade_pcts.append(risk_pct * reward / risk)
+                else:
+                    losses += 1
+                    rr_list.append(-1.0)
+                    trade_pcts.append(-risk_pct)
+                virtual_time = pd.Timestamp(resolve_time) + timedelta(seconds=step)
+        else:
+            # 原逻辑：按 bar 逐根推进
+            i = max(GRID_BOLL_PERIOD, 10)
+            while i < len(df_1m) - 1:
+                sub1 = df_1m.iloc[:i+1]
+                t_cur = sub1.index[-1]
+                sub5 = df_5m[df_5m.index <= t_cur]
 
-            if outcome is None:
-                unresolved += 1
-            elif outcome == 'win':
-                wins += 1
-                risk = max(price_current - stop, 1e-6)
-                reward = max(target - price_current, 0.0)
-                rr_list.append(reward / risk)
-            else:
-                losses += 1
-                rr_list.append(-1.0)  # standardized as -1 risk unit
+                buy_signal, stop, target, price_current = evaluate_grid_pro1_signal(sub1, sub5)
+                if not buy_signal or price_current is None or stop is None or target is None:
+                    i += 1
+                    continue
+                if np.isnan(target) or np.isnan(stop) or target <= price_current:
+                    target = price_current + 1e-6
 
-            # Skip ahead past the evaluated window to avoid overlapping trades
-            i += lookahead
+                forward = df_1m.iloc[i+1:min(i+1+lookahead, len(df_1m))]
+                outcome = None
+                for _, row in forward.iterrows():
+                    try:
+                        lo = float(row['low'])
+                        hi = float(row['high'])
+                    except Exception:
+                        continue
+                    if lo <= stop:
+                        outcome = 'loss'
+                        break
+                    if hi >= target:
+                        outcome = 'win'
+                        break
+
+                risk_pct = 1.0
+                if outcome is None:
+                    unresolved += 1
+                elif outcome == 'win':
+                    wins += 1
+                    risk = max(price_current - stop, 1e-6)
+                    reward = max(target - price_current, 0.0)
+                    rr = reward / risk
+                    rr_list.append(rr)
+                    trade_pcts.append(rr * risk_pct)
+                else:
+                    losses += 1
+                    rr_list.append(-1.0)
+                    trade_pcts.append(-risk_pct)
+
+                i += lookahead
 
         total = wins + losses
         win_rate = (wins / total) if total > 0 else 0.0
         avg_rr = (sum([r for r in rr_list if r > 0]) / max(wins, 1)) if wins > 0 else 0.0
-        expectancy = win_rate * avg_rr - (1 - win_rate) * 1.0  # per risk unit
+        expectancy = win_rate * avg_rr - (1 - win_rate) * 1.0
+        return_pct = sum(trade_pcts) if trade_pcts else 0.0
+        avg_per_trade_pct = sum(trade_pcts) / len(trade_pcts) if trade_pcts else 0.0
+        top_per_trade_pct = max(trade_pcts) if trade_pcts else 0.0
 
         result = {
             'samples': len(df_1m),
@@ -2624,13 +2652,17 @@ def backtest_grid_trading_strategy_pro1(symbol: str = FUTURE_SYMBOL, bars_1m: in
             'wins': wins,
             'losses': losses,
             'unresolved': unresolved,
-            'win_rate': win_rate,
+            'win_rate': win_rate * 100.0,
             'avg_reward_risk': avg_rr,
-            'expectancy_per_risk': expectancy
+            'expectancy_per_risk': expectancy,
+            'num_trades': total,
+            'return_pct': round(return_pct, 2),
+            'avg_per_trade_pct': round(avg_per_trade_pct, 2),
+            'top_per_trade_pct': round(top_per_trade_pct, 2),
         }
 
-        print(f"📊 pro1 回测: 样本={result['samples']} | 评估信号={result['signals_evaluated']} | 胜={wins} 负={losses} 未判定={unresolved}")
-        print(f"   胜率={win_rate:.2%} | 平均盈利风险比={avg_rr:.2f} | 期望值(每风险单位)={expectancy:.2f}")
+        print(f"📊 pro1 回测: 样本={result['samples']} | 信号={result['signals_evaluated']} | 胜={wins} 负={losses} 未判定={unresolved}")
+        print(f"   胜率={win_rate*100:.1f}% | 总收益={return_pct:.2f}% | 单笔均={avg_per_trade_pct:.2f}% | 单笔TOP={top_per_trade_pct:.2f}%")
         return result
     except Exception as e:
         print(f"❌ backtest_pro1 异常：{e}")

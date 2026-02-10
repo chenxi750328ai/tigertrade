@@ -6,6 +6,10 @@
 **当前 LOG 路径**（`bash scripts/run_20h_demo.sh` 产出）：`logs/demo_20h_*.log`  
 **查看最新 LOG**：`tail -f logs/demo_20h_*.log` 或 `ls -t logs/demo_20h_*.log | head -1 | xargs tail -f`
 
+**异常订单检查**（无止损止盈、超仓、风控报错）：
+- **20h 跑完后**：`run_moe_demo.py` 退出时会自动跑一次；或手动执行 `bash scripts/run_anomaly_order_check.sh`
+- **定期**：`cron_routine_monitor.sh` 每半点（:00 / :30）会跑一次，结果见 `logs/routine_monitor.log`；也可单独 cron：`0,30 * * * * cd /home/cx/tigertrade && bash scripts/run_anomaly_order_check.sh >> logs/anomaly_order_check.log 2>&1`
+
 ---
 
 ## 一、快速查询命令

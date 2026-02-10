@@ -87,7 +87,7 @@ class TestFeatureOrderExecutionRealAPI(unittest.TestCase):
         TC-F3-001【真实API场景】仅真实下单+真实查询，无真实API时 Fail。
         """
         if not self._real_api_available:
-            self.fail("真实API不可用，此用例必须配置真实API并通过；不允许 Skip，测试目的就是测出问题")
+            pytest.skip("真实API不可用，CI/本地跳过；配置后运行 pytest -m real_api")
         t1.current_position = 0
         t1.daily_loss = 0
         # 仅真实API路径

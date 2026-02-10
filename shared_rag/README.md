@@ -1,16 +1,30 @@
-# TigerTrade 分布式RAG
+# TigerTrade 分布式 RAG（项目私有 RAG）
 
-所有Agent共享的知识库
+本仓库内 `shared_rag/` 为项目私有 RAG，供所有 Agent 共享与检索。
 
 ---
 
-## ⚠️ Agent 必读：例行工作清单
+## ⚠️ Agent 必读：例行工作与角色
 
 **执行「例行工作」前必读**：`best_practices/例行工作清单_agent必读.md`
 
-例行工作包括：**CI/CD 测试**、**覆盖率统计**、**问题解决**、**20 小时稳定性测试（含 20 小时 DEMO 运行）**、**数据刷新和模型训练**（含多模型对比训练）、**收益率分析和算法优化**（收益率分析 + 算法优化，两项都做）。不得遗漏。
+**角色与每日例行**：`best_practices/项目角色与每日例行工作.md` — 定义 **Leader（陈正霞）**、**设计**、**开发**、**测试** 四类角色及各自每日例行；Leader 另须监控项目计划执行与成员进展/问题。
+
+例行工作包括：**CI/CD 测试**、**覆盖率统计**、**问题解决**、**20 小时稳定性测试（含 20 小时 DEMO 运行）**、**数据刷新和模型训练**（含多模型对比训练）、**收益率分析和算法优化**（收益率分析 + 算法优化，两项都做）、**状态页刷新**。不得遗漏。
 
 **手工订单模式**：`best_practices/手工订单模式设计_20260201.md`（A/B/C 形态 + D 止损 + E 止盈，支持回测与实时输入）
+
+---
+
+## 🔎 查找顺序（Tiger 内找不到时）
+
+在 Tiger 项目（本仓库）内找不到所需说明或约定时，按以下顺序查阅：
+
+1. **本仓库**：`tigertrade/README.md`、`tigertrade/docs/`、`tigertrade/shared_rag/`（本 RAG）。
+2. **工作区根目录**：`/home/cx/README.md`、`/home/cx/docs/README.md`（若存在）。
+3. **agentfuture 根目录**：`/home/cx/agentfuture/README.md`（江湖/多 Agent 协作、接入与任务约定等）。
+
+Agent 执行任务时，应先在 Tiger 内查找；未找到再查根目录与 agentfuture 的 README 及相关文档。
 
 ---
 

@@ -2,7 +2,11 @@
 # -*- coding: utf-8 -*-
 """
 语法和导入测试 - 确保代码没有基本语法错误
+不依赖实盘下单：下单相关用例在环境不允许时跳过或使用 mock。
 """
+
+import pytest
+
 
 def test_syntax_and_imports():
     """测试代码语法和导入功能"""
@@ -46,50 +50,44 @@ def test_syntax_and_imports():
 
 
 def test_basic_execution():
-    """测试基本执行功能"""
+    """测试基本执行功能：在 mock 模式下跑下单，不依赖实盘 API，断言通过。"""
     print("\n🔍 开始基本执行测试...")
     
-    try:
-        # 重置全局变量
-        from src import tiger1 as t1
-        import random  # 需要导入random模块
-        
-        # 初始化t1模块中的random（如果需要的话）
-        t1.random = random
-        
-        t1.current_position = 0
-        t1.open_orders.clear()
-        t1.closed_positions.clear()
-        t1.active_take_profit_orders.clear()
-        t1.position_entry_times.clear()
-        t1.position_entry_prices.clear()
-        
-        # 测试place_tiger_order函数
-        result = t1.place_tiger_order(
-            'BUY', 
-            1, 
-            100.0,
-            tech_params={'rsi': 30, 'kdj_k': 20},
-            reason='网格下轨+RSI超卖'
-        )
-        assert result is not False, "place_tiger_order(BUY) 应返回成功"
-        print("✅ place_tiger_order函数执行成功")
-        # Mock 模式下可能不更新 current_position，仅校验调用成功
-
-        # 测试卖出
-        result = t1.place_tiger_order(
-            'SELL', 
-            1, 
-            105.0,
-            tech_params={'profit_target_met': True},
-            reason='达到止盈目标'
-        )
-        assert result is not False, "place_tiger_order(SELL) 应返回成功"
-        print("✅ SELL订单执行成功")
-
-        print("✅ 基本执行测试完成")
-    except Exception as e:
-        assert False, f"基本执行测试失败: {e}"
+    from src import tiger1 as t1
+    from src.api_adapter import api_manager
+    import random
+    
+    t1.random = random
+    t1.current_position = 0
+    t1.open_orders.clear()
+    t1.closed_positions.clear()
+    t1.active_take_profit_orders.clear()
+    t1.position_entry_times.clear()
+    t1.position_entry_prices.clear()
+    
+    # 强制 mock 模式，下单不调用真实 API，测试必须通过
+    api_manager.initialize_mock_apis()
+    assert api_manager.is_mock_mode, "测试应在 mock 模式下运行"
+    
+    # 测试 place_tiger_order(BUY)
+    result = t1.place_tiger_order(
+        'BUY', 1, 100.0,
+        tech_params={'rsi': 30, 'kdj_k': 20},
+        reason='网格下轨+RSI超卖'
+    )
+    assert result is not False, "place_tiger_order(BUY) 应返回成功（mock 模式）"
+    print("✅ place_tiger_order(BUY) 执行成功")
+    
+    # 测试 place_tiger_order(SELL)
+    result = t1.place_tiger_order(
+        'SELL', 1, 105.0,
+        tech_params={'profit_target_met': True},
+        reason='达到止盈目标'
+    )
+    assert result is not False, "place_tiger_order(SELL) 应返回成功（mock 模式）"
+    print("✅ place_tiger_order(SELL) 执行成功")
+    
+    print("✅ 基本执行测试完成")
 
 
 def test_risk_control_functions():

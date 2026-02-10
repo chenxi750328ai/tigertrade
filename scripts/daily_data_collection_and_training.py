@@ -93,19 +93,26 @@ def collect_new_data():
 
 
 def prepare_training_data():
-    """准备训练数据"""
+    """准备训练数据（依赖 scripts.prepare_data.prepare_training_data 或 main）。"""
     logger.info("="*70)
     logger.info("🔄 准备训练数据")
     logger.info("="*70)
     
     try:
-        # 调用数据准备脚本
         from scripts.prepare_data import prepare_training_data as prep_data
-        
         result = prep_data()
         logger.info("✅ 训练数据准备完成")
         return result
-        
+    except ImportError:
+        try:
+            from scripts.prepare_data import main as prep_main
+            result = prep_main()
+            logger.info("✅ 训练数据准备完成（通过 main）")
+            return result
+        except Exception as e:
+            logger.error(f"❌ 数据准备失败: {e}")
+            logger.error(traceback.format_exc())
+            return None
     except Exception as e:
         logger.error(f"❌ 数据准备失败: {e}")
         logger.error(traceback.format_exc())
@@ -146,34 +153,30 @@ def train_models():
 
 
 def evaluate_models():
-    """评估模型性能"""
+    """评估模型性能：用真实策略表现（DEMO 日志汇总 + 回测 return_pct/win_rate）。"""
     logger.info("="*70)
-    logger.info("📈 评估模型性能")
+    logger.info("📈 评估模型性能（真实数据）")
     logger.info("="*70)
     
     try:
-        # 评估模型性能（简化版本，避免依赖不存在的模块）
+        from scripts.optimize_algorithm_and_profitability import (
+            analyze_strategy_performance,
+            optimize_parameters,
+        )
+        performance = analyze_strategy_performance()
+        optimal_params, backtest_metrics = optimize_parameters()
         evaluation_results = {}
-        
-        # 评估不同策略（使用模拟数据）
-        strategies = ['moe_transformer', 'lstm', 'grid']
-        
-        for strategy_name in strategies:
-            logger.info(f"📊 评估策略: {strategy_name}")
-            try:
-                # 这里可以添加实际的评估逻辑
-                # 暂时返回模拟结果
-                evaluation_results[strategy_name] = {
-                    'accuracy': 0.0,
-                    'profitability': 0.0,
-                    'status': 'evaluated'
-                }
-                logger.info(f"✅ {strategy_name} 评估完成")
-            except Exception as e:
-                logger.warning(f"⚠️ {strategy_name} 评估失败: {e}")
-        
+        for sid in performance or {}:
+            evaluation_results[sid] = {
+                'profitability': performance[sid].get('return_pct', performance[sid].get('profitability', 0)),
+                'win_rate': performance[sid].get('win_rate', 0),
+                'demo_order_success': performance[sid].get('demo_order_success'),
+                'num_trades': performance[sid].get('num_trades'),
+                'status': 'evaluated',
+            }
+        if backtest_metrics:
+            logger.info("  回测指标已并入评估: %s", list(backtest_metrics.keys()))
         return evaluation_results
-        
     except Exception as e:
         logger.error(f"❌ 模型评估失败: {e}")
         logger.error(traceback.format_exc())
@@ -181,25 +184,30 @@ def evaluate_models():
 
 
 def optimize_algorithm():
-    """优化算法参数"""
+    """优化算法参数：真实回测 grid/boll，产出最优参数与报告。"""
     logger.info("="*70)
-    logger.info("⚙️ 优化算法参数")
+    logger.info("⚙️ 优化算法参数（回测）")
     logger.info("="*70)
     
     try:
-        # 生成优化建议（简化版本，避免依赖有问题的模块）
+        from scripts.optimize_algorithm_and_profitability import optimize_parameters
+        optimal_params, backtest_metrics = optimize_parameters()
         optimization_suggestions = []
-        
-        # 基于当前策略生成优化建议
-        optimization_suggestions.append({
-            'priority': 'medium',
-            'issue': '参数优化',
-            'suggestion': '基于历史数据优化策略参数'
-        })
-        
+        if optimal_params:
+            for name, params in optimal_params.items():
+                optimization_suggestions.append({
+                    'priority': 'medium',
+                    'issue': f'{name} 最优参数',
+                    'suggestion': f'回测产出: {params}',
+                })
+        else:
+            optimization_suggestions.append({
+                'priority': 'low',
+                'issue': '无回测数据',
+                'suggestion': '需 data/processed/test.csv 后重新运行'
+            })
         logger.info("✅ 算法优化完成")
         return optimization_suggestions
-        
     except Exception as e:
         logger.error(f"❌ 算法优化失败: {e}")
         logger.error(traceback.format_exc())
@@ -207,13 +215,18 @@ def optimize_algorithm():
 
 
 def analyze_profitability():
-    """分析收益率"""
+    """分析收益率：用 API 历史订单解析；无则标明暂无。"""
     logger.info("="*70)
     logger.info("💰 分析收益率")
     logger.info("="*70)
     
     try:
-        # 分析收益率（简化版本，避免依赖有问题的模块）
+        from scripts.optimize_algorithm_and_profitability import load_trading_history, calculate_profitability
+        orders = load_trading_history()
+        profitability_data = calculate_profitability(orders)
+        if profitability_data:
+            logger.info("✅ 收益率分析完成（API 订单）")
+            return profitability_data
         profitability_data = {
             'total_trades': 0,
             'winning_trades': 0,
@@ -221,12 +234,10 @@ def analyze_profitability():
             'win_rate': 0.0,
             'average_profit': 0.0,
             'total_profit': 0.0,
-            'note': '需要实际交易数据来计算'
+            'note': 'API 历史订单暂无或未解析，见 docs/reports/algorithm_optimization_report.md'
         }
-        
-        logger.info("✅ 收益率分析完成（使用模拟数据）")
+        logger.info("✅ 收益率分析完成（暂无订单数据）")
         return profitability_data
-        
     except Exception as e:
         logger.error(f"❌ 收益率分析失败: {e}")
         logger.error(traceback.format_exc())
@@ -281,6 +292,15 @@ def run_daily_workflow():
     except Exception as e:
         logger.error(f"❌ 每日工作流程失败: {e}")
         logger.error(traceback.format_exc())
+    
+    # 7. 无论前面是否失败，都跑真实优化与报告（回测 + DEMO 汇总 + 报告 + today_yield）
+    try:
+        from scripts.optimize_algorithm_and_profitability import run_optimization_workflow
+        run_optimization_workflow()
+        results['optimization_report'] = 'done'
+    except Exception as e:
+        logger.warning("⚠️ 优化与报告流程未完成: %s", e)
+        results['optimization_report'] = str(e)
     
     finally:
         results['end_time'] = datetime.now().isoformat()

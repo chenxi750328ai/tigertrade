@@ -23,7 +23,7 @@ def restore_api_manager_state():
 
 
 class DummyQuoteApi:
-    """Lightweight stub that satisfies verify_api_connection calls."""
+    """Lightweight stub for verify_api_connection. 默认标的 SIL2603；zone=UTC 为交易所时区，USD 为合约币种，非标的代码。"""
 
     def get_stock_briefs(self, symbols):
         return pd.DataFrame({'symbol': symbols, 'price': [500.0 for _ in symbols]})

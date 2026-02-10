@@ -96,13 +96,19 @@ def backtest_with_params(data, params):
     # 统计
     completed = [t for t in trades if 'profit' in t]
     winning = [t for t in completed if t['profit'] > 0]
-    
+    # 单笔收益占初始资金比例(%)，用于报告：单笔平均、单笔TOP
+    profit_pcts = [(t['profit'] / 100000.0) * 100.0 for t in completed] if completed else []
+    avg_per_trade_pct = sum(profit_pcts) / len(profit_pcts) if profit_pcts else 0.0
+    top_per_trade_pct = max(profit_pcts) if profit_pcts else 0.0
+
     return {
         'params': params,
         'capital': capital,
         'return_pct': (capital - 100000) / 100000 * 100,
         'num_trades': len(completed),
         'win_rate': len(winning) / len(completed) * 100 if completed else 0,
+        'avg_per_trade_pct': round(avg_per_trade_pct, 2),
+        'top_per_trade_pct': round(top_per_trade_pct, 2),
         'trades': completed
     }
 
@@ -164,6 +170,55 @@ def grid_search():
     
     print(f"\n✅ 结果已保存: /tmp/grid_search_results.json")
     return results
+
+
+def grid_search_optimal_params(strategy_name):
+    """
+    供 optimize_algorithm_and_profitability 调用：对 grid/boll 做网格搜索，返回最优参数及回测效果。
+    返回 dict：若成功含 params, return_pct, win_rate, num_trades；无数据或失败返回 {}。
+    """
+    import os
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    data_path = os.path.join(root, 'data', 'processed', 'test.csv')
+    if not os.path.isfile(data_path):
+        return {}
+    try:
+        data = pd.read_csv(data_path)
+    except Exception:
+        return {}
+    if data is None or len(data) < 100:
+        return {}
+    param_grid = {
+        'rsi_buy': [30, 35, 40],
+        'rsi_sell': [60, 65, 70],
+        'ma_short': [5, 10],
+        'ma_long': [20, 30],
+        'use_or': [True, False],
+    }
+    keys = list(param_grid.keys())
+    combinations = list(product(*param_grid.values()))
+    results = []
+    for values in combinations[:15]:
+        params = dict(zip(keys, values))
+        try:
+            result = backtest_with_params(data.copy(), params)
+            results.append(result)
+        except Exception:
+            continue
+    if not results:
+        return {}
+    # 最优选取规则：优先 num_trades>=2 再按收益；故报告可能看到 48 笔而非 1 笔（1 笔是另一组参数按纯收益最高）。若需纯按收益排序改为 key=lambda x: -x['return_pct']
+    results.sort(key=lambda x: (-1 if x.get('num_trades', 0) >= 2 else 0, -x['return_pct']))
+    best = results[0]
+    return {
+        'params': best['params'],
+        'return_pct': best['return_pct'],
+        'win_rate': best['win_rate'],
+        'num_trades': best['num_trades'],
+        'avg_per_trade_pct': best.get('avg_per_trade_pct'),
+        'top_per_trade_pct': best.get('top_per_trade_pct'),
+    }
+
 
 if __name__ == '__main__':
     results = grid_search()

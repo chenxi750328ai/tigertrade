@@ -163,24 +163,79 @@ def optimize_parameters():
     logger.info("⚙️ 优化策略参数（网格/BOLL 回测）...")
     optimal_params = {}
     backtest_metrics = {}
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    test_csv = os.path.join(root, 'data', 'processed', 'test.csv')
     try:
-        from scripts.parameter_grid_search import grid_search_optimal_params
-        for name in ('grid', 'boll'):
+        # grid：优先与实盘同一套代码的回测（仅数据源为文件）
+        if os.path.isfile(test_csv):
             try:
-                r = grid_search_optimal_params(name)
-                if r and isinstance(r, dict):
-                    optimal_params[name] = r.get('params', r)
-                    if 'return_pct' in r or 'win_rate' in r:
-                        backtest_metrics[name] = {
-                            'return_pct': r.get('return_pct'),
-                            'win_rate': r.get('win_rate'),
-                            'num_trades': r.get('num_trades'),
-                        }
-                        logger.info("  %s 回测: 收益=%.2f%%, 胜率=%.1f%%, 笔数=%s",
-                                    name, r.get('return_pct', 0) or 0, r.get('win_rate', 0) or 0, r.get('num_trades'))
+                from src import tiger1 as t1
+                r = t1.backtest_grid_trading_strategy_pro1(single_csv_path=test_csv, bars_1m=2000, bars_5m=1000, lookahead=120, step_seconds=5)
+                if r and isinstance(r, dict) and (r.get('signals_evaluated') or r.get('num_trades')) is not None:
+                    backtest_metrics['grid'] = {
+                        'return_pct': r.get('return_pct'),
+                        'win_rate': r.get('win_rate'),
+                        'num_trades': r.get('num_trades'),
+                        'avg_per_trade_pct': r.get('avg_per_trade_pct'),
+                        'top_per_trade_pct': r.get('top_per_trade_pct'),
+                    }
+                    optimal_params['grid'] = {'source': 'backtest_grid_trading_strategy_pro1', 'same_code_as_live': True}
+                    logger.info("  grid 回测(与实盘同逻辑): 收益=%.2f%%, 胜率=%.1f%%, 笔数=%s, 单笔均=%.2f%%, 单笔TOP=%.2f%%",
+                                r.get('return_pct', 0) or 0, r.get('win_rate', 0) or 0, r.get('num_trades'),
+                                r.get('avg_per_trade_pct') or 0, r.get('top_per_trade_pct') or 0)
             except Exception as e:
-                logger.debug("  %s 回测未产出: %s", name, e)
-        logger.info("✅ 参数优化完成" if optimal_params else "⚠️ 无回测数据（需 data/processed/test.csv）")
+                logger.debug("  grid 同逻辑回测未产出: %s", e)
+        if 'grid' not in backtest_metrics:
+            from scripts.parameter_grid_search import grid_search_optimal_params
+            try:
+                r = grid_search_optimal_params('grid')
+                if r and isinstance(r, dict):
+                    optimal_params['grid'] = r.get('params', r)
+                    if 'return_pct' in r or 'win_rate' in r:
+                        backtest_metrics['grid'] = {
+                            'return_pct': r.get('return_pct'), 'win_rate': r.get('win_rate'),
+                            'num_trades': r.get('num_trades'), 'avg_per_trade_pct': r.get('avg_per_trade_pct'),
+                            'top_per_trade_pct': r.get('top_per_trade_pct'),
+                        }
+                        logger.info("  grid 回测(参数网格): 收益=%.2f%%, 胜率=%.1f%%, 笔数=%s",
+                                    r.get('return_pct', 0) or 0, r.get('win_rate', 0) or 0, r.get('num_trades'))
+            except Exception as e:
+                logger.debug("  grid 回测未产出: %s", e)
+        # boll：仍用参数网格回测（后续可接 boll1m 同逻辑回测）
+        from scripts.parameter_grid_search import grid_search_optimal_params
+        try:
+            r = grid_search_optimal_params('boll')
+            if r and isinstance(r, dict):
+                optimal_params['boll'] = r.get('params', r)
+                if 'return_pct' in r or 'win_rate' in r:
+                    backtest_metrics['boll'] = {
+                        'return_pct': r.get('return_pct'), 'win_rate': r.get('win_rate'),
+                        'num_trades': r.get('num_trades'), 'avg_per_trade_pct': r.get('avg_per_trade_pct'),
+                        'top_per_trade_pct': r.get('top_per_trade_pct'),
+                    }
+                    logger.info("  boll 回测: 收益=%.2f%%, 胜率=%.1f%%, 笔数=%s",
+                                r.get('return_pct', 0) or 0, r.get('win_rate', 0) or 0, r.get('num_trades'))
+        except Exception as e:
+            logger.debug("  boll 回测未产出: %s", e)
+        # moe_transformer、lstm：用同一套 test.csv 信号回测，产出 num_trades/return_pct/win_rate
+        try:
+            from scripts.backtest_model_strategies import run_backtest_model_strategies
+            model_bt = run_backtest_model_strategies()
+            for name, m in (model_bt or {}).items():
+                if m and isinstance(m, dict):
+                    backtest_metrics[name] = {
+                        'return_pct': m.get('return_pct'),
+                        'win_rate': m.get('win_rate'),
+                        'num_trades': m.get('num_trades'),
+                        'avg_per_trade_pct': m.get('avg_per_trade_pct'),
+                        'top_per_trade_pct': m.get('top_per_trade_pct'),
+                    }
+                    logger.info("  %s 回测: 收益=%.2f%%, 胜率=%.1f%%, 笔数=%s, 单笔均=%.2f%%, 单笔TOP=%.2f%%",
+                                name, m.get('return_pct', 0) or 0, m.get('win_rate', 0) or 0, m.get('num_trades'),
+                                m.get('avg_per_trade_pct') or 0, m.get('top_per_trade_pct') or 0)
+        except Exception as e:
+            logger.debug("  model strategies 回测未产出: %s", e)
+        logger.info("✅ 参数优化完成" if (optimal_params or backtest_metrics) else "⚠️ 无回测数据（需 data/processed/test.csv）")
         return optimal_params, backtest_metrics
     except Exception as e:
         logger.warning("⚠️ 参数优化失败: %s", e)
@@ -233,10 +288,10 @@ def generate_optimization_report(profitability, performance, optimal_params):
         data_sources.append("DEMO：多日志汇总（同次运行，四策略共用统计；订单成功、止损止盈等）")
     else:
         data_sources.append("DEMO：仅订单/日志计数（未发现 demo_*.log 时为空）")
-    if optimal_params:
-        data_sources.append("网格/BOLL：回测（data/processed/test.csv）产出最优参数与 return_pct/win_rate")
+    if optimal_params or (perf and any((perf.get(s) or {}).get('num_trades') not in (None, '—') for s in ('grid', 'boll', 'moe_transformer', 'lstm'))):
+        data_sources.append("回测：grid/BOLL 为参数网格回测，moe_transformer/lstm 为 test.csv 信号回测（scripts/backtest_model_strategies.py），产出 num_trades/return_pct/win_rate")
     else:
-        data_sources.append("网格/BOLL：回测未运行或 缺 data/processed/test.csv，无效果数据")
+        data_sources.append("回测未运行或 缺 data/processed/test.csv，无效果数据")
     report['data_sources'] = data_sources
 
     reports_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'docs', 'reports')
@@ -281,6 +336,33 @@ def generate_optimization_report(profitability, performance, optimal_params):
             f.write(f"- 总交易数: {profitability['total_trades']}\n")
             f.write(f"- **实盘胜率**: {profitability['win_rate']:.2f}%\n")
             f.write(f"- 平均收益: {profitability['average_profit']:.2f}\n\n")
+
+        f.write("## 回测与实盘差异说明（必读）\n\n")
+        f.write("### 回测和实盘应一致才有参考意义\n\n")
+        f.write("**原则**：回测与实盘**仅允许数据来源不同**（回测用历史切片，实盘用实时行情）；**策略逻辑、运行过程（调用频率、开平仓规则）必须完全一致**，否则回测没有参考意义。\n\n")
+        f.write("**回测数据量**：历史区间可以很长，回测可用的数据量、可产生的交易次数通常**不少于**实盘某一段的运行；若出现回测笔数远少于实盘，说明回测与实盘**不一致**（例如回测用的是另一套逻辑、或调用方式不同），需要对齐，而不是用「数据粒度」「时间跨度」等借口。\n\n")
+        f.write("### 回测是否做多+做空（双向）？\n\n")
+        f.write("**设计**：算法为**双向交易**，可做多与做空。\n")
+        f.write("- **grid/boll**：`parameter_grid_search` 回测内已含 long 与 short 信号，**符合双向设计**。\n")
+        f.write("- **moe_transformer/lstm**：`backtest_model_strategies.py` 已按**双向**实现：信号 1=做多/平空，信号 2=做空/平多，**符合双向设计**。\n\n")
+        f.write("### 为何 grid/boll 回测有时 1 笔有时 48 笔？\n\n")
+        f.write("**原因**：当前「最优参数」的选取规则是**优先选 num_trades≥2 的组合，再按收益排序**（见 `scripts/parameter_grid_search.py`）。之前按纯收益排序时，最优的那组参数只产生 1 笔交易；改规则后，展示的是「至少 2 笔里收益最高」的那组，所以变成 48 笔。若需改回「只按收益排序」可改回排序逻辑。\n\n")
+        f.write("### 回测与实盘代码是否一致？\n\n")
+        f.write("**grid/boll**：当前回测用的是 **parameter_grid_search**（RSI + 均线 参数网格），与实盘 **grid_trading_strategy_pro1**（网格上下轨 + ATR + RSI + 反弹/量能）**不是同一套逻辑**。要回测有参考意义，需改代码：让回测调用与实盘同一套规则，或直接使用实盘同逻辑回测入口 **`src.tiger1.backtest_grid_trading_strategy_pro1`**。\n\n")
+        f.write("**moe_transformer/lstm**：回测用 test.csv 的 label/衍生信号模拟多空开平，与实盘模型预测输出是否一致取决于训练与推理是否同源。\n\n")
+        perf = report.get('strategy_performance') or {}
+        if any((perf.get(s) or {}).get('num_trades') not in (None, '—') for s in ('grid', 'boll', 'moe_transformer', 'lstm')):
+            f.write("## 回测明细（实际成交笔数、总收益、单笔平均、单笔TOP）\n\n")
+            f.write("| 策略 | 成交笔数 | 总收益率% | 单笔平均% | 单笔TOP% | 胜率% |\n")
+            f.write("| --- | --- | --- | --- | --- | --- |\n")
+            def _num(v):
+                if v is None or v == '—': return '—'
+                if isinstance(v, (int, float)): return str(round(float(v), 2))
+                return str(v)
+            for s in ('moe_transformer', 'lstm', 'grid', 'boll'):
+                row = perf.get(s) or {}
+                f.write("| %s | %s | %s | %s | %s | %s |\n" % (s, _num(row.get('num_trades')), _num(row.get('return_pct')), _num(row.get('avg_per_trade_pct')), _num(row.get('top_per_trade_pct')), _num(row.get('win_rate'))))
+            f.write("\n说明：**成交笔数**=实际完成的开平仓次数；**总收益率**= (期末资金−10万)/10万×100；**单笔平均**= 总收益/笔数（每笔占初始资金%）；**单笔TOP**= 单笔最大收益占初始资金%。这样看到「1 笔」即表示本轮回测只成交 1 笔，不是算法只开一仓。\n\n")
         
         f.write("## 指标说明（含义与计算方式）\n\n")
         f.write("| 指标 | 含义 | 计算方式 / 说明 |\n")
@@ -359,7 +441,7 @@ def run_optimization_workflow():
     optimal_params, backtest_metrics = optimize_parameters()
     # 把回测效果写入 strategy_performance；失败也写占位，保证每日数据完整（错误即数据）
     if performance:
-        for name in ('grid', 'boll'):
+        for name in ('grid', 'boll', 'moe_transformer', 'lstm'):
             if name not in performance:
                 continue
             m = (backtest_metrics or {}).get(name)
@@ -367,14 +449,14 @@ def run_optimization_workflow():
                 performance[name]['return_pct'] = m.get('return_pct') if m.get('return_pct') is not None else '—'
                 performance[name]['win_rate'] = m.get('win_rate') if m.get('win_rate') is not None else '—'
                 performance[name]['num_trades'] = m.get('num_trades') if m.get('num_trades') is not None else '—'
+                performance[name]['avg_per_trade_pct'] = m.get('avg_per_trade_pct') if m.get('avg_per_trade_pct') is not None else '—'
+                performance[name]['top_per_trade_pct'] = m.get('top_per_trade_pct') if m.get('top_per_trade_pct') is not None else '—'
             else:
                 performance[name]['return_pct'] = '—'
                 performance[name]['win_rate'] = '—'
                 performance[name]['num_trades'] = '—'
-        for name in ('moe_transformer', 'lstm'):
-            if name in performance and (performance[name].get('return_pct') is None and performance[name].get('num_trades') is None):
-                performance[name]['return_pct'] = '—'
-                performance[name]['num_trades'] = '—'
+                performance[name]['avg_per_trade_pct'] = '—'
+                performance[name]['top_per_trade_pct'] = '—'
     
     # 5. 生成报告（含效果数据来源说明）
     report = generate_optimization_report(profitability, performance, optimal_params)

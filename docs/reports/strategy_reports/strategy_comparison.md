@@ -1,12 +1,13 @@
 # 策略对比报告
 
-*报告生成时间：2026-02-10T11:24:16.679487*
+*报告生成时间：2026-02-10T16:46:48.370137*
 
 **算法版本**：2.0（重大变更与对比见 [algorithm_versions.md](../../algorithm_versions.md)）
 
 ## 数据来源与「结果不全」说明
 
-- **回测效果**：当前仅 **grid / boll** 由 `parameter_grid_search`（data/processed/test.csv）产出；moe_transformer、lstm 需单独回测或训练阶段产出，故表中可能为 —。
+- **回测效果**：**grid / boll** 由 `parameter_grid_search` 参数网格回测（**双向**：long/short）；**moe_transformer、lstm** 由 `scripts/backtest_model_strategies.py` 用 test.csv 信号回测（**双向**：1=多/平空，2=空/平多），四策略均有 num_trades/return_pct/win_rate。
+- **回测 vs 实盘**：回测与实盘仅数据来源不同，策略与运行过程应一致才有参考意义；若回测笔数远少于实盘说明不一致需对齐。详见 [algorithm_optimization_report.md](algorithm_optimization_report.md)「回测与实盘差异说明」。
 - **实盘/DEMO 效果**：**demo_*** 等列来自 DEMO 多日志汇总；同次运行四策略共用统计，故 grid/boll/lstm 与 MoE 数字一致。
 - **今日收益率**：来自 `docs/today_yield.json`。若为 —，请运行 **收益与算法优化**（`python scripts/optimize_algorithm_and_profitability.py`）或单独运行 `python scripts/update_today_yield_for_status.py`，会从报告或 DEMO 日志更新后再刷新本报告。
 
@@ -14,14 +15,14 @@
 
 （回测数据：历史 K 线回测，含**回测收益率、回测胜率、回测笔数**。）
 
-| 策略 | return_pct | win_rate | num_trades |
-| --- | --- | --- | --- |
-| moe_transformer | — | 0 | — |
-| lstm | — | 0 | — |
-| grid | 8.447142857142854 | 100.0 | 1 |
-| boll | 8.447142857142854 | 100.0 | 1 |
+| 策略 | num_trades | return_pct | avg_per_trade_pct | top_per_trade_pct | win_rate |
+| --- | --- | --- | --- | --- | --- |
+| moe_transformer | 20 | 1.6 | 0.01 | 0.03 | 100.0 |
+| lstm | 20 | 1.6 | 0.01 | 0.03 | 100.0 |
+| grid | 0 | 0.0 | 0.0 | 0.0 | 0.0 |
+| boll | — | — | — | — | — |
 
-*说明*：**return_pct** = (期末资金−10万)/10万×100；**win_rate** = 盈利笔数/完成笔数×100；**num_trades** = 完成的开平仓次数。
+*说明*：**num_trades**=实际成交笔数；**return_pct**=总收益率；**avg_per_trade_pct**=单笔平均%；**top_per_trade_pct**=单笔TOP%；**win_rate**=胜率。
 
 ## 实盘/DEMO 效果对比
 
@@ -29,10 +30,10 @@
 
 | 策略 | win_rate | yield_verified | yield_estimated | today_yield_pct | profitability | demo_order_success | demo_sl_tp_log | demo_execute_buy_calls | demo_success_orders_sum | demo_fail_orders_sum | demo_logs_scanned |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| moe_transformer | — | — | — | — | 0 | 8763 | 89536 | 33501 | 3966 | 2136880 | 19 |
-| lstm | — | — | — | — | 0 | 8763 | 89536 | 33501 | 3966 | 2136880 | 19 |
-| grid | — | — | — | — | 0 | 8763 | 89536 | 33501 | 3966 | 2136880 | 19 |
-| boll | — | — | — | — | 0 | 8763 | 89536 | 33501 | 3966 | 2136880 | 19 |
+| moe_transformer | — | — | — | — | 0 | 9103 | 90216 | 33874 | 38576 | 2222179 | 20 |
+| lstm | — | — | — | — | 0 | 9103 | 90216 | 33874 | 38576 | 2222179 | 20 |
+| grid | — | — | — | — | 0 | 9103 | 90216 | 33874 | 38576 | 2222179 | 20 |
+| boll | — | — | — | — | 0 | 9103 | 90216 | 33874 | 38576 | 2222179 | 20 |
 
 **数据完整度**：回测 4/4 策略有数据；实盘/DEMO 4/4 策略有日志汇总。
 
@@ -50,7 +51,9 @@
 | --- | --- | --- |
 | return_pct | 回测收益率 | (期末资金 − 10万) / 10万 × 100（%）。来自 data/processed/test.csv 历史 K 线回测。 |
 | win_rate | 回测胜率 | 盈利笔数 / 完成笔数 × 100（%）。回测表为回测结果；实盘表为实盘胜率，仅来自 API 历史订单解析。 |
-| num_trades | 回测笔数 | 回测区间内完成的开平仓次数。仅 1 笔时胜率 100% 或 0% 无参考意义。 |
+| num_trades | 回测成交笔数 | 回测区间内实际完成的开平仓次数。 |
+| avg_per_trade_pct | 单笔平均% | 总收益/笔数，每笔占初始资金%。 |
+| top_per_trade_pct | 单笔TOP% | 单笔最大收益占初始资金%。 |
 | profitability | 实盘盈亏汇总 | API 历史订单解析得到的总交易数、总盈亏等；无 API 时为 0 或 —。 |
 | yield_verified | 实际收益率（老虎核对） | 用老虎后台订单/成交数据计算出的收益率；未拉取或未核对时为 —。 |
 | yield_estimated | 推算收益率（未核对） | 未与老虎核对时的推算值（如 API 报告解析）；无推算时为 —。 |

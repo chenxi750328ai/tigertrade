@@ -48,12 +48,14 @@ class MarketDataProvider:
         if indicators is None or '5m' not in indicators or '1m' not in indicators:
             raise ValueError("指标计算失败")
         
-        # 获取关键指标
+        # 获取关键指标（含成交量，供策略/模型使用）
         price_current = indicators['1m']['close']
         atr = indicators['5m']['atr']
         rsi_1m = indicators['1m']['rsi']
         rsi_5m = indicators['5m']['rsi']
-        
+        volume_1m = indicators['1m'].get('volume', 0)
+        volume_5m = indicators['5m'].get('volume', 0)
+
         # 获取Tick价格
         tick_price = price_current
         if not df_tick.empty:
@@ -71,7 +73,7 @@ class MarketDataProvider:
         buffer = max(atr * 0.3, 0.0025)
         threshold = grid_lower_val + buffer
         
-        # 准备当前数据
+        # 准备当前数据（含成交量：K 线 API 返回 open/high/low/close/volume，此处写入供策略/ prepare_features 使用）
         current_data = {
             'price_current': tick_price,
             'grid_lower': grid_lower_val,
@@ -79,6 +81,8 @@ class MarketDataProvider:
             'atr': atr,
             'rsi_1m': rsi_1m,
             'rsi_5m': rsi_5m,
+            'volume_1m': volume_1m,
+            'volume_5m': volume_5m,
             'buffer': buffer,
             'threshold': threshold,
             'near_lower': tick_price <= threshold,

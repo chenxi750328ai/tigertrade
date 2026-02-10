@@ -1,6 +1,6 @@
 # 订单日志导出与分析
 
-**生成时间**: 2026-02-10 11:24:05
+**生成时间**: 2026-02-10 16:23:03
 **数据源**: `run/order_log.jsonl`
 **总条数**: 1328
 
@@ -14,6 +14,8 @@
 
 因此：若后台查不到订单，请先看下方统计中 **mode=real 且 status=success** 的数量与时间；若多为 mock 或 real 多为 fail，则后台无对应记录是预期行为。
 
+**⚠️ 关于「与老虎后台对不上」**：当前 mode=real 且 status=success 的条数中，**多数 order_id 为 Mock、TEST_、ORDER_ 等**，说明来自**测试或 mock 环境**（当时未真正走老虎 API，或 API 被 mock 后把 mock 返回值写进了 order_log）。这类记录**不是老虎真实成交**，与老虎后台对不上是预期。只有 order_id 为**纯数字且较长**（老虎返回格式）的，才可能是真实单。详见下方「real success 中：疑似测试/mock 与可能真实单」。
+
 ## 二、统计汇总
 
 ### 按 mode 与 status
@@ -21,6 +23,13 @@
 - mode=**real**, status=**fail**: 848 条
 - mode=**mock**, status=**success**: 411 条
 - mode=**real**, status=**success**: 69 条
+
+### mode=real 且 status=success 中：疑似测试/mock 与可能真实单
+
+| 类型 | 条数 | 说明 |
+| --- | --- | --- |
+| 疑似测试/mock（order_id 含 Mock、TEST_、ORDER_ 等） | 64 | 来自测试或 mock 环境，**非老虎真实成交**，与老虎后台对不上是预期。 |
+| 可能为老虎真实单（order_id 为纯数字） | 5 | 才可能在老虎后台查到；可用 `scripts/verify_demo_orders_against_tiger.py` 核对。 |
 
 ### 按 source
 

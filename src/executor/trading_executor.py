@@ -13,6 +13,11 @@ from src.strategies.base_strategy import BaseTradingStrategy
 from .data_provider import MarketDataProvider
 from .order_executor import OrderExecutor
 
+try:
+    from src import tiger1 as _t1
+except ImportError:
+    _t1 = None
+
 
 class TradingExecutor:
     """交易执行器 - 连接策略和执行的核心模块"""
@@ -82,6 +87,14 @@ class TradingExecutor:
                 market_data = self.data_provider.get_market_data(
                     seq_length=self.strategy.seq_length
                 )
+                
+                # 1.5 持仓看门狗：超时止盈/止损必跑，防止有仓无卖、裸奔爆仓（TradingExecutor 路径原先未调用）
+                if _t1 and callable(getattr(_t1, 'run_position_watchdog', None)):
+                    tick_price = market_data.get('tick_price') or market_data.get('current_data', {}).get('price_current')
+                    atr = market_data.get('atr')
+                    grid_lower = market_data.get('grid_lower')
+                    if tick_price is not None:
+                        _t1.run_position_watchdog(tick_price, atr=atr, grid_lower=grid_lower)
                 
                 # 2. 调用策略预测
                 prediction_result = self.strategy.predict_action(

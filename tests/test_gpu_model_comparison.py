@@ -55,9 +55,7 @@ def test_gpu_availability():
     """测试GPU可用性"""
     print("🧪 测试GPU可用性...")
     if torch.cuda.is_available():
-        print(f"✅ GPU可用: {torch.cuda.get_device_name()}")
-        print(f"   CUDA版本: {torch.version.cuda}")
-        print(f"   GPU内存: {torch.cuda.get_device_properties(0).total_memory / 1e9:.2f} GB")
+        pass  # GPU 可用，继续测试
     else:
         print("❌ GPU不可用，此策略需要GPU运行")
         pytest.skip("GPU not available")
@@ -69,7 +67,7 @@ def test_model_initialization(strategy):
     assert hasattr(strategy, 'lstm_model') and hasattr(strategy, 'transformer_model')
     n_lstm = sum(p.numel() for p in strategy.lstm_model.parameters())
     n_trans = sum(p.numel() for p in strategy.transformer_model.parameters())
-    print(f"✅ 模型初始化成功 设备={getattr(strategy, 'device', 'cpu')} LSTM参数={n_lstm} Trans参数={n_trans}")
+    print(f"✅ 模型初始化成功 LSTM参数={n_lstm} Trans参数={n_trans}")
 
 def test_prediction_functionality(strategy):
     """测试预测功能"""

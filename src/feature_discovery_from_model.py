@@ -47,7 +47,6 @@ class FeatureDiscovery:
         print(f"{'='*80}")
         print(f"模型: {model_path}")
         print(f"数据: {data_file}")
-        print(f"设备: {self.device}")
         print(f"{'='*80}\n")
         
         checkpoint = torch.load(model_path, map_location=self.device)

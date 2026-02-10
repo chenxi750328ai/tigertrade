@@ -94,7 +94,22 @@ def analyze(records):
                 real_errors[err] += 1
             else:
                 real_success_ts.append(r.get("ts", ""))
-    # 按日期排序，最近在前
+    # real+success 中区分：order_id 疑似测试/mock（与老虎对不上）vs 可能为真实单（纯数字）
+    real_success_likely_mock = 0
+    real_success_likely_real = 0
+    for r in records:
+        if r.get("mode") != "real" or r.get("status") != "success":
+            continue
+        oid = str(r.get("order_id") or "").strip()
+        if not oid:
+            real_success_likely_mock += 1
+            continue
+        if "Mock" in oid or oid.startswith("TEST_") or oid == "TEST123" or oid.startswith("ORDER_"):
+            real_success_likely_mock += 1
+        elif oid.isdigit() and len(oid) >= 10:
+            real_success_likely_real += 1
+        else:
+            real_success_likely_mock += 1
     by_date_sorted = dict(sorted(by_date.items(), reverse=True))
     return {
         "total": len(records),
@@ -103,6 +118,8 @@ def analyze(records):
         "by_date": by_date_sorted,
         "real_errors": dict(sorted(real_errors.items(), key=lambda x: -x[1])),
         "real_success_count": len(real_success_ts),
+        "real_success_likely_mock": real_success_likely_mock,
+        "real_success_likely_real": real_success_likely_real,
         "real_success_ts_sample": sorted(real_success_ts)[-10:] if real_success_ts else [],
     }
 
@@ -129,9 +146,16 @@ def write_report(records, stats, out_dir, report_name="order_log_analysis.md"):
         "",
         "因此：若后台查不到订单，请先看下方统计中 **mode=real 且 status=success** 的数量与时间；若多为 mock 或 real 多为 fail，则后台无对应记录是预期行为。",
         "",
-        "## 二、统计汇总",
-        "",
     ]
+    # 若 real+success 里多数为 Mock/TEST 等，说明与老虎对不上的原因
+    likely_mock = stats.get("real_success_likely_mock", 0)
+    likely_real = stats.get("real_success_likely_real", 0)
+    total_rs = stats.get("real_success_count", 0)
+    if total_rs > 0 and likely_mock > 0:
+        lines.append("**⚠️ 关于「与老虎后台对不上」**：当前 mode=real 且 status=success 的条数中，**多数 order_id 为 Mock、TEST_、ORDER_ 等**，说明来自**测试或 mock 环境**（当时未真正走老虎 API，或 API 被 mock 后把 mock 返回值写进了 order_log）。这类记录**不是老虎真实成交**，与老虎后台对不上是预期。只有 order_id 为**纯数字且较长**（老虎返回格式）的，才可能是真实单。详见下方「real success 中：疑似测试/mock 与可能真实单」。")
+        lines.append("")
+    lines.append("## 二、统计汇总")
+    lines.append("")
 
     # 按 mode/status 汇总
     lines.append("### 按 mode 与 status")
@@ -139,7 +163,14 @@ def write_report(records, stats, out_dir, report_name="order_log_analysis.md"):
     for (m, s), cnt in sorted(stats["by_mode_status"].items(), key=lambda x: -x[1]):
         lines.append(f"- mode=**{m}**, status=**{s}**: {cnt} 条")
     lines.append("")
-
+    if total_rs > 0:
+        lines.append("### mode=real 且 status=success 中：疑似测试/mock 与可能真实单")
+        lines.append("")
+        lines.append("| 类型 | 条数 | 说明 |")
+        lines.append("| --- | --- | --- |")
+        lines.append(f"| 疑似测试/mock（order_id 含 Mock、TEST_、ORDER_ 等） | {likely_mock} | 来自测试或 mock 环境，**非老虎真实成交**，与老虎后台对不上是预期。 |")
+        lines.append(f"| 可能为老虎真实单（order_id 为纯数字） | {likely_real} | 才可能在老虎后台查到；可用 `scripts/verify_demo_orders_against_tiger.py` 核对。 |")
+        lines.append("")
     lines.append("### 按 source")
     lines.append("")
     for src, cnt in sorted(stats["by_source"].items(), key=lambda x: -x[1]):

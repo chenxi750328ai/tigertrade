@@ -16,6 +16,16 @@ ORDER_LOG_FILE = str(_RUN_DIR / "order_log.jsonl")
 API_FAILURE_FOR_SUPPORT_FILE = str(_RUN_DIR / "api_failure_for_support.jsonl")
 
 
+def _is_likely_real_tiger_order_id(order_id: Any) -> bool:
+    """老虎真实订单 ID 为纯数字且较长；Mock、TEST_、ORDER_ 等为测试/mock，不能记成 real+success。"""
+    s = str(order_id).strip()
+    if not s or len(s) < 10:
+        return False
+    if "Mock" in s or s.startswith("TEST_") or s == "TEST123" or s.startswith("ORDER_") or s == "SIM":
+        return False
+    return s.isdigit()
+
+
 def _ensure_dir():
     _RUN_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -41,6 +51,10 @@ def log_order(
     order_type 取值：market=市价单, limit=限价单(现价单), stop_loss=止损单, take_profit=止盈单
     """
     _ensure_dir()
+    # DEMO 真实运行：只有老虎返回的真实 order_id 才允许记 mode=real + status=success；否则记 fail，避免 Mock/测试写入实盘成功
+    if mode == "real" and status == "success" and not _is_likely_real_tiger_order_id(order_id):
+        status = "fail"
+        error = (error or "") + ("; " if error else "") + "order_id无效(来自mock/测试)，未记入实盘成功"
     allowed = ("market", "limit", "stop_loss", "take_profit")
     order_type_val = order_type if order_type in allowed else "limit"
     record = {

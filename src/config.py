@@ -34,8 +34,8 @@ class DataConfig:
     USE_REAL_API = os.getenv('USE_REAL_API', 'False').lower() == 'true'
     TIGER_CONFIG_PATH = os.getenv('TIGER_CONFIG_PATH', './openapicfg_dem')
     
-    # 数据采集参数
-    SYMBOL = os.getenv('SYMBOL', 'NQ')  # 期货代码
+    # 数据采集参数（与交易标的一致：第一阶段为白银，见 config/trading.json / TradingConfig.SYMBOL）
+    SYMBOL = os.getenv('SYMBOL', 'SIL')  # 期货代码，默认 SIL（白银），与 DEMO/真实 API 默认标的一致
     DAYS_TO_FETCH = int(os.getenv('DAYS_TO_FETCH', '30'))  # 获取天数
     MAX_RECORDS = int(os.getenv('MAX_RECORDS', '100000'))  # 最大记录数
     

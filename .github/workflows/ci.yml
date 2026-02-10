@@ -36,24 +36,26 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-cov coverage[toml]
 
-      - name: Run Feature Tests (业务需求验证)
+      # 与例行工作一致：同一套命令，避免「本地过 CI 过」不一致（见 shared_rag/insights/CI为何通过与防止再犯_20260202.md）
+      - name: Run tests (与例行一致: -m not real_api + PYTEST_DISABLE_PLUGIN_AUTOLOAD=1)
+        env:
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
         run: |
-          python -m pytest tests/test_feature_*.py -v --tb=short --cov=src --cov-report=term-missing
-        continue-on-error: false
-
-      - name: Run Unit Tests (代码逻辑验证)
-        run: |
-          python -m pytest tests/ -v --tb=short --ignore=tests/test_feature_*.py --cov=src --cov-report=term-missing
+          python -m pytest tests/ -m "not real_api" -v --tb=short --cov=src --cov-report=term-missing
         continue-on-error: false
 
       - name: Regression guard (OrderExecutor 回退 + tiger1 __main__ 冒烟)
+        env:
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
         run: |
           python -m pytest tests/test_order_executor_comprehensive.py::TestOrderExecutorComprehensive::test_order_executor_fallback_when_risk_manager_lacks_check_risk_control tests/test_run_moe_demo_integration.py::TestRunMoeDemoIntegration::test_tiger1_main_entry_no_attribute_error -v --tb=short
         continue-on-error: false
 
       - name: Generate Coverage Report
+        env:
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
         run: |
-          python -m pytest tests/ -v --cov=src \
+          python -m pytest tests/ -m "not real_api" -v --cov=src \
             --cov-report=term-missing \
             --cov-report=html:htmlcov \
             --cov-report=xml:coverage.xml \

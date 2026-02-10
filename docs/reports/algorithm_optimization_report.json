@@ -1,79 +1,77 @@
 {
-  "timestamp": "2026-02-10T11:24:03.647953",
+  "timestamp": "2026-02-10T16:22:56.886112",
   "algorithm_version": "2.0",
   "profitability": null,
   "strategy_performance": {
     "moe_transformer": {
       "profitability": 0,
-      "win_rate": 0,
+      "win_rate": 100.0,
       "sharpe_ratio": 0,
       "max_drawdown": 0,
-      "demo_order_success": 8763,
-      "demo_sl_tp_log": 89536,
-      "demo_execute_buy_calls": 33501,
-      "demo_success_orders_sum": 3966,
-      "demo_fail_orders_sum": 2136880,
-      "demo_logs_scanned": 19,
-      "return_pct": "—",
-      "num_trades": "—"
+      "demo_order_success": 9103,
+      "demo_sl_tp_log": 90216,
+      "demo_execute_buy_calls": 33874,
+      "demo_success_orders_sum": 38576,
+      "demo_fail_orders_sum": 2222179,
+      "demo_logs_scanned": 20,
+      "return_pct": 1.6,
+      "num_trades": 20,
+      "avg_per_trade_pct": 0.01,
+      "top_per_trade_pct": 0.03
     },
     "lstm": {
       "profitability": 0,
-      "win_rate": 0,
+      "win_rate": 100.0,
       "sharpe_ratio": 0,
       "max_drawdown": 0,
-      "demo_order_success": 8763,
-      "demo_sl_tp_log": 89536,
-      "demo_execute_buy_calls": 33501,
-      "demo_success_orders_sum": 3966,
-      "demo_fail_orders_sum": 2136880,
-      "demo_logs_scanned": 19,
-      "return_pct": "—",
-      "num_trades": "—"
+      "demo_order_success": 9103,
+      "demo_sl_tp_log": 90216,
+      "demo_execute_buy_calls": 33874,
+      "demo_success_orders_sum": 38576,
+      "demo_fail_orders_sum": 2222179,
+      "demo_logs_scanned": 20,
+      "return_pct": 1.6,
+      "num_trades": 20,
+      "avg_per_trade_pct": 0.01,
+      "top_per_trade_pct": 0.03
     },
     "grid": {
       "profitability": 0,
-      "win_rate": 100.0,
+      "win_rate": 0.0,
       "sharpe_ratio": 0,
       "max_drawdown": 0,
-      "demo_order_success": 8763,
-      "demo_sl_tp_log": 89536,
-      "demo_execute_buy_calls": 33501,
-      "demo_success_orders_sum": 3966,
-      "demo_fail_orders_sum": 2136880,
-      "demo_logs_scanned": 19,
-      "return_pct": 8.447142857142854,
-      "num_trades": 1
+      "demo_order_success": 9103,
+      "demo_sl_tp_log": 90216,
+      "demo_execute_buy_calls": 33874,
+      "demo_success_orders_sum": 38576,
+      "demo_fail_orders_sum": 2222179,
+      "demo_logs_scanned": 20,
+      "return_pct": 0.0,
+      "num_trades": 0,
+      "avg_per_trade_pct": 0.0,
+      "top_per_trade_pct": 0.0
     },
     "boll": {
       "profitability": 0,
-      "win_rate": 100.0,
+      "win_rate": "—",
       "sharpe_ratio": 0,
       "max_drawdown": 0,
-      "demo_order_success": 8763,
-      "demo_sl_tp_log": 89536,
-      "demo_execute_buy_calls": 33501,
-      "demo_success_orders_sum": 3966,
-      "demo_fail_orders_sum": 2136880,
-      "demo_logs_scanned": 19,
-      "return_pct": 8.447142857142854,
-      "num_trades": 1
+      "demo_order_success": 9103,
+      "demo_sl_tp_log": 90216,
+      "demo_execute_buy_calls": 33874,
+      "demo_success_orders_sum": 38576,
+      "demo_fail_orders_sum": 2222179,
+      "demo_logs_scanned": 20,
+      "return_pct": "—",
+      "num_trades": "—",
+      "avg_per_trade_pct": "—",
+      "top_per_trade_pct": "—"
     }
   },
   "optimal_parameters": {
     "grid": {
-      "rsi_buy": 30,
-      "rsi_sell": 60,
-      "ma_short": 5,
-      "ma_long": 20,
-      "use_or": false
-    },
-    "boll": {
-      "rsi_buy": 30,
-      "rsi_sell": 60,
-      "ma_short": 5,
-      "ma_long": 20,
-      "use_or": false
+      "source": "backtest_grid_trading_strategy_pro1",
+      "same_code_as_live": true
     }
   },
   "recommendations": [],
@@ -82,6 +80,6 @@
     "**日志与老虎后台不一致说明**：日志含模拟单与失败单，只有 mode=real 且 status=success 的才在老虎后台；核对规则为「DEMO 的单在老虎都能查到即通过」，老虎可更多（含人工单）。",
     "收益率/胜率：API 历史订单 暂无或未解析",
     "DEMO：多日志汇总（同次运行，四策略共用统计；订单成功、止损止盈等）",
-    "网格/BOLL：回测（data/processed/test.csv）产出最优参数与 return_pct/win_rate"
+    "回测：grid/BOLL 为参数网格回测，moe_transformer/lstm 为 test.csv 信号回测（scripts/backtest_model_strategies.py），产出 num_trades/return_pct/win_rate"
   ]
 }

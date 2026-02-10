@@ -24,7 +24,6 @@ class UnsupervisedPretrainer:
     def __init__(self, data_dir='/home/cx/trading_data'):
         self.data_dir = data_dir
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        print(f"使用设备: {self.device}")
     
     def load_training_data(self):
         """加载训练数据"""

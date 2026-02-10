@@ -51,6 +51,19 @@ def main():
     try:
         # 运行tiger1.py
         result = subprocess.run(cmd, cwd='/home/cx/tigertrade')
+        # 20h 运行完毕（或异常退出）后做一次异常订单检查（无止损止盈、超仓、风控报错等）
+        print("\n" + "=" * 70)
+        print("📋 运行结束，执行异常订单检查（看 LOG 发现问题）")
+        print("=" * 70)
+        try:
+            analyze_exit = subprocess.run(
+                [sys.executable, 'scripts/analyze_demo_log.py'],
+                cwd='/home/cx/tigertrade'
+            )
+            if analyze_exit.returncode != 0:
+                print("\n⚠️ 异常订单检查发现问题，请查看上方输出。")
+        except Exception as e:
+            print(f"⚠️ 异常订单检查未执行: {e}")
         sys.exit(result.returncode)
     except KeyboardInterrupt:
         print("\n🛑 用户中断")

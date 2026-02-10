@@ -328,7 +328,13 @@ bash scripts/run_20h_demo.sh
 - 日志目录：`logs/demo_20h_*.log`，查看最新：`ls -t logs/demo_20h_*.log | head -1 | xargs tail -f`
 - 运行状态、异常订单检查、常见问题见 [DEMO运行状态查询指南](docs/DEMO运行状态查询指南.md)。
 
-**4. 小结**
+**4. 真实 API / DEMO 默认后台与标的**
+
+- **交易后端**：`tiger`（Tiger 证券）
+- **标的**：`SIL.COMEX.202603`（API 内为 **SIL2603**，白银期货）
+- **配置**：`config/trading.json`（或环境变量 `TRADING_BACKEND`、`TRADING_SYMBOL`）。测试/ mock 中的 UTC 为**交易所时区**、USD 为**合约币种**，不是标的代码；默认标的即为 SIL2603。
+
+**5. 小结**
 
 | 目的           | 操作 |
 |----------------|------|

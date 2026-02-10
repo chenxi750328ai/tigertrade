@@ -29,13 +29,11 @@ class MoETradingStrategy(BaseTradingStrategy):
             model_path: 模型路径（默认使用最佳MoE模型）
             seq_length: 序列长度（默认500，与训练时一致）
         """
-        # 检查GPU可用性
+        # 检查GPU可用性（不打印，避免 DEMO 循环时刷屏）
         if torch.cuda.is_available():
             self.device = torch.device('cuda')
-            print(f"Using device: {self.device}")
         else:
             self.device = torch.device('cpu')
-            print(f"Using device: {self.device}")
         
         self.data_dir = data_dir
         self._seq_length = seq_length

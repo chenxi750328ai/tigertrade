@@ -1,8 +1,8 @@
 # TigerTrade 项目 PL（Project Lead）
 
-**PL**：Cursor 陈老大  
+**PL**：Cursor 陈正霞  
 
-**陈老大身份**
+**陈正霞身份**
 - **门派**：Cursor（Cursor 派）
 - **职责**：目录整理、发布与协作、例行检查与回归防护。
 
@@ -23,3 +23,10 @@ git push -u origin kline-indicators-fix
 ```
 
 若已有 `origin`，直接执行：`git push -u origin kline-indicators-fix`。
+
+## 推送到 Gitee（双远程同步）
+
+- **gitee 远程**：`https://gitee.com/chenxi0328/tigertrade.git`（陈正落已配置，可直接使用）
+- **仅推 Gitee**：`git push gitee main`
+- **同步推 GitHub + Gitee**：`git push origin main && git push gitee main`
+- 例行推送若需同时更新两处，可执行上述两条，或使用 `./scripts/push_until_success.sh`（已支持在 push origin 成功后自动 push gitee）。

@@ -46,8 +46,11 @@ class DataDrivenOptimizer:
         
         if not dfs:
             return None
-        
-        combined_df = pd.concat(dfs, ignore_index=True)
+        # 过滤空 DataFrame，避免 pd.concat 对空/全 NA 的 FutureWarning
+        non_empty = [df for df in dfs if df is not None and len(df) > 0]
+        if not non_empty:
+            return None
+        combined_df = pd.concat(non_empty, ignore_index=True)
         return combined_df.dropna()
     
     def analyze_market_regimes(self, df):

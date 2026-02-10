@@ -16,7 +16,6 @@ import sys
 
 # 设置设备
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(f"使用设备: {device}")
 
 class TimeSeriesDataset(Dataset):
     """时间序列数据集"""

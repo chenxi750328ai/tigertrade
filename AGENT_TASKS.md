@@ -7,14 +7,15 @@
 ## 📄 状态页（docs/status.html）
 
 - **谁刷新**：内容需编辑 <code>docs/status.html</code> 并提交推送，由 GitHub Pages 部署后生效；无自动拉取数据。
-- **负责成员**：**陈老大**（PL）负责内容更新与对外一致性；可委托**陈老二**按任务更新（如测试结果、特性进展），更新后回报。
-- **连接**：状态页底部已加「维护与负责」说明及 [PL 约定](docs/PL.md)、[Agent 任务](AGENT_TASKS.md)、[陈老大陈老二协作分工](shared_rag/best_practices/陈老大陈老二协作分工_20260201.md) 链接。
+- **负责成员**：**陈正霞**（PL）负责内容更新与对外一致性；可委托**陈正与**按任务更新（如测试结果、特性进展），更新后回报。
+- **连接**：状态页底部已加「维护与负责」说明及 [PL 约定](docs/PL.md)、[Agent 任务](AGENT_TASKS.md)、[陈正霞陈正与协作分工](shared_rag/best_practices/陈正霞陈正与协作分工_20260201.md) 链接。
+- **查找顺序**：Tiger 内找不到时，查**工作区根目录** README（如 `/home/cx/README.md`）、**agentfuture 根目录** README（`/home/cx/agentfuture/README.md`）。详见 [shared_rag/README](shared_rag/README.md)「查找顺序」。
 
 ---
 
 ## 📋 例行工作（必做，详见 RAG）
 
-执行「例行工作」时必须覆盖以下全部项，**不得遗漏**。完整说明见：`shared_rag/best_practices/例行工作清单_agent必读.md`
+执行「例行工作」时必须覆盖以下全部项，**不得遗漏**。完整说明见：`shared_rag/best_practices/例行工作清单_agent必读.md`。**角色与每日例行**（Leader/设计/开发/测试）见：`shared_rag/best_practices/项目角色与每日例行工作.md`。Leader 另须监控项目计划执行与成员进展/问题。
 
 1. **CI/CD 测试**
 2. **覆盖率统计**
@@ -22,6 +23,7 @@
 4. **20 小时稳定性测试（含 20 小时 DEMO 运行）** — 如 `bash scripts/run_20h_demo.sh` 或 `python scripts/stability_test_20h.py`
 5. **数据刷新和模型训练**（含多模型对比训练：LSTM/Transformer/Enhanced/MoE）
 6. **收益率分析和算法优化** — 收益率分析 + 算法优化（两项都做），如 `python scripts/optimize_algorithm_and_profitability.py`
+7. **状态页刷新** — 按进展更新 `docs/status.html`，提交并推送；陈正霞负责，可委托陈正与
 
 ---
 

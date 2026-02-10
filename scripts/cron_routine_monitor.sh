@@ -3,6 +3,7 @@
 # 用法: bash scripts/cron_routine_monitor.sh
 # 建议 crontab: 每 2 分钟执行一次（快速发现错误）
 #   */2 * * * * cd /home/cx/tigertrade && bash scripts/cron_routine_monitor.sh >> logs/routine_monitor.log 2>&1
+# 内含：每半点（00/30 分）执行一次异常订单检查（analyze_demo_log：无止损止盈、超仓、风控报错）
 
 cd /home/cx/tigertrade
 MONITOR_LOG="logs/routine_monitor.log"
@@ -52,6 +53,19 @@ if [ -n "$TRAIN_PID" ]; then
     fi
   fi
 fi
+
+# 异常订单检查：每隔 30 分钟或有 DEMO 日志时跑一次，发现问题则退出码非 0
+ANOMALY_EXIT=0
+MIN=$(date +%M)
+LATEST_DEMO_LOG=$(ls -t logs/demo_20h_*.log 2>/dev/null | head -1)
+if [ -n "$LATEST_DEMO_LOG" ] && { [ "$MIN" = "00" ] || [ "$MIN" = "30" ]; }; then
+  if python scripts/analyze_demo_log.py "$LATEST_DEMO_LOG" >> "$MONITOR_LOG" 2>&1; then
+    : # 无问题
+  else
+    ANOMALY_EXIT=1
+  fi
+fi
+[ $ANOMALY_EXIT -eq 1 ] && EXIT_CODE=1
 
 {
   echo "[$RUN_TIME] DEMO: $DEMO_STATUS | 训练: $TRAIN_STATUS | 其他错误: $OTHER_ERRORS"

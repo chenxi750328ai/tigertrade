@@ -148,13 +148,11 @@ class LLMTradingStrategy(BaseTradingStrategy):
         """
         self.mode = mode  # 'hybrid' 或 'pure_ml'
         self.predict_profit = predict_profit  # 是否预测收益率
-        # 检查GPU可用性
+        # 检查GPU可用性（不打印，避免 DEMO 循环时刷屏）
         if torch.cuda.is_available():
             self.device = torch.device('cuda')
-            print(f"Using device: {self.device}")
         else:
             self.device = torch.device('cpu')
-            print(f"Using device: {self.device}")
         
         self.data_dir = data_dir
         

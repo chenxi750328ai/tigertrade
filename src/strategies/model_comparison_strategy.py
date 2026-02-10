@@ -73,7 +73,6 @@ class ModelComparisonStrategy:
         # 强制使用GPU
         if torch.cuda.is_available():
             self.device = torch.device('cuda')
-            print(f"Using GPU: {torch.cuda.get_device_name()}")
         else:
             raise RuntimeError("CUDA不可用，此策略需要GPU运行")
         
