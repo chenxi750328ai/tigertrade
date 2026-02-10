@@ -21,10 +21,27 @@ STRATEGY_REPORTS_DIR = REPORTS_DIR / "strategy_reports"
 
 # 回测效果：来自历史数据回测（如 parameter_grid_search）
 BACKTEST_KEYS = ("return_pct", "win_rate", "num_trades")
-# 实盘/DEMO 效果：来自 API 订单、today_yield、DEMO 日志汇总
-LIVE_DEMO_KEYS = ("profitability", "win_rate", "today_yield_pct", "demo_order_success",
-                  "demo_sl_tp_log", "demo_execute_buy_calls", "demo_success_orders_sum",
+# 实盘/DEMO 效果：实盘胜率、实际/推算收益率、今日展示、DEMO 日志汇总
+LIVE_DEMO_KEYS = ("profitability", "win_rate", "yield_verified", "yield_estimated", "today_yield_pct",
+                  "demo_order_success", "demo_sl_tp_log", "demo_execute_buy_calls", "demo_success_orders_sum",
                   "demo_fail_orders_sum", "demo_logs_scanned", "max_position")
+
+# 报告中所有指标的含义与计算方式（用于「指标说明」节）
+INDICATOR_DEFINITIONS = [
+    ("return_pct", "回测收益率", "(期末资金 − 10万) / 10万 × 100（%）。来自 data/processed/test.csv 历史 K 线回测。"),
+    ("win_rate", "回测胜率", "盈利笔数 / 完成笔数 × 100（%）。回测表为回测结果；实盘表为实盘胜率，仅来自 API 历史订单解析。"),
+    ("num_trades", "回测笔数", "回测区间内完成的开平仓次数。仅 1 笔时胜率 100% 或 0% 无参考意义。"),
+    ("profitability", "实盘盈亏汇总", "API 历史订单解析得到的总交易数、总盈亏等；无 API 时为 0 或 —。"),
+    ("yield_verified", "实际收益率（老虎核对）", "用老虎后台订单/成交数据计算出的收益率；未拉取或未核对时为 —。"),
+    ("yield_estimated", "推算收益率（未核对）", "未与老虎核对时的推算值（如 API 报告解析）；无推算时为 —。"),
+    ("today_yield_pct", "今日收益率展示", "本日在状态/报告中展示的收益率，来自 today_yield.json；须以实际（老虎核对）为准。"),
+    ("demo_order_success", "DEMO 主单成功次数", "DEMO 日志中「订单提交成功」等匹配次数（多日志汇总），非老虎后台笔数。"),
+    ("demo_sl_tp_log", "DEMO 止损/止盈日志条数", "日志全文匹配「止损|止盈|已提交止损|已提交止盈」等的出现次数。"),
+    ("demo_execute_buy_calls", "DEMO 买入动作次数", "日志匹配「execute_buy|动作: 买入」的次数。"),
+    ("demo_success_orders_sum", "DEMO 成功订单数(日志)", "日志内统计的成功订单数汇总，非老虎后台。"),
+    ("demo_fail_orders_sum", "DEMO 失败订单数(日志)", "日志内统计的失败订单数汇总。"),
+    ("demo_logs_scanned", "DEMO 扫描日志数", "参与汇总的 demo_*.log、demo_run_20h_*.log 文件个数。"),
+]
 
 # 每日收益与算法优化：在干啥、咋干的（写入策略报告与索引页）
 ROUTINE_WHAT_HOW = """
@@ -166,32 +183,47 @@ def write_strategy_report(strategy_id: str, meta: dict, run_effect: dict):
     lines.append("## 运行效果")
     lines.append("")
     row = row or {}
-    # 回测效果：仅当存在明确回测指标（return_pct 或 num_trades）时展示，避免占位 0 混入
+    # 回测效果：回测收益率、回测胜率、回测笔数
     backtest_row = {k: row.get(k) for k in BACKTEST_KEYS if row.get(k) is not None}
     if (row.get("return_pct") is not None or row.get("num_trades") is not None) and backtest_row:
         lines.append("### 回测效果")
         lines.append("")
-        lines.append("（来自历史数据回测，如 `parameter_grid_search`、训练阶段回测。）")
+        lines.append("（回测数据：历史 K 线回测。）")
         lines.append("")
-        lines.append("| 指标 | 值 |")
-        lines.append("| --- | --- |")
-        for k, v in backtest_row.items():
-            lines.append(f"| {k} | {v} |")
+        lines.append("| 指标 | 值 | 说明 |")
+        lines.append("| --- | --- | --- |")
+        for k in BACKTEST_KEYS:
+            if k in backtest_row:
+                _, name, desc = next((x for x in INDICATOR_DEFINITIONS if x[0] == k), (k, k, ""))
+                lines.append(f"| {k} | {backtest_row[k]} | {desc} |")
         lines.append("")
-    # 实盘/DEMO 效果（API 订单收益率、今日收益率、DEMO 日志汇总等）
-    live_demo_row = {k: row.get(k) for k in LIVE_DEMO_KEYS if row.get(k) is not None}
-    # 若回测里已有 win_rate，实盘表可省略重复的 win_rate（来自 API 时再写）
-    if backtest_row and "win_rate" in live_demo_row and strategy_id in ("grid", "boll"):
-        live_demo_row = {k: v for k, v in live_demo_row.items() if k != "win_rate"}
+    # 实盘/DEMO 效果：实盘胜率、实际/推算收益率、今日展示、DEMO 汇总
+    profitability = run_effect.get("profitability")
+    live_wr = "—"
+    if isinstance(profitability, dict) and (profitability.get("total_trades") or 0) > 0 and profitability.get("win_rate") is not None:
+        live_wr = f"{profitability['win_rate']:.1f}" if isinstance(profitability["win_rate"], (int, float)) else str(profitability["win_rate"])
+    y = run_effect.get("today_yield") or {}
+    ysrc = y.get("source") or "none"
+    yp = (y.get("yield_pct") or y.get("yield_note") or "—").strip() or "—"
+    yield_verified = yp if ysrc in ("tiger_backend", "report") and yp != "—" else "—"
+    yield_estimated = (yp + "（未核对）") if ysrc == "none" and yp != "—" else "—"
+    live_demo_row = {k: row.get(k) for k in LIVE_DEMO_KEYS if row.get(k) is not None and k not in ("yield_verified", "yield_estimated")}
+    live_demo_row["win_rate"] = live_wr
+    live_demo_row["yield_verified"] = yield_verified
+    live_demo_row["yield_estimated"] = yield_estimated
+    if "today_yield_pct" not in live_demo_row:
+        live_demo_row["today_yield_pct"] = yp
     if live_demo_row:
         lines.append("### 实盘/DEMO 效果")
         lines.append("")
-        lines.append("（来自 API 历史订单、`today_yield.json`、DEMO 多日志汇总。）")
+        lines.append("（实盘数据：实盘胜率、实际收益率（老虎核对）、推算收益率（未核对）、今日展示、DEMO 日志汇总。）")
         lines.append("")
-        lines.append("| 指标 | 值 |")
-        lines.append("| --- | --- |")
-        for k, v in live_demo_row.items():
-            lines.append(f"| {k} | {v} |")
+        lines.append("| 指标 | 值 | 说明 |")
+        lines.append("| --- | --- | --- |")
+        for k in ("win_rate", "yield_verified", "yield_estimated", "today_yield_pct") + tuple(k for k in LIVE_DEMO_KEYS if k not in ("win_rate", "yield_verified", "yield_estimated", "today_yield_pct") and k in live_demo_row):
+            v = live_demo_row.get(k, "—")
+            _, name, desc = next((x for x in INDICATOR_DEFINITIONS if x[0] == k), (k, k, ""))
+            lines.append(f"| {k} | {v} | {desc} |")
         lines.append("")
     # 无回测且无实盘数据时的提示
     if not backtest_row and not live_demo_row:
@@ -279,7 +311,7 @@ def write_comparison_report(run_effect: dict):
         "",
         "## 回测效果对比",
         "",
-        "（来自历史数据回测，如 `parameter_grid_search`。）",
+        "（回测数据：历史 K 线回测，含**回测收益率、回测胜率、回测笔数**。）",
         "",
     ])
     if perf:
@@ -295,60 +327,97 @@ def write_comparison_report(run_effect: dict):
                 cells = [str(row.get(k, "—")) for k in bk]
                 lines.append("| " + s + " | " + " | ".join(cells) + " |")
             lines.append("")
+            lines.append("*说明*：**return_pct** = (期末资金−10万)/10万×100；**win_rate** = 盈利笔数/完成笔数×100；**num_trades** = 完成的开平仓次数。")
+            lines.append("")
         else:
             lines.append("（暂无回测数据。）")
             lines.append("")
         lines.append("## 实盘/DEMO 效果对比")
         lines.append("")
-        lines.append("（来自 API 订单、today_yield、DEMO 多日志汇总。**胜率**仅来自 API 历史订单解析，无 API 数据时为 —；勿与回测胜率混淆。）")
+        lines.append("（实盘数据：**实盘胜率**、**实际收益率（老虎后台核对）**、**推算收益率（未核对）**、今日展示、DEMO 日志汇总。回测数据见上方回测表。）")
         lines.append("")
-        # 实盘 win_rate 只来自 profitability（API），不从 strategy_performance 取（grid/boll 里是回测 win_rate，误入实盘列会变成「实盘100%」）
         profitability = run_effect.get("profitability")
         live_win_rate = "—"
         if isinstance(profitability, dict) and (profitability.get("total_trades") or 0) > 0:
             w = profitability.get("win_rate")
             if w is not None:
                 live_win_rate = f"{w:.1f}" if isinstance(w, (int, float)) else str(w)
-        lk = [k for k in LIVE_DEMO_KEYS if any((perf.get(s) or {}).get(k) is not None for s in strategies) or (k == "win_rate")]
-        if lk:
-            header = "| 策略 | " + " | ".join(lk) + " |"
-            sep = "| --- | " + " | ".join("---" for _ in lk) + " |"
-            lines.append(header)
-            lines.append(sep)
-            for s in strategies:
-                row = perf.get(s) or {}
-                cells = []
-                for k in lk:
-                    if k == "win_rate":
-                        cells.append(str(live_win_rate))
-                    else:
-                        cells.append(str(row.get(k, "—")))
-                lines.append("| " + s + " | " + " | ".join(cells) + " |")
-            lines.append("")
-        else:
-            lines.append("（暂无实盘/DEMO 效果数据。）")
-            lines.append("")
-        # 数据完整度：一眼看出多少策略有回测 / DEMO 数据
+        y = run_effect.get("today_yield") or {}
+        src = y.get("source") or "none"
+        yp = (y.get("yield_pct") or "").strip()
+        yn = (y.get("yield_note") or "").strip()
+        if not yp and yn:
+            yp = yn
+        if not yp:
+            yp = "—"
+        # 实际收益率（老虎核对）：source=tiger_backend 或 report（API 报告）且有效时
+        yield_verified = "—"
+        yield_estimated = "—"
+        if src == "tiger_backend" and yp and yp != "—":
+            yield_verified = yp
+        elif src == "report" and yp and yp != "—":
+            yield_verified = yp + "（API报告）"
+        elif src == "none" and yp and yp != "—" and "未核对" in (yn or ""):
+            yield_estimated = yp
+        live_today_yield = yp if (yp and yp != "—") else "—"
+        lk_base = ["win_rate", "yield_verified", "yield_estimated", "today_yield_pct"]
+        lk_rest = [k for k in LIVE_DEMO_KEYS if k not in lk_base and any((perf.get(s) or {}).get(k) is not None for s in strategies)]
+        lk = lk_base + lk_rest
+        header = "| 策略 | " + " | ".join(lk) + " |"
+        sep = "| --- | " + " | ".join("---" for _ in lk) + " |"
+        lines.append(header)
+        lines.append(sep)
+        for s in strategies:
+            row = perf.get(s) or {}
+            cells = []
+            for k in lk:
+                if k == "win_rate":
+                    cells.append(str(live_win_rate))
+                elif k == "yield_verified":
+                    cells.append(str(yield_verified))
+                elif k == "yield_estimated":
+                    cells.append(str(yield_estimated))
+                elif k == "today_yield_pct":
+                    cells.append(str(live_today_yield))
+                else:
+                    cells.append(str(row.get(k, "—")))
+            lines.append("| " + s + " | " + " | ".join(cells) + " |")
+        lines.append("")
         n_backtest = sum(1 for s in strategies if (perf.get(s) or {}).get("return_pct") is not None or (perf.get(s) or {}).get("num_trades") is not None)
         n_demo = sum(1 for s in strategies if any((perf.get(s) or {}).get(k) is not None for k in LIVE_DEMO_KEYS if k.startswith("demo_")))
-        lines.append("**数据完整度**：回测 " + str(n_backtest) + "/" + str(len(strategies)) + " 策略有数据；实盘/DEMO " + str(n_demo) + "/" + str(len(strategies)) + " 策略有日志汇总；今日收益率见下。")
+        lines.append("**数据完整度**：回测 " + str(n_backtest) + "/" + str(len(strategies)) + " 策略有数据；实盘/DEMO " + str(n_demo) + "/" + str(len(strategies)) + " 策略有日志汇总。")
         lines.append("")
     else:
         lines.append("（暂无对比数据，由每日算法优化/回测流程更新。）")
         lines.append("")
 
-    # 今日收益率：始终输出一节；无文件或 date 为空时用当天日期，收益率禁止显示为空
     y = run_effect.get("today_yield") or {}
     date_display = (y.get("date") or "").strip() or datetime.now().strftime("%Y-%m-%d")
-    yield_display = (y.get("yield_pct") or y.get("yield_note") or "—").strip()
-    if not yield_display:
-        yield_display = "—"
+    yp = (y.get("yield_pct") or y.get("yield_note") or "—").strip() or "—"
+    src = y.get("source") or "none"
     lines.append("## 今日收益率（DEMO/实盘）")
     lines.append("")
     lines.append(f"- 日期：{date_display}")
-    lines.append(f"- 收益率：{yield_display}")
-    if str(yield_display).strip() in ("—", ""):
-        lines.append("- （若为 —：运行 `python scripts/optimize_algorithm_and_profitability.py` 会自动更新今日收益率并刷新本报告，或单独运行 `python scripts/update_today_yield_for_status.py`。）")
+    _verified = yp if src in ("tiger_backend", "report") and yp and yp != "—" else "—"
+    if src == "none" and _verified == "—":
+        _verified = "—（需老虎后台数据核对）"
+    _estimated = "—"
+    if src == "none" and yp and yp != "—":
+        _estimated = yp + "（未核对）"
+    lines.append(f"- **实际收益率（老虎后台核对）**：{_verified}")
+    lines.append(f"- **推算收益率（未核对）**：{_estimated}")
+    lines.append(f"- 当前展示：{yp}")
+    if yp == "—" or not yp:
+        lines.append("- （若为 —：运行 `python scripts/optimize_algorithm_and_profitability.py` 或 `update_today_yield_for_status.py` 更新。）")
+    lines.append("")
+    lines.append("## 指标说明（含义与计算方式）")
+    lines.append("")
+    lines.append("| 指标项 | 含义 | 计算方式 / 说明 |")
+    lines.append("| --- | --- | --- |")
+    for key, name, desc in INDICATOR_DEFINITIONS:
+        lines.append(f"| {key} | {name} | {desc} |")
+    lines.append("")
+    lines.append("详见 [DEMO实盘收益率_定义与数据来源](../../DEMO实盘收益率_定义与数据来源.md)、[每日例行_效果数据说明](../../每日例行_效果数据说明.md)、[回溯_执行失败为何出现收益率与推算收益率](../../回溯_执行失败为何出现收益率与推算收益率.md)。")
     lines.append("")
     lines.append("## 每日收益与算法优化在干啥")
     lines.append("")

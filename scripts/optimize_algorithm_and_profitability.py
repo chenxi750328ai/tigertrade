@@ -256,12 +256,42 @@ def generate_optimization_report(profitability, performance, optimal_params):
         f.write("## 日志与老虎后台差异说明（必读）\n\n")
         f.write("系统日志（order_log、DEMO 运行日志）记录的是**本进程的每次下单尝试与结果**，包含：模拟单（未发老虎）、真实但被拒单、真实且成功单。**只有「mode=real 且 status=success」的才会在老虎后台出现**，故日志条数/内容与老虎后台不一致是正常现象。DEMO 实盘收益率须以老虎后台为准；核对规则：**DEMO 运行的单在老虎后台都能查到就算通过**，老虎后台可以更多（含人工单）。详见 [DEMO实盘收益率_定义与数据来源](../DEMO实盘收益率_定义与数据来源.md)、[order_log_analysis](order_log_analysis.md)。\n\n")
         f.write("**执行失败（含 API 被拒）**：发了 API 被拒属于**执行失败**，状态页与订单日志分析中会体现「成功 N 笔、失败（含API被拒）M 笔」。**若多为失败则不应有实盘收益率**；今日收益率仅来自老虎后台成交，执行失败时无实盘收益。\n\n")
+        # 实盘：实际（老虎核对）与推算（未核对）
+        try:
+            y_path = os.path.join(os.path.dirname(reports_dir), 'today_yield.json')
+            if os.path.isfile(y_path):
+                with open(y_path, 'r', encoding='utf-8') as yf:
+                    y = json.load(yf)
+                ysrc = y.get('source') or 'none'
+                yp = (y.get('yield_pct') or y.get('yield_note') or '—').strip() or '—'
+                f.write("## 实盘收益率：实际（老虎核对）与推算（未核对）\n\n")
+                f.write("| 项目 | 值 | 说明 |\n")
+                f.write("| --- | --- | --- |\n")
+                _ver = yp if ysrc in ('tiger_backend', 'report') and yp != '—' else '—'
+                if ysrc == 'none' and _ver == '—':
+                    _ver = '—（需老虎后台数据核对）'
+                _est = (yp + '（未核对）') if ysrc == 'none' and yp != '—' else '—'
+                f.write(f"| **实际收益率（老虎后台核对）** | {_ver} | 仅老虎后台订单/成交计算；未拉取或未核对时为 —。 |\n")
+                f.write(f"| **推算收益率（未核对）** | {_est} | 未与老虎核对时的推算值；无推算时为 —。 |\n")
+                f.write("\n")
+        except Exception:
+            pass
         if profitability:
-            f.write("## 收益率分析\n\n")
+            f.write("## 收益率分析（API 订单解析）\n\n")
             f.write(f"- 总交易数: {profitability['total_trades']}\n")
-            f.write(f"- 胜率: {profitability['win_rate']:.2f}%\n")
+            f.write(f"- **实盘胜率**: {profitability['win_rate']:.2f}%\n")
             f.write(f"- 平均收益: {profitability['average_profit']:.2f}\n\n")
         
+        f.write("## 指标说明（含义与计算方式）\n\n")
+        f.write("| 指标 | 含义 | 计算方式 / 说明 |\n")
+        f.write("| --- | --- | --- |\n")
+        f.write("| return_pct | 回测收益率 | (期末资金−10万)/10万×100。回测表。 |\n")
+        f.write("| win_rate | 回测/实盘胜率 | 回测表=盈利笔数/完成笔数×100；实盘表=仅 API 历史订单解析。 |\n")
+        f.write("| num_trades | 回测笔数 | 完成的开平仓次数。 |\n")
+        f.write("| yield_verified | 实际收益率（老虎核对） | 老虎后台订单/成交计算；未核对时为 —。 |\n")
+        f.write("| yield_estimated | 推算收益率（未核对） | 未核对时的推算值。 |\n")
+        f.write("| demo_* | DEMO 日志统计 | 主单成功、止损止盈条数等为日志匹配次数，非老虎后台。详见 [每日例行_效果数据说明](../每日例行_效果数据说明.md)。 |\n")
+        f.write("\n")
         if optimal_params:
             f.write("## 优化后的参数\n\n")
             perf = report.get('strategy_performance') or {}

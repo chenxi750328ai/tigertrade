@@ -1,6 +1,6 @@
 # 策略对比报告
 
-*报告生成时间：2026-02-10T11:05:28.825612*
+*报告生成时间：2026-02-10T11:24:16.679487*
 
 **算法版本**：2.0（重大变更与对比见 [algorithm_versions.md](../../algorithm_versions.md)）
 
@@ -12,7 +12,7 @@
 
 ## 回测效果对比
 
-（来自历史数据回测，如 `parameter_grid_search`。）
+（回测数据：历史 K 线回测，含**回测收益率、回测胜率、回测笔数**。）
 
 | 策略 | return_pct | win_rate | num_trades |
 | --- | --- | --- | --- |
@@ -21,24 +21,48 @@
 | grid | 8.447142857142854 | 100.0 | 1 |
 | boll | 8.447142857142854 | 100.0 | 1 |
 
+*说明*：**return_pct** = (期末资金−10万)/10万×100；**win_rate** = 盈利笔数/完成笔数×100；**num_trades** = 完成的开平仓次数。
+
 ## 实盘/DEMO 效果对比
 
-（来自 API 订单、today_yield、DEMO 多日志汇总。**胜率**仅来自 API 历史订单解析，无 API 数据时为 —；勿与回测胜率混淆。）
+（实盘数据：**实盘胜率**、**实际收益率（老虎后台核对）**、**推算收益率（未核对）**、今日展示、DEMO 日志汇总。回测数据见上方回测表。）
 
-| 策略 | profitability | win_rate | demo_order_success | demo_sl_tp_log | demo_execute_buy_calls | demo_success_orders_sum | demo_fail_orders_sum | demo_logs_scanned |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| moe_transformer | 0 | — | 8746 | 89502 | 33475 | 2819 | 2134944 | 19 |
-| lstm | 0 | — | 8746 | 89502 | 33475 | 2819 | 2134944 | 19 |
-| grid | 0 | — | 8746 | 89502 | 33475 | 2819 | 2134944 | 19 |
-| boll | 0 | — | 8746 | 89502 | 33475 | 2819 | 2134944 | 19 |
+| 策略 | win_rate | yield_verified | yield_estimated | today_yield_pct | profitability | demo_order_success | demo_sl_tp_log | demo_execute_buy_calls | demo_success_orders_sum | demo_fail_orders_sum | demo_logs_scanned |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| moe_transformer | — | — | — | — | 0 | 8763 | 89536 | 33501 | 3966 | 2136880 | 19 |
+| lstm | — | — | — | — | 0 | 8763 | 89536 | 33501 | 3966 | 2136880 | 19 |
+| grid | — | — | — | — | 0 | 8763 | 89536 | 33501 | 3966 | 2136880 | 19 |
+| boll | — | — | — | — | 0 | 8763 | 89536 | 33501 | 3966 | 2136880 | 19 |
 
-**数据完整度**：回测 4/4 策略有数据；实盘/DEMO 4/4 策略有日志汇总；今日收益率见下。
+**数据完整度**：回测 4/4 策略有数据；实盘/DEMO 4/4 策略有日志汇总。
 
 ## 今日收益率（DEMO/实盘）
 
 - 日期：2026-02-10
-- 收益率：—
-- （若为 —：运行 `python scripts/optimize_algorithm_and_profitability.py` 会自动更新今日收益率并刷新本报告，或单独运行 `python scripts/update_today_yield_for_status.py`。）
+- **实际收益率（老虎后台核对）**：—（需老虎后台数据核对）
+- **推算收益率（未核对）**：—
+- 当前展示：—
+- （若为 —：运行 `python scripts/optimize_algorithm_and_profitability.py` 或 `update_today_yield_for_status.py` 更新。）
+
+## 指标说明（含义与计算方式）
+
+| 指标项 | 含义 | 计算方式 / 说明 |
+| --- | --- | --- |
+| return_pct | 回测收益率 | (期末资金 − 10万) / 10万 × 100（%）。来自 data/processed/test.csv 历史 K 线回测。 |
+| win_rate | 回测胜率 | 盈利笔数 / 完成笔数 × 100（%）。回测表为回测结果；实盘表为实盘胜率，仅来自 API 历史订单解析。 |
+| num_trades | 回测笔数 | 回测区间内完成的开平仓次数。仅 1 笔时胜率 100% 或 0% 无参考意义。 |
+| profitability | 实盘盈亏汇总 | API 历史订单解析得到的总交易数、总盈亏等；无 API 时为 0 或 —。 |
+| yield_verified | 实际收益率（老虎核对） | 用老虎后台订单/成交数据计算出的收益率；未拉取或未核对时为 —。 |
+| yield_estimated | 推算收益率（未核对） | 未与老虎核对时的推算值（如 API 报告解析）；无推算时为 —。 |
+| today_yield_pct | 今日收益率展示 | 本日在状态/报告中展示的收益率，来自 today_yield.json；须以实际（老虎核对）为准。 |
+| demo_order_success | DEMO 主单成功次数 | DEMO 日志中「订单提交成功」等匹配次数（多日志汇总），非老虎后台笔数。 |
+| demo_sl_tp_log | DEMO 止损/止盈日志条数 | 日志全文匹配「止损|止盈|已提交止损|已提交止盈」等的出现次数。 |
+| demo_execute_buy_calls | DEMO 买入动作次数 | 日志匹配「execute_buy|动作: 买入」的次数。 |
+| demo_success_orders_sum | DEMO 成功订单数(日志) | 日志内统计的成功订单数汇总，非老虎后台。 |
+| demo_fail_orders_sum | DEMO 失败订单数(日志) | 日志内统计的失败订单数汇总。 |
+| demo_logs_scanned | DEMO 扫描日志数 | 参与汇总的 demo_*.log、demo_run_20h_*.log 文件个数。 |
+
+详见 [DEMO实盘收益率_定义与数据来源](../../DEMO实盘收益率_定义与数据来源.md)、[每日例行_效果数据说明](../../每日例行_效果数据说明.md)、[回溯_执行失败为何出现收益率与推算收益率](../../回溯_执行失败为何出现收益率与推算收益率.md)。
 
 ## 每日收益与算法优化在干啥
 
