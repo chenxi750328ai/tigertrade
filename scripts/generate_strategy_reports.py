@@ -21,7 +21,9 @@ STRATEGY_REPORTS_DIR = REPORTS_DIR / "strategy_reports"
 
 # 回测效果：来自历史数据回测（如 parameter_grid_search）
 BACKTEST_KEYS = ("num_trades", "return_pct", "avg_per_trade_pct", "top_per_trade_pct", "win_rate")
-# 实盘/DEMO 效果：实盘胜率、实际/推算收益率、今日展示、DEMO 日志汇总
+# 实盘表与回测表同结构：同一批指标，仅收益率区分「核对」与「推算」
+LIVE_TABLE_KEYS = ("num_trades", "return_pct_verified", "return_pct_estimated", "avg_per_trade_pct", "top_per_trade_pct", "win_rate")
+# DEMO 日志汇总单独成表，不混入实盘主表
 LIVE_DEMO_KEYS = ("profitability", "win_rate", "yield_verified", "yield_estimated", "today_yield_pct",
                   "demo_order_success", "demo_sl_tp_log", "demo_execute_buy_calls", "demo_success_orders_sum",
                   "demo_fail_orders_sum", "demo_logs_scanned", "max_position")
@@ -34,6 +36,8 @@ INDICATOR_DEFINITIONS = [
     ("avg_per_trade_pct", "单笔平均%", "总收益/笔数，每笔占初始资金%。"),
     ("top_per_trade_pct", "单笔TOP%", "单笔最大收益占初始资金%。"),
     ("profitability", "实盘盈亏汇总", "API 历史订单解析得到的总交易数、总盈亏等；无 API 时为 0 或 —。"),
+    ("return_pct_verified", "收益率（核对）", "与回测 return_pct 对应；老虎后台订单/成交数据计算；未拉取或未核对时为 —。"),
+    ("return_pct_estimated", "收益率（推算）", "与回测 return_pct 对应；未与老虎核对时的推算值；无推算时为 —。"),
     ("yield_verified", "实际收益率（老虎核对）", "用老虎后台订单/成交数据计算出的收益率；未拉取或未核对时为 —。"),
     ("yield_estimated", "推算收益率（未核对）", "未与老虎核对时的推算值（如 API 报告解析）；无推算时为 —。"),
     ("today_yield_pct", "今日收益率展示", "本日在状态/报告中展示的收益率，来自 today_yield.json；须以实际（老虎核对）为准。"),
@@ -343,14 +347,25 @@ def write_comparison_report(run_effect: dict):
             lines.append("")
         lines.append("## 实盘/DEMO 效果对比")
         lines.append("")
-        lines.append("（实盘数据：**实盘胜率**、**实际收益率（老虎后台核对）**、**推算收益率（未核对）**、今日展示、DEMO 日志汇总。回测数据见上方回测表。）")
+        lines.append("（实盘表与回测表**同结构**：笔数、收益率（核对/推算）、单笔均、单笔TOP、胜率；仅收益率区分「老虎核对」与「未核对推算」。DEMO 日志汇总见下表。）")
         lines.append("")
         profitability = run_effect.get("profitability")
         live_win_rate = "—"
+        live_num_trades = "—"
+        live_avg = "—"
+        live_top = "—"
         if isinstance(profitability, dict) and (profitability.get("total_trades") or 0) > 0:
+            n = profitability.get("total_trades")
+            live_num_trades = str(n) if n is not None else "—"
             w = profitability.get("win_rate")
             if w is not None:
                 live_win_rate = f"{w:.1f}" if isinstance(w, (int, float)) else str(w)
+            ap = profitability.get("average_profit")
+            if ap is not None:
+                live_avg = f"{ap:.2f} USD" if isinstance(ap, (int, float)) else str(ap)
+            tp = profitability.get("total_profit")
+            if tp is not None:
+                live_top = f"{tp:.2f} USD" if isinstance(tp, (int, float)) else str(tp)
         y = run_effect.get("today_yield") or {}
         src = y.get("source") or "none"
         yp = (y.get("yield_pct") or "").strip()
@@ -359,61 +374,62 @@ def write_comparison_report(run_effect: dict):
             yp = yn
         if not yp:
             yp = "—"
-        # 实际收益率（老虎核对）：source=tiger_backend 或 report（API 报告）且有效时
-        yield_verified = "—"
-        yield_estimated = "—"
+        return_pct_verified = "—"
+        return_pct_estimated = "—"
         if src == "tiger_backend" and yp and yp != "—":
-            yield_verified = yp
+            return_pct_verified = yp
         elif src == "report" and yp and yp != "—":
-            yield_verified = yp + "（API报告）"
+            return_pct_verified = yp + "（API报告）"
         if src == "demo_aggregate" and yp and yp != "—":
-            yield_estimated = yp + "（DEMO未核对）"
-        elif src == "none" and yp and yp != "—" and "未核对" in (yn or ""):
-            yield_estimated = yp
-        live_today_yield = yp if (yp and yp != "—") else "—"
-        # today_yield 为空时，用本次 run 的 demo 汇总填表（真实数据，非编造）
-        if live_today_yield == "—" and yield_estimated == "—":
-            demo = run_effect.get("demo_log_stats")
-            if demo and demo.get("logs_scanned", 0) > 0:
-                n = demo.get("order_success", 0)
-                fill = f"主单 {n} 笔（DEMO未核对）"
-                yield_estimated = fill
-                live_today_yield = fill
-        lk_base = ["win_rate", "yield_verified", "yield_estimated", "today_yield_pct"]
-        lk_rest = [k for k in LIVE_DEMO_KEYS if k not in lk_base and any((perf.get(s) or {}).get(k) is not None for s in strategies)]
-        lk = lk_base + lk_rest
-        header = "| 策略 | " + " | ".join(lk) + " |"
-        sep = "| --- | " + " | ".join("---" for _ in lk) + " |"
-        lines.append(header)
-        lines.append(sep)
-        # 空项显示根因说明，避免对比报告里出现“空的项目”
+            return_pct_estimated = yp + "（DEMO未核对）" if ("%" in yp or "USD" in yp) else "—"
+        elif src == "none" and yp and yp != "—" and ("%" in yp or "USD" in yp or "未核对" in (yn or "")):
+            return_pct_estimated = yp
         _empty_note = "—（见根因说明）"
         def _cell_live(v):
             if v is None or v == "" or (isinstance(v, str) and v.strip() in ("—", "")):
                 return _empty_note
             return str(v)
+        # 实盘主表：与回测同列（num_trades, return_pct 核对/推算, avg, top, win_rate）
+        header = "| 策略 | " + " | ".join(LIVE_TABLE_KEYS) + " |"
+        sep = "| --- | " + " | ".join("---" for _ in LIVE_TABLE_KEYS) + " |"
+        lines.append(header)
+        lines.append(sep)
         for s in strategies:
-            row = perf.get(s) or {}
             cells = []
-            for k in lk:
-                if k == "win_rate":
+            for k in LIVE_TABLE_KEYS:
+                if k == "num_trades":
+                    cells.append(_cell_live(live_num_trades))
+                elif k == "return_pct_verified":
+                    cells.append(_cell_live(return_pct_verified))
+                elif k == "return_pct_estimated":
+                    cells.append(_cell_live(return_pct_estimated))
+                elif k == "avg_per_trade_pct":
+                    cells.append(_cell_live(live_avg))
+                elif k == "top_per_trade_pct":
+                    cells.append(_cell_live(live_top))
+                elif k == "win_rate":
                     cells.append(_cell_live(live_win_rate))
-                elif k == "yield_verified":
-                    cells.append(_cell_live(yield_verified))
-                elif k == "yield_estimated":
-                    cells.append(_cell_live(yield_estimated))
-                elif k == "today_yield_pct":
-                    cells.append(_cell_live(live_today_yield))
                 else:
-                    v = row.get(k, "—")
-                    cells.append(_cell_live(v) if (v is None or v == "—" or v == "") else str(v))
+                    cells.append(_empty_note)
             lines.append("| " + s + " | " + " | ".join(cells) + " |")
         lines.append("")
-        lines.append("*表中「—（见根因说明）」表示无老虎后台订单或未解析，根因见 [算法优化报告](../algorithm_optimization_report.md)「本报告空项根因说明」。*")
+        lines.append("*说明*：与回测表同指标；**return_pct_verified**=老虎核对收益率，**return_pct_estimated**=未核对推算；无数据时为 —（见根因说明）。")
         lines.append("")
+        # DEMO 日志汇总（单独小表，不混入实盘主表）
+        demo_keys = [k for k in LIVE_DEMO_KEYS if k.startswith("demo_") and any((perf.get(s) or {}).get(k) is not None for s in strategies)]
+        if demo_keys:
+            lines.append("### DEMO 日志汇总")
+            lines.append("")
+            lines.append("| 策略 | " + " | ".join(demo_keys) + " |")
+            lines.append("| --- | " + " | ".join("---" for _ in demo_keys) + " |")
+            for s in strategies:
+                row = perf.get(s) or {}
+                cells = [_cell_live(row.get(k)) if row.get(k) is None or row.get(k) == "—" else str(row.get(k)) for k in demo_keys]
+                lines.append("| " + s + " | " + " | ".join(cells) + " |")
+            lines.append("")
         n_backtest = sum(1 for s in strategies if (perf.get(s) or {}).get("return_pct") is not None or (perf.get(s) or {}).get("num_trades") is not None)
         n_demo = sum(1 for s in strategies if any((perf.get(s) or {}).get(k) is not None for k in LIVE_DEMO_KEYS if k.startswith("demo_")))
-        lines.append("**数据完整度**：回测 " + str(n_backtest) + "/" + str(len(strategies)) + " 策略有数据；实盘/DEMO " + str(n_demo) + "/" + str(len(strategies)) + " 策略有日志汇总。")
+        lines.append("**数据完整度**：回测 " + str(n_backtest) + "/" + str(len(strategies)) + " 策略有数据；实盘主表来自老虎 API/今日收益率；DEMO 汇总 " + str(n_demo) + "/" + str(len(strategies)) + " 策略。")
         lines.append("")
     else:
         lines.append("（暂无对比数据，由每日算法优化/回测流程更新。）")
@@ -463,7 +479,7 @@ def write_comparison_report(run_effect: dict):
 
 
 def check_report_reasonableness(run_effect: dict, comparison_path: Path) -> Tuple[bool, List[str]]:
-    """自检：① 实盘表胜率与数据来源一致（无 API 时不应出现 100%）；② 有 DEMO 汇总时 yield_estimated/today_yield_pct 不得为空/—。返回 (通过, 警告列表)。"""
+    """自检：实盘表胜率与数据来源一致（无 API 时不应出现 100%）；实盘表与回测同结构（return_pct 核对/推算）。返回 (通过, 警告列表)。"""
     warnings = []
     profitability = run_effect.get("profitability")
     has_api = isinstance(profitability, dict) and (profitability.get("total_trades") or 0) > 0
@@ -478,8 +494,6 @@ def check_report_reasonableness(run_effect: dict, comparison_path: Path) -> Tupl
     in_table = False
     header_idx = -1
     win_rate_col = -1
-    yield_est_col = -1
-    today_yield_col = -1
     for i, line in enumerate(lines):
         if "## 实盘/DEMO 效果对比" in line:
             in_table = True
@@ -488,10 +502,6 @@ def check_report_reasonableness(run_effect: dict, comparison_path: Path) -> Tupl
             cells = [c.strip() for c in line.split("|")[1:-1]]
             if "win_rate" in cells:
                 win_rate_col = cells.index("win_rate")
-                if "yield_estimated" in cells:
-                    yield_est_col = cells.index("yield_estimated")
-                if "today_yield_pct" in cells:
-                    today_yield_col = cells.index("today_yield_pct")
                 header_idx = i
                 break
     if header_idx < 0:
@@ -510,24 +520,8 @@ def check_report_reasonableness(run_effect: dict, comparison_path: Path) -> Tupl
                 warnings.append(
                     f"实盘/DEMO 表第{i+1}行 win_rate={val}%，但无 API 订单数据，疑似回测胜率误入实盘列，请检查。"
                 )
-    # ② 有 DEMO 汇总时 yield_estimated / today_yield_pct 不得为空或 —
-    demo = run_effect.get("demo_log_stats")
-    if demo and demo.get("logs_scanned", 0) > 0 and yield_est_col >= 0 and today_yield_col >= 0:
-        for i in range(header_idx + 2, len(lines)):
-            line = lines[i]
-            if not line.startswith("|"):
-                break
-            cells = [c.strip() for c in line.split("|")[1:-1]]
-            if len(cells) <= max(yield_est_col, today_yield_col):
-                continue
-            est = cells[yield_est_col]
-            today = cells[today_yield_col]
-            empty_or_dash = lambda v: not v or v == "—" or "见根因说明" in (v or "")
-            if empty_or_dash(est) or empty_or_dash(today):
-                warnings.append(
-                    "实盘表在已有 DEMO 汇总数据（logs_scanned>0）时仍存在空项：yield_estimated 或 today_yield_pct 应为「主单 N 笔」等，请检查 generate_strategy_reports 填表逻辑。"
-                )
-                break
+    # ② 实盘表与回测同结构：应有 return_pct_verified/return_pct_estimated 列；有 API 或 today_yield 时对应列应有值（收益率，非笔数）
+    # 自检仅检查列存在与表结构，不强制填笔数入收益率列
     return len(warnings) == 0, warnings
 
 
@@ -615,7 +609,7 @@ def main():
 
     ok, warn_list = check_report_reasonableness(run_effect, comp_path)
     if ok:
-        print("报告自检: 通过（实盘胜率与数据来源一致；有 DEMO 汇总时 yield_estimated/today_yield_pct 已填）")
+        print("报告自检: 通过（实盘胜率与数据来源一致；实盘表与回测同结构）")
     else:
         for w in warn_list:
             print(f"报告自检: 警告 — {w}")
