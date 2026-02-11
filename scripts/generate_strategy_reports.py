@@ -366,6 +366,12 @@ def write_comparison_report(run_effect: dict):
             tp = profitability.get("total_profit")
             if tp is not None:
                 live_top = f"{tp:.2f} USD" if isinstance(tp, (int, float)) else str(tp)
+        # 无老虎 API 时用 DEMO 汇总填 num_trades，报告不空项
+        if live_num_trades == "—":
+            demo = run_effect.get("demo_log_stats")
+            if demo and demo.get("logs_scanned", 0) > 0:
+                n_d = demo.get("order_success", 0)
+                live_num_trades = f"{n_d}（DEMO主单，见下表）"
         y = run_effect.get("today_yield") or {}
         src = y.get("source") or "none"
         yp = (y.get("yield_pct") or "").strip()
@@ -452,7 +458,10 @@ def write_comparison_report(run_effect: dict):
         _estimated = "—（根因见 [算法优化报告](../algorithm_optimization_report.md) 中「本报告空项根因说明」）"
     lines.append(f"- **实际收益率（老虎后台核对）**：{_verified}")
     lines.append(f"- **推算收益率（未核对）**：{_estimated}")
-    lines.append(f"- 当前展示：{yp}")
+    today_display = yp
+    if (not today_display or today_display == "—") and run_effect.get("demo_log_stats", {}).get("logs_scanned", 0) > 0:
+        today_display = "无老虎核对；实盘笔数见上表「num_trades」列（DEMO 主单）"
+    lines.append(f"- 当前展示：{today_display}")
     lines.append("- **空项根因**：实际/推算收益率为空时，原因均写在 [算法优化报告](../algorithm_optimization_report.md) 的「本报告空项根因说明」中，须追根问底、不忽悠。")
     if yp == "—" or not yp:
         lines.append("- （若为 —：运行 `python scripts/optimize_algorithm_and_profitability.py` 或 `update_today_yield_for_status.py` 更新。）")
