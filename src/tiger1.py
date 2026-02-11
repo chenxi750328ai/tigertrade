@@ -2676,17 +2676,15 @@ def backtest_grid_trading_strategy_pro1(symbol: str = FUTURE_SYMBOL, bars_1m: in
 # ====================== 测试函数 ======================
 
 def test_order_tracking():
-    """测试订单跟踪和交易闭环功能"""
+    """测试订单跟踪和交易闭环功能。仅应在 mock 下运行，否则会下真实单（限价 100 等）造成 BUG。"""
     global current_position, open_orders, closed_positions
-    
+    if not getattr(api_manager, 'is_mock_mode', True):
+        print("❌ test_order_tracking 仅在 mock 下运行，跳过（否则会下真实 BUY 限价 100）")
+        return
     print("🧪 开始测试订单跟踪和交易闭环功能...")
-    
-    # 重置测试状态
     current_position = 0
     open_orders.clear()
     closed_positions.clear()
-    
-    # 模拟买入操作
     print("📝 模拟买入操作...")
     place_tiger_order('BUY', 1, 100.0)
     place_tiger_order('BUY', 1, 102.0)
@@ -2727,17 +2725,15 @@ def test_order_tracking():
 
 
 def test_position_management():
-    """测试持仓管理功能"""
+    """测试持仓管理功能。仅应在 mock 下运行。"""
     global current_position, position_entry_times, position_entry_prices
-    
+    if not getattr(api_manager, 'is_mock_mode', True):
+        print("❌ test_position_management 仅在 mock 下运行，跳过")
+        return
     print("\n🧪 开始测试持仓管理功能...")
-    
-    # 重置测试状态
     current_position = 0
     position_entry_times.clear()
     position_entry_prices.clear()
-    
-    # 模拟买入操作
     place_tiger_order('BUY', 1, 50.0)
     place_tiger_order('BUY', 1, 52.0)
     place_tiger_order('BUY', 1, 54.0)
@@ -2756,20 +2752,16 @@ def test_position_management():
 
 
 def test_risk_control():
-    """测试风控功能"""
+    """测试风控功能。仅应在 mock 下运行。"""
     global current_position
-    
+    if not getattr(api_manager, 'is_mock_mode', True):
+        print("❌ test_risk_control 仅在 mock 下运行，跳过")
+        return
     print("\n🧪 开始测试风控功能...")
-    
-    # 重置测试状态
     current_position = 0
-    
-    # 设置最大持仓为3
     global GRID_MAX_POSITION
     original_max_pos = GRID_MAX_POSITION
     GRID_MAX_POSITION = 3
-    
-    # 买入达到最大持仓
     place_tiger_order('BUY', 1, 60.0)
     place_tiger_order('BUY', 1, 62.0)
     place_tiger_order('BUY', 1, 64.0)
@@ -2785,16 +2777,15 @@ def test_risk_control():
 
 
 def run_tests():
-    """运行所有测试"""
-    print("🚀 开始运行所有测试...")
-    
+    """运行所有测试。禁止在实盘/非 mock 下运行，否则会下真实单（如限价 100）导致 BUG 单。"""
+    if not getattr(api_manager, 'is_mock_mode', True):
+        print("❌ 禁止在实盘/非 mock 环境下运行 run_tests()，会下真实单（如 BUY 限价 100），现价约 82 会导致异常单与重复单。请仅在 mock 或测试环境运行。")
+        return
+    print("🚀 开始运行所有测试（mock 模式）...")
     test_order_tracking()
     test_position_management()
     test_risk_control()
-    
     print("\n🎉 所有测试完成！")
-    
-    # 重置为生产环境变量
     global current_position, open_orders, closed_positions, position_entry_times, position_entry_prices
     current_position = 0
     open_orders.clear()
