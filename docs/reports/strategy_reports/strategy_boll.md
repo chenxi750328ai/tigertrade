@@ -1,6 +1,6 @@
 # BOLL 网格策略 策略
 
-*报告生成时间：2026-02-10T17:31:40.007242*
+*报告生成时间：2026-02-11T10:50:10.915639*
 
 ## 📄 设计文档（算法与参数详解）
 
@@ -23,11 +23,11 @@
 
 | 指标 | 值 | 说明 |
 | --- | --- | --- |
-| num_trades | — | 回测区间内实际完成的开平仓次数。 |
-| return_pct | — | (期末资金 − 10万) / 10万 × 100（%）。来自 data/processed/test.csv 历史 K 线回测。 |
-| avg_per_trade_pct | — | 总收益/笔数，每笔占初始资金%。 |
-| top_per_trade_pct | — | 单笔最大收益占初始资金%。 |
-| win_rate | — | 盈利笔数 / 完成笔数 × 100（%）。回测表为回测结果；实盘表为实盘胜率，仅来自 API 历史订单解析。 |
+| num_trades | 0 | 回测区间内实际完成的开平仓次数。 |
+| return_pct | 0.0 | (期末资金 − 10万) / 10万 × 100（%）。来自 data/processed/test.csv 历史 K 线回测。 |
+| avg_per_trade_pct | 0.0 | 总收益/笔数，每笔占初始资金%。 |
+| top_per_trade_pct | 0.0 | 单笔最大收益占初始资金%。 |
+| win_rate | 0 | 盈利笔数 / 完成笔数 × 100（%）。回测表为回测结果；实盘表为实盘胜率，仅来自 API 历史订单解析。 |
 
 ### 实盘/DEMO 效果
 
@@ -40,11 +40,11 @@
 | yield_estimated | — | 未与老虎核对时的推算值（如 API 报告解析）；无推算时为 —。 |
 | today_yield_pct | — | 本日在状态/报告中展示的收益率，来自 today_yield.json；须以实际（老虎核对）为准。 |
 | profitability | 0 | API 历史订单解析得到的总交易数、总盈亏等；无 API 时为 0 或 —。 |
-| demo_order_success | 9169 | DEMO 日志中「订单提交成功」等匹配次数（多日志汇总），非老虎后台笔数。 |
-| demo_sl_tp_log | 90348 | 日志全文匹配「止损|止盈|已提交止损|已提交止盈」等的出现次数。 |
-| demo_execute_buy_calls | 33948 | 日志匹配「execute_buy|动作: 买入」的次数。 |
-| demo_success_orders_sum | 53703 | 日志内统计的成功订单数汇总，非老虎后台。 |
-| demo_fail_orders_sum | 2270098 | 日志内统计的失败订单数汇总。 |
+| demo_order_success | 9743 | DEMO 日志中「订单提交成功」等匹配次数（多日志汇总），非老虎后台笔数。 |
+| demo_sl_tp_log | 91496 | 日志全文匹配「止损|止盈|已提交止损|已提交止盈」等的出现次数。 |
+| demo_execute_buy_calls | 34638 | 日志匹配「execute_buy|动作: 买入」的次数。 |
+| demo_success_orders_sum | 330611 | 日志内统计的成功订单数汇总，非老虎后台。 |
+| demo_fail_orders_sum | 4375898 | 日志内统计的失败订单数汇总。 |
 | demo_logs_scanned | 20 | 参与汇总的 demo_*.log、demo_run_20h_*.log 文件个数。 |
 
 ## 每日收益与算法优化在干啥

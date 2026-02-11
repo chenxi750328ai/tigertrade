@@ -1,6 +1,6 @@
 # 策略对比报告
 
-*报告生成时间：2026-02-10T17:31:40.007242*
+*报告生成时间：2026-02-11T10:50:10.915639*
 
 **算法版本**：2.0（重大变更与对比见 [algorithm_versions.md](../../algorithm_versions.md)）
 
@@ -17,10 +17,10 @@
 
 | 策略 | num_trades | return_pct | avg_per_trade_pct | top_per_trade_pct | win_rate |
 | --- | --- | --- | --- | --- | --- |
-| moe_transformer | 20 | 1.6 | 0.01 | 0.03 | 100.0 |
-| lstm | 20 | 1.6 | 0.01 | 0.03 | 100.0 |
+| moe_transformer | 23 | 1.44 | 0.0 | 0.0 | 100.0 |
+| lstm | 23 | 1.44 | 0.0 | 0.0 | 100.0 |
 | grid | 0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| boll | — | — | — | — | — |
+| boll | 0 | 0.0 | 0.0 | 0.0 | 0 |
 
 *说明*：**num_trades**=实际成交笔数；**return_pct**=总收益率；**avg_per_trade_pct**=单笔平均%；**top_per_trade_pct**=单笔TOP%；**win_rate**=胜率。
 
@@ -30,16 +30,16 @@
 
 | 策略 | win_rate | yield_verified | yield_estimated | today_yield_pct | profitability | demo_order_success | demo_sl_tp_log | demo_execute_buy_calls | demo_success_orders_sum | demo_fail_orders_sum | demo_logs_scanned |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| moe_transformer | — | — | — | — | 0 | 9169 | 90348 | 33948 | 53703 | 2270098 | 20 |
-| lstm | — | — | — | — | 0 | 9169 | 90348 | 33948 | 53703 | 2270098 | 20 |
-| grid | — | — | — | — | 0 | 9169 | 90348 | 33948 | 53703 | 2270098 | 20 |
-| boll | — | — | — | — | 0 | 9169 | 90348 | 33948 | 53703 | 2270098 | 20 |
+| moe_transformer | — | — | — | — | 0 | 9743 | 91496 | 34638 | 330611 | 4375898 | 20 |
+| lstm | — | — | — | — | 0 | 9743 | 91496 | 34638 | 330611 | 4375898 | 20 |
+| grid | — | — | — | — | 0 | 9743 | 91496 | 34638 | 330611 | 4375898 | 20 |
+| boll | — | — | — | — | 0 | 9743 | 91496 | 34638 | 330611 | 4375898 | 20 |
 
 **数据完整度**：回测 4/4 策略有数据；实盘/DEMO 4/4 策略有日志汇总。
 
 ## 今日收益率（DEMO/实盘）
 
-- 日期：2026-02-10
+- 日期：2026-02-11
 - **实际收益率（老虎后台核对）**：—（根因见 [算法优化报告](../algorithm_optimization_report.md) 中「本报告空项根因说明」）
 - **推算收益率（未核对）**：—（根因见 [算法优化报告](../algorithm_optimization_report.md) 中「本报告空项根因说明」）
 - 当前展示：—

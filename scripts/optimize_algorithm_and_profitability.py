@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 优化算法和收益率（每日例行：结果分析 + 算法优化）
+- 例行工作目标：提升收益率。每轮 = 例行 + 解决问题 + 优化；有问题先尝试解决再继续，不光是跑完或 exit。
 - 结果分析：API 历史订单 → 收益率；DEMO 多日志汇总 → 策略表现；网格/BOLL 回测 → 最优参数与 return_pct/win_rate。
 - 效果数据来源与缺口说明见：docs/每日例行_效果数据说明.md、报告内「效果数据来源」节。
 """
@@ -83,6 +84,111 @@ def _fetch_orders_from_tiger_direct(limit=1000):
     except Exception as e:
         logger.debug("直接拉取老虎订单失败: %s", e)
         return None, "openapicfg_dem 拉取异常: %s" % (str(e)[:200],)
+
+
+def _fetch_positions_from_tiger_direct():
+    """用 openapicfg_dem 直接拉老虎持仓。返回 (positions_list_or_none, reason_if_fail)。"""
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    config_path = os.path.join(root, "openapicfg_dem")
+    if not os.path.isdir(config_path):
+        return None, "openapicfg_dem 目录不存在"
+    try:
+        from tigeropen.tiger_open_config import TigerOpenClientConfig
+        from tigeropen.trade.trade_client import TradeClient
+    except ImportError as e:
+        return None, "tigeropen 未安装或不可用: %s" % (e,)
+    try:
+        config = TigerOpenClientConfig(props_path=config_path)
+        client = TradeClient(config)
+        acc = getattr(config, "account", None)
+        if not acc:
+            return None, "openapicfg_dem 中 account 为空"
+        if not hasattr(client, 'get_positions'):
+            return None, "TradeClient 无 get_positions 方法"
+        positions = client.get_positions(account=acc)
+        if positions is None:
+            return [], "老虎 API get_positions 返回 None"
+        return positions, None
+    except Exception as e:
+        logger.debug("直接拉取老虎持仓失败: %s", e)
+        return None, "openapicfg_dem 拉取持仓异常: %s" % (str(e)[:200],)
+
+
+def analyze_backend_orders_and_positions(orders, positions=None):
+    """从后台订单（及可选持仓）分析：是否存在「有持仓但止损/止盈单已撤」的情况（可能保证金不足或强平）。
+    返回 dict: position_qty, position_source, open_sl_tp_count, cancelled_sl_tp_count, alert_message, detail_lines。"""
+    result = {
+        "position_qty": 0,
+        "position_source": "unknown",
+        "open_sl_tp_count": 0,
+        "cancelled_sl_tp_count": 0,
+        "alert_message": None,
+        "detail_lines": [],
+    }
+    # 从持仓 API 获取真实持仓（若可用）
+    if positions is not None and len(positions) > 0:
+        try:
+            from src import tiger1 as t1
+            symbol_api = t1._to_api_identifier(getattr(t1, "FUTURE_SYMBOL", "SIL.COMEX.202603"))
+        except Exception:
+            symbol_api = "SIL2603"
+        total = 0
+        for p in positions:
+            obj = p if not isinstance(p, dict) else p
+            sym = getattr(obj, "symbol", None) or (obj.get("symbol") if isinstance(obj, dict) else None)
+            qty = getattr(obj, "quantity", None) or getattr(obj, "qty", None) or (obj.get("quantity") or obj.get("qty") if isinstance(obj, dict) else None)
+            if sym and (symbol_api in str(sym) or "SIL" in str(sym)):
+                try:
+                    total += int(qty or 0)
+                except (TypeError, ValueError):
+                    pass
+        result["position_qty"] = total
+        result["position_source"] = "get_positions"
+        result["detail_lines"].append("后台持仓（get_positions）: %s 手（合约含 SIL）。" % total)
+    # 从订单推断：已成交买量 - 已成交卖量 ≈ 净持仓（近似）
+    if orders:
+        buy_filled = 0
+        sell_filled = 0
+        open_sl_tp = 0
+        cancelled_sl_tp = 0
+        for o in orders:
+            row = _normalize_order(o)
+            st = (str(row.get("status") or "")).upper()
+            side = (str(row.get("side") or "")).upper()
+            qty = row.get("filled_quantity") or row.get("quantity") or 0
+            try:
+                qty = int(float(qty))
+            except (TypeError, ValueError):
+                qty = 0
+            if st in ("FILLED", "FILLED_ALL", "FINISHED"):
+                if side in ("BUY", "LONG"):
+                    buy_filled += qty
+                elif side in ("SELL", "SHORT"):
+                    sell_filled += qty
+            # 止损/止盈单：通常有 stop_price 或 order_type 为 STOP/STOP_LIMIT 等；已撤单算入 cancelled
+            has_stop = row.get("stop_price") is not None or "stop" in str(row.get("order_type") or "").lower()
+            if has_stop or "STOP" in st or "止" in str(row.get("order_type") or ""):
+                if st in ("CANCELLED", "CANCELED", "REJECTED", "EXPIRED"):
+                    cancelled_sl_tp += 1
+                elif st in ("PENDING", "OPEN", "LIVE", "NEW", "SUBMITTED", ""):
+                    open_sl_tp += 1
+        inferred_position = max(0, buy_filled - sell_filled)
+        if result["position_source"] == "unknown":
+            result["position_qty"] = inferred_position
+            result["position_source"] = "inferred_from_orders"
+            result["detail_lines"].append("从订单推断净持仓: %s 手（已成交买-卖）。" % inferred_position)
+        result["open_sl_tp_count"] = open_sl_tp
+        result["cancelled_sl_tp_count"] = cancelled_sl_tp
+        result["detail_lines"].append("订单中疑似止损/止盈: 未撤=%s 笔，已撤/拒/过期=%s 笔。" % (open_sl_tp, cancelled_sl_tp))
+    # 告警：有持仓但无有效止损止盈单（或大量被撤）
+    pos = result["position_qty"]
+    if pos > 0 and (result["open_sl_tp_count"] == 0 and result["cancelled_sl_tp_count"] > 0):
+        result["alert_message"] = "检测到后台持仓 %s 手，但对应止损/止盈单已撤（可能保证金不足或强平）。当前风控未覆盖「有仓无止损止盈」的补单或告警，建议改进。" % pos
+        result["detail_lines"].append("⚠️ " + result["alert_message"])
+    elif pos > 0 and result["open_sl_tp_count"] == 0:
+        result["alert_message"] = "检测到后台持仓 %s 手，未发现有效止损/止盈单（可能被系统撤单或未提交）。建议检查风控与补单逻辑。" % pos
+        result["detail_lines"].append("⚠️ " + result["alert_message"])
+    return result
 
 
 def load_trading_history():
@@ -242,6 +348,38 @@ def analyze_strategy_performance():
     return performance_data
 
 
+def ensure_test_csv(root, timeout_sec=300):
+    """若缺 data/processed/test.csv 则尝试生成（解决问题后继续），成功返回 True。"""
+    test_csv = os.path.join(root, 'data', 'processed', 'test.csv')
+    if os.path.isfile(test_csv):
+        return True
+    logger.warning("缺 data/processed/test.csv，回测无法产出；尝试自动生成...")
+    import subprocess
+    scripts_dir = os.path.join(root, 'scripts')
+    for script in ('data_preprocessing.py', 'merge_recent_data_and_train.py'):
+        path = os.path.join(scripts_dir, script)
+        if not os.path.isfile(path):
+            continue
+        try:
+            r = subprocess.run(
+                [sys.executable, path],
+                cwd=root,
+                timeout=timeout_sec,
+                capture_output=True,
+                text=True,
+            )
+            if os.path.isfile(test_csv):
+                logger.info("✅ 已生成 test.csv（%s），继续回测", script)
+                return True
+            if r.returncode != 0 and r.stderr:
+                logger.debug("%s: %s", script, r.stderr[:200])
+        except subprocess.TimeoutExpired:
+            logger.warning("%s 超时，跳过", script)
+        except Exception as e:
+            logger.debug("%s 未产出 test.csv: %s", script, e)
+    return False
+
+
 def optimize_parameters():
     """
     优化策略参数：对 grid/boll 做网格回测，返回最优参数及回测效果（供报告写入）。
@@ -329,8 +467,9 @@ def optimize_parameters():
         return {}, {}
 
 
-def generate_optimization_report(profitability, performance, optimal_params, backend_empty_reason=None):
-    """生成优化报告。backend_empty_reason：当实际收益率（老虎核对）为空时，写入报告的空项根因说明。"""
+def generate_optimization_report(profitability, performance, optimal_params, backend_empty_reason=None, backend_analysis=None):
+    """生成优化报告。backend_empty_reason：当实际收益率（老虎核对）为空时，写入报告的空项根因说明。
+    backend_analysis：后台订单与持仓分析结果（有仓无止损止盈等），若有 alert_message 则写入报告。"""
     logger.info("📝 生成优化报告...")
     try:
         from src.algorithm_version import get_current_version
@@ -404,6 +543,14 @@ def generate_optimization_report(profitability, performance, optimal_params, bac
         f.write("## 日志与老虎后台差异说明（必读）\n\n")
         f.write("系统日志（order_log、DEMO 运行日志）记录的是**本进程的每次下单尝试与结果**，包含：模拟单（未发老虎）、真实但被拒单、真实且成功单。**只有「mode=real 且 status=success」的才会在老虎后台出现**，故日志条数/内容与老虎后台不一致是正常现象。DEMO 实盘收益率须以老虎后台为准；核对规则：**DEMO 运行的单在老虎后台都能查到就算通过**，老虎后台可以更多（含人工单）。详见 [DEMO实盘收益率_定义与数据来源](../DEMO实盘收益率_定义与数据来源.md)、[order_log_analysis](order_log_analysis.md)。\n\n")
         f.write("**执行失败（含 API 被拒）**：发了 API 被拒属于**执行失败**，状态页与订单日志分析中会体现「成功 N 笔、失败（含API被拒）M 笔」。**若多为失败则不应有实盘收益率**；今日收益率仅来自老虎后台成交，执行失败时无实盘收益。\n\n")
+        # 后台订单与持仓分析（有仓无止损止盈）
+        if backend_analysis and (backend_analysis.get("alert_message") or backend_analysis.get("detail_lines")):
+            f.write("## 后台订单与持仓分析\n\n")
+            f.write("从后台拉取订单（及可选持仓）后的分析结果，用于发现**有持仓但止损/止盈单已撤**（可能保证金不足或强平）等情况。详见 [后台订单与持仓分析_有仓无止损止盈_风控改进](../后台订单与持仓分析_有仓无止损止盈_风控改进.md)。\n\n")
+            f.write("- 持仓数量（来源）: %s 手（%s）\n" % (backend_analysis.get("position_qty", 0), backend_analysis.get("position_source", "—")))
+            f.write("- 未撤止损/止盈单: %s 笔；已撤/拒/过期: %s 笔\n" % (backend_analysis.get("open_sl_tp_count", 0), backend_analysis.get("cancelled_sl_tp_count", 0)))
+            if backend_analysis.get("alert_message"):
+                f.write("\n**⚠️ 风控建议**: %s\n\n" % backend_analysis["alert_message"])
         # 实盘：实际（老虎核对）与推算（未核对）
         try:
             y_path = os.path.join(os.path.dirname(reports_dir), 'today_yield.json')
@@ -523,8 +670,29 @@ def run_optimization_workflow():
     logger.info("🚀 开始算法优化和收益率分析")
     logger.info("="*70)
     
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     # 1. 加载历史交易记录（API 订单 → 若有则算收益率）
     orders, backend_empty_reason = load_trading_history()
+    
+    # 1.5 后台订单与持仓分析：有仓无止损止盈检测（可能保证金不足被撤/强平）
+    positions, _pos_reason = _fetch_positions_from_tiger_direct()
+    backend_analysis = analyze_backend_orders_and_positions(orders, positions)
+    try:
+        report_dir = os.path.join(root, "docs", "reports")
+        os.makedirs(report_dir, exist_ok=True)
+        analysis_path = os.path.join(report_dir, "backend_positions_analysis.md")
+        with open(analysis_path, "w", encoding="utf-8") as f:
+            f.write("# 后台订单与持仓分析\n\n生成时间: %s\n\n" % datetime.now().isoformat())
+            f.write("- **持仓数量（来源）**: %s 手（%s）\n" % (backend_analysis["position_qty"], backend_analysis["position_source"]))
+            f.write("- **未撤止损/止盈单**: %s 笔\n" % backend_analysis["open_sl_tp_count"])
+            f.write("- **已撤/拒/过期止损止盈单**: %s 笔\n\n" % backend_analysis["cancelled_sl_tp_count"])
+            for line in backend_analysis["detail_lines"]:
+                f.write("- %s\n" % line)
+            if backend_analysis.get("alert_message"):
+                f.write("\n## 风控建议\n\n%s\n" % backend_analysis["alert_message"])
+        logger.info("✅ 后台订单与持仓分析已写入 %s", analysis_path)
+    except Exception as e:
+        logger.debug("写入 backend_positions_analysis.md 失败: %s", e)
     
     # 2. 计算收益率（依赖订单解析，暂无则 profitability 为 None）
     profitability = calculate_profitability(orders)
@@ -534,6 +702,9 @@ def run_optimization_workflow():
     
     # 3. 分析策略表现（DEMO 多日志汇总 + today_yield）
     performance = analyze_strategy_performance()
+    
+    # 3.5 缺 test.csv 则先尝试生成（解决问题再继续），再回测
+    ensure_test_csv(root)
     
     # 4. 优化参数（网格/BOLL 回测，产出最优参数与回测效果）
     optimal_params, backtest_metrics = optimize_parameters()
@@ -556,8 +727,8 @@ def run_optimization_workflow():
                 performance[name]['avg_per_trade_pct'] = '—'
                 performance[name]['top_per_trade_pct'] = '—'
     
-    # 5. 生成报告（含效果数据来源说明）
-    report = generate_optimization_report(profitability, performance, optimal_params, backend_empty_reason=backend_empty_reason)
+    # 5. 生成报告（含效果数据来源说明、后台订单与持仓分析）
+    report = generate_optimization_report(profitability, performance, optimal_params, backend_empty_reason=backend_empty_reason, backend_analysis=backend_analysis)
     
     # 5.5 更新今日收益率（写入 docs/today_yield.json），策略报告中的「今日收益率」才不全为 —
     try:
@@ -594,12 +765,64 @@ def run_optimization_workflow():
     except Exception as e:
         logger.warning("⚠️ 策略报告生成未执行: %s", e)
     
+    # 7. 报告自检：列问题与修复建议，未通过则 exit(1) 便于下一轮继续「例行→解决→优化」
+    run_report_self_check(
+        profitability=profitability,
+        backtest_metrics=backtest_metrics,
+        backend_empty_reason=backend_empty_reason,
+        root=root,
+    )
+    
     logger.info("="*70)
     logger.info("✅ 算法优化和收益率分析完成")
     logger.info("报告自检须到网页上查看，本地不算。push 后等待 GitHub Pages 部署完成，再打开部署后的 status 与报告页核对。")
     logger.info("="*70)
     
     return report
+
+
+def run_report_self_check(profitability, backtest_metrics, backend_empty_reason, root):
+    """报告自检：列问题与修复建议。未通过则 exit(1)，便于下一轮继续例行→解决问题→优化收益率。"""
+    issues = []
+    test_csv = os.path.join(root, 'data', 'processed', 'test.csv')
+    has_test_csv = os.path.isfile(test_csv)
+    
+    # 实盘数据空
+    if not (profitability and profitability.get('total_trades')):
+        reason = (backend_empty_reason or "").strip() or "未记录"
+        issues.append({
+            "item": "实盘数据（老虎后台核对）为空",
+            "suggestion": "须在有 openapicfg_dem 且账户有成交的环境执行本脚本，才能拉取订单并产出实盘收益率；报告内已写明根因。",
+        })
+    
+    # 回测空：缺 test.csv 或四策略无数据
+    strategies = ('grid', 'boll', 'moe_transformer', 'lstm')
+    backtest_empty = not backtest_metrics or not any(
+        (backtest_metrics.get(s) or {}).get('num_trades') not in (None, '—')
+        for s in strategies
+    )
+    if backtest_empty:
+        if not has_test_csv:
+            issues.append({
+                "item": "回测全空（缺 data/processed/test.csv）",
+                "suggestion": "本 run 已尝试自动生成未成功。请先运行: python scripts/merge_recent_data_and_train.py 或 python scripts/data_preprocessing.py，再重新执行本脚本。",
+            })
+        else:
+            issues.append({
+                "item": "回测四策略无有效数据（test.csv 已存在但回测未产出）",
+                "suggestion": "检查 parameter_grid_search / backtest_model_strategies 是否异常；或 test.csv 行数/列是否满足回测要求（如 close、足够行数）。",
+            })
+    
+    if not issues:
+        logger.info("报告自检: 通过（实盘或回测有数据；无数据项已写明根因）")
+        return
+    
+    logger.warning("报告自检: 未通过（以下问题需解决，下一轮继续例行→解决→优化收益率）")
+    for i, x in enumerate(issues, 1):
+        logger.warning("  %d. %s", i, x["item"])
+        logger.warning("     → %s", x["suggestion"])
+    logger.warning("例行工作目标=提升收益率；有问题要解决、解决后继续，一直干到问题都解决。")
+    sys.exit(1)
 
 
 if __name__ == '__main__':

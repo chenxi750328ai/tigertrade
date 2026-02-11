@@ -2407,6 +2407,11 @@ def boll1m_grid_strategy():
     # - 分场景处理：震荡上行、震荡下行、单边上涨等情形时的开仓/风控策略有所不同
     # - 该函数被单元测试通过 monkeypatch 的方式调用，函数内部尽量避免对外部状态的强依赖
     global current_position
+    # 线程中可能拿不到全局 check_risk_control，显式从本模块取（风控与异常管理）
+    try:
+        _check_risk = check_risk_control
+    except NameError:
+        _check_risk = sys.modules[__name__].check_risk_control
 
     # Track whether we executed a sell in this iteration
     sold_this_iteration = False
@@ -2464,7 +2469,7 @@ def boll1m_grid_strategy():
                 buy_ok = True
 
     if buy_ok:
-        if check_risk_control(price_current, 'BUY'):
+        if _check_risk(price_current, 'BUY'):
             stop_loss_price, projected_loss = compute_stop_loss(price_current, atr, boll_lower)
             if stop_loss_price is None or not math.isfinite(projected_loss):
                 print("⚠️ boll1m_grid_strategy: 止损计算异常，跳过买入")
@@ -2800,7 +2805,7 @@ def run_tests():
 
 # ====================== 主程序 ======================
 def reset_demo_positions():
-    """DEMO 重启时清理持仓相关内存状态，避免旧持仓影响后续操作。"""
+    """DEMO 重启时清理持仓相关内存状态（仅当无法从后台同步时使用）。不应在未尝试同步持仓前盲目调用。"""
     global current_position, open_orders, closed_positions, position_entry_times, position_entry_prices, active_take_profit_orders
     current_position = 0
     open_orders.clear()
@@ -2809,6 +2814,50 @@ def reset_demo_positions():
     position_entry_prices.clear()
     active_take_profit_orders.clear()
     logger.info("DEMO 持仓状态已重置: 持仓=0, 待平仓/止盈/已平仓 已清空")
+
+
+def sync_positions_from_backend():
+    """启动时从后台拉取当前持仓并同步到 current_position，不假定从 0 开始。若无法拉取则重置并打警告。"""
+    global current_position, position_entry_times, position_entry_prices, active_take_profit_orders
+    try:
+        if trade_client is None or not hasattr(trade_client, 'get_positions'):
+            logger.warning("无法从后台同步持仓（无 trade_client 或 get_positions）；将重置为 0。若账户实际有仓，进程内与后台将不一致，请先手工处理或确认后再开新仓。")
+            reset_demo_positions()
+            return
+        acc = getattr(client_config, 'account', None) if client_config else None
+        if not acc:
+            logger.warning("无法从后台同步持仓（无 account）；将重置为 0。")
+            reset_demo_positions()
+            return
+        positions = trade_client.get_positions(account=acc)
+        if positions is None:
+            positions = []
+        symbol_api = _to_api_identifier(FUTURE_SYMBOL)
+        total = 0
+        for p in positions:
+            sym = getattr(p, 'symbol', None) or (p.get('symbol') if isinstance(p, dict) else None)
+            qty = getattr(p, 'quantity', None) or getattr(p, 'qty', None) or (p.get('quantity') or p.get('qty') if isinstance(p, dict) else None)
+            if sym and (symbol_api in str(sym) or 'SIL' in str(sym)):
+                try:
+                    total += int(qty or 0)
+                except (TypeError, ValueError):
+                    pass
+        if total > 0:
+            current_position = total
+            position_entry_times.clear()
+            position_entry_prices.clear()
+            active_take_profit_orders.clear()
+            for i in range(total):
+                position_entry_times[i] = time.time()
+                position_entry_prices[i] = 0.0
+            logger.info("已从后台同步持仓: %s 手（账户 %s）。将在此基础上继续运行，不再假定从 0 开始。", total, acc)
+            print("⚠️ 已从后台同步持仓: %s 手。若超过风控上限将拒绝新开仓；请确认止损/止盈单状态。" % total)
+        else:
+            reset_demo_positions()
+    except Exception as e:
+        logger.warning("从后台同步持仓失败: %s；将重置为 0。若账户实际有仓请先手工处理。", e)
+        print("⚠️ 同步持仓失败: %s；进程内已重置为 0。若实际有仓请核对。" % (e,))
+        reset_demo_positions()
 
 
 def refresh_period_analysis_background():
@@ -2844,11 +2893,13 @@ if __name__ == "__main__":
     if not verify_api_connection():
         exit(1)
     
+    # 启动前同步后台持仓，不假定从 0 开始（实盘/DEMO 重启后须与账户状态一致）
+    sync_positions_from_backend()
+    
     # 根据策略类型启动相应策略
     # 如果策略类型是moe或moe_transformer，使用TradingExecutor架构
     if strategy_type in ('moe', 'moe_transformer'):
         print("🚀 启动MOE策略（使用TradingExecutor架构）...")
-        reset_demo_positions()
         try:
             from src.strategies.strategy_factory import StrategyFactory
             from src.executor import MarketDataProvider, OrderExecutor, TradingExecutor
