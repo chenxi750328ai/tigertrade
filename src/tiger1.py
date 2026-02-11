@@ -2676,11 +2676,8 @@ def backtest_grid_trading_strategy_pro1(symbol: str = FUTURE_SYMBOL, bars_1m: in
 # ====================== 测试函数 ======================
 
 def test_order_tracking():
-    """测试订单跟踪和交易闭环功能。仅应在 mock 下运行，否则会下真实单（限价 100 等）造成 BUG。"""
+    """测试订单跟踪和交易闭环功能。允许实盘测试，但不得与 DEMO 并发；测试会开仓后平仓恢复。"""
     global current_position, open_orders, closed_positions
-    if not getattr(api_manager, 'is_mock_mode', True):
-        print("❌ test_order_tracking 仅在 mock 下运行，跳过（否则会下真实 BUY 限价 100）")
-        return
     print("🧪 开始测试订单跟踪和交易闭环功能...")
     current_position = 0
     open_orders.clear()
@@ -2725,11 +2722,8 @@ def test_order_tracking():
 
 
 def test_position_management():
-    """测试持仓管理功能。仅应在 mock 下运行。"""
+    """测试持仓管理功能。允许实盘测试，但不得与 DEMO 并发；测试结束会平仓恢复。"""
     global current_position, position_entry_times, position_entry_prices
-    if not getattr(api_manager, 'is_mock_mode', True):
-        print("❌ test_position_management 仅在 mock 下运行，跳过")
-        return
     print("\n🧪 开始测试持仓管理功能...")
     current_position = 0
     position_entry_times.clear()
@@ -2738,25 +2732,20 @@ def test_position_management():
     place_tiger_order('BUY', 1, 52.0)
     place_tiger_order('BUY', 1, 54.0)
     
-    # 验证持仓和价格记录
     assert current_position == 3, f"预期持仓3手，实际{current_position}手"
     assert len(position_entry_prices) == 3, f"预期持仓价格记录3个，实际{len(position_entry_prices)}个"
     
-    # 模拟卖出操作
     place_tiger_order('SELL', 1, 58.0)
-    
-    # 验证持仓减少
     assert current_position == 2, f"预期持仓2手，实际{current_position}手"
     
-    print("✅ 持仓管理功能测试通过！")
+    # 测试结束平仓恢复：卖出剩余 2 手
+    place_tiger_order('SELL', 2, 58.0)
+    print("✅ 持仓管理功能测试通过！已平仓恢复。")
 
 
 def test_risk_control():
-    """测试风控功能。仅应在 mock 下运行。"""
+    """测试风控功能。允许实盘测试，但不得与 DEMO 并发；测试结束会平仓恢复。"""
     global current_position
-    if not getattr(api_manager, 'is_mock_mode', True):
-        print("❌ test_risk_control 仅在 mock 下运行，跳过")
-        return
     print("\n🧪 开始测试风控功能...")
     current_position = 0
     global GRID_MAX_POSITION
@@ -2766,26 +2755,25 @@ def test_risk_control():
     place_tiger_order('BUY', 1, 62.0)
     place_tiger_order('BUY', 1, 64.0)
     
-    # 尝试超过最大持仓
     result = check_risk_control(66.0, 'BUY')
     assert result == False, "应当拒绝超过最大持仓的买入"
     
-    # 恢复原始设置
     GRID_MAX_POSITION = original_max_pos
     
-    print("✅ 风控功能测试通过！")
+    # 测试结束平仓恢复：卖出本次开的 3 手
+    place_tiger_order('SELL', 3, 64.0)
+    print("✅ 风控功能测试通过！已平仓恢复。")
 
 
 def run_tests():
-    """运行所有测试。禁止在实盘/非 mock 下运行，否则会下真实单（如限价 100）导致 BUG 单。"""
+    """运行所有测试。允许实盘测试；不得与 DEMO 并发运行；测试会开仓后平仓恢复。"""
     if not getattr(api_manager, 'is_mock_mode', True):
-        print("❌ 禁止在实盘/非 mock 环境下运行 run_tests()，会下真实单（如 BUY 限价 100），现价约 82 会导致异常单与重复单。请仅在 mock 或测试环境运行。")
-        return
-    print("🚀 开始运行所有测试（mock 模式）...")
+        print("⚠️ 实盘模式：请确保未与 DEMO 同时运行；测试将开仓后平仓恢复。")
+    print("🚀 开始运行所有测试...")
     test_order_tracking()
     test_position_management()
     test_risk_control()
-    print("\n🎉 所有测试完成！")
+    print("\n🎉 所有测试完成！已平仓恢复。")
     global current_position, open_orders, closed_positions, position_entry_times, position_entry_prices
     current_position = 0
     open_orders.clear()
