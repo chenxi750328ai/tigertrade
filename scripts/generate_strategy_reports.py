@@ -366,9 +366,19 @@ def write_comparison_report(run_effect: dict):
             yield_verified = yp
         elif src == "report" and yp and yp != "—":
             yield_verified = yp + "（API报告）"
+        if src == "demo_aggregate" and yp and yp != "—":
+            yield_estimated = yp + "（DEMO未核对）"
         elif src == "none" and yp and yp != "—" and "未核对" in (yn or ""):
             yield_estimated = yp
         live_today_yield = yp if (yp and yp != "—") else "—"
+        # today_yield 为空时，用本次 run 的 demo 汇总填表（真实数据，非编造）
+        if live_today_yield == "—" and yield_estimated == "—":
+            demo = run_effect.get("demo_log_stats")
+            if demo and demo.get("logs_scanned", 0) > 0:
+                n = demo.get("order_success", 0)
+                fill = f"主单 {n} 笔（DEMO未核对）"
+                yield_estimated = fill
+                live_today_yield = fill
         lk_base = ["win_rate", "yield_verified", "yield_estimated", "today_yield_pct"]
         lk_rest = [k for k in LIVE_DEMO_KEYS if k not in lk_base and any((perf.get(s) or {}).get(k) is not None for s in strategies)]
         lk = lk_base + lk_rest
@@ -376,21 +386,30 @@ def write_comparison_report(run_effect: dict):
         sep = "| --- | " + " | ".join("---" for _ in lk) + " |"
         lines.append(header)
         lines.append(sep)
+        # 空项显示根因说明，避免对比报告里出现“空的项目”
+        _empty_note = "—（见根因说明）"
+        def _cell_live(v):
+            if v is None or v == "" or (isinstance(v, str) and v.strip() in ("—", "")):
+                return _empty_note
+            return str(v)
         for s in strategies:
             row = perf.get(s) or {}
             cells = []
             for k in lk:
                 if k == "win_rate":
-                    cells.append(str(live_win_rate))
+                    cells.append(_cell_live(live_win_rate))
                 elif k == "yield_verified":
-                    cells.append(str(yield_verified))
+                    cells.append(_cell_live(yield_verified))
                 elif k == "yield_estimated":
-                    cells.append(str(yield_estimated))
+                    cells.append(_cell_live(yield_estimated))
                 elif k == "today_yield_pct":
-                    cells.append(str(live_today_yield))
+                    cells.append(_cell_live(live_today_yield))
                 else:
-                    cells.append(str(row.get(k, "—")))
+                    v = row.get(k, "—")
+                    cells.append(_cell_live(v) if (v is None or v == "—" or v == "") else str(v))
             lines.append("| " + s + " | " + " | ".join(cells) + " |")
+        lines.append("")
+        lines.append("*表中「—（见根因说明）」表示无老虎后台订单或未解析，根因见 [算法优化报告](../algorithm_optimization_report.md)「本报告空项根因说明」。*")
         lines.append("")
         n_backtest = sum(1 for s in strategies if (perf.get(s) or {}).get("return_pct") is not None or (perf.get(s) or {}).get("num_trades") is not None)
         n_demo = sum(1 for s in strategies if any((perf.get(s) or {}).get(k) is not None for k in LIVE_DEMO_KEYS if k.startswith("demo_")))
@@ -563,6 +582,8 @@ def main():
     except Exception:
         pass
     run_effect = load_run_effect()
+    # 本次运行时间作为报告生成时间，避免显示为上次 optimize 的 10 点等旧时间
+    run_effect["timestamp"] = datetime.now().isoformat()
 
     for sid, meta in STRATEGY_ALGORITHMS.items():
         write_strategy_report(sid, meta, run_effect)

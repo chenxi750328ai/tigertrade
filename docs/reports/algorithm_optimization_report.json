@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-02-11T10:50:07.523571",
+  "timestamp": "2026-02-11T11:24:52.141030",
   "algorithm_version": "2.0",
   "profitability": null,
   "strategy_performance": {
@@ -12,12 +12,12 @@
       "demo_sl_tp_log": 91496,
       "demo_execute_buy_calls": 34638,
       "demo_success_orders_sum": 330611,
-      "demo_fail_orders_sum": 4375898,
+      "demo_fail_orders_sum": 4459242,
       "demo_logs_scanned": 20,
-      "return_pct": 1.44,
-      "num_trades": 23,
-      "avg_per_trade_pct": 0.0,
-      "top_per_trade_pct": 0.0
+      "return_pct": 2.46,
+      "num_trades": 33,
+      "avg_per_trade_pct": 0.01,
+      "top_per_trade_pct": 0.03
     },
     "lstm": {
       "profitability": 0,
@@ -28,12 +28,12 @@
       "demo_sl_tp_log": 91496,
       "demo_execute_buy_calls": 34638,
       "demo_success_orders_sum": 330611,
-      "demo_fail_orders_sum": 4375898,
+      "demo_fail_orders_sum": 4459242,
       "demo_logs_scanned": 20,
-      "return_pct": 1.44,
-      "num_trades": 23,
-      "avg_per_trade_pct": 0.0,
-      "top_per_trade_pct": 0.0
+      "return_pct": 2.46,
+      "num_trades": 33,
+      "avg_per_trade_pct": 0.01,
+      "top_per_trade_pct": 0.03
     },
     "grid": {
       "profitability": 0,
@@ -44,7 +44,7 @@
       "demo_sl_tp_log": 91496,
       "demo_execute_buy_calls": 34638,
       "demo_success_orders_sum": 330611,
-      "demo_fail_orders_sum": 4375898,
+      "demo_fail_orders_sum": 4459242,
       "demo_logs_scanned": 20,
       "return_pct": 0.0,
       "num_trades": 0,
@@ -53,19 +53,19 @@
     },
     "boll": {
       "profitability": 0,
-      "win_rate": 0,
+      "win_rate": 36.36363636363637,
       "sharpe_ratio": 0,
       "max_drawdown": 0,
       "demo_order_success": 9743,
       "demo_sl_tp_log": 91496,
       "demo_execute_buy_calls": 34638,
       "demo_success_orders_sum": 330611,
-      "demo_fail_orders_sum": 4375898,
+      "demo_fail_orders_sum": 4459242,
       "demo_logs_scanned": 20,
-      "return_pct": 0.0,
-      "num_trades": 0,
-      "avg_per_trade_pct": 0.0,
-      "top_per_trade_pct": 0.0
+      "return_pct": 7.738568167792605,
+      "num_trades": 11,
+      "avg_per_trade_pct": 0.7,
+      "top_per_trade_pct": 7.09
     }
   },
   "optimal_parameters": {
@@ -76,7 +76,7 @@
     "boll": {
       "rsi_buy": 30,
       "rsi_sell": 60,
-      "ma_short": 5,
+      "ma_short": 10,
       "ma_long": 20,
       "use_or": true
     }
