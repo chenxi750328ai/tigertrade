@@ -234,8 +234,34 @@ class TestRunMoeDemoIntegration(unittest.TestCase):
         self.assertIn('tiger1', content, "应调用 tiger1 作为统一入口")
         self.assertIn('src/tiger1.py', content or 'src/tiger1.py', "应执行 src/tiger1.py")
 
+    def test_verify_api_does_not_place_order_on_start(self):
+        """【防回归】verify_api_connection 不得在每次启动时调用 place_tiger_order（避免每启一个 DEMO 下一单）"""
+        with open('/home/cx/tigertrade/src/tiger1.py', 'r') as f:
+            content = f.read()
+        # 查找 verify_api_connection 函数体，检查是否有未注释的 place_tiger_order 调用
+        import re
+        match = re.search(r'def verify_api_connection\([^)]*\):.*?(?=\n\ndef |\nclass |\Z)', content, re.DOTALL)
+        self.assertTrue(match, "应能找到 verify_api_connection")
+        body = match.group(0)
+        # 允许注释掉的 place_tiger_order，不允许未注释的
+        if 'place_tiger_order(' in body:
+            for line in body.split('\n'):
+                stripped = line.strip()
+                if 'place_tiger_order(' in line and not stripped.startswith('#'):
+                    self.fail(
+                        "verify_api_connection 内不应有未注释的 place_tiger_order 调用，"
+                        "否则每次 DEMO 启动都会下一单。请注释或移除。"
+                    )
+
+    def test_order_executor_writes_order_log(self):
+        """【防回归】OrderExecutor 成功/失败下单时应写入 order_log，便于报告分析"""
+        with open('/home/cx/tigertrade/src/executor/order_executor.py', 'r') as f:
+            content = f.read()
+        self.assertIn('order_log', content, "OrderExecutor 应导入 order_log")
+        self.assertIn('order_log.log_order', content, "OrderExecutor 成功/失败下单时应调用 order_log.log_order")
+
     def test_tiger1_main_entry_no_attribute_error(self):
-        """【防回归】以 __main__ 启动 tiger1（DEMO 入口）时，启动阶段不得出现 AttributeError check_risk_control"""
+        """【防回归】以 __main__ 启动 tiger1（DEMO 入口）时，启动阶段不得出现 AttributeError check_risk_control、MIN_TICK NameError"""
         import subprocess
         cwd = '/home/cx/tigertrade'
         cmd = [sys.executable, 'src/tiger1.py', 'd', 'moe']
@@ -264,6 +290,11 @@ class TestRunMoeDemoIntegration(unittest.TestCase):
             )
         if 'AttributeError' in combined:
             self.fail("tiger1 启动阶段出现 AttributeError，应修复。\n输出片段:\n" + combined[-3000:])
+        if "NameError" in combined and "MIN_TICK" in combined:
+            self.fail(
+                "tiger1 启动阶段出现 MIN_TICK 未定义，应将 FUTURE_TICK_SIZE/MIN_TICK 移至 place_tiger_order 使用之前。\n"
+                "输出片段:\n" + combined[-3000:]
+            )
 
 
 def run_integration_tests():

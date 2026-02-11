@@ -27,6 +27,13 @@ echo "✅ 配置文件存在"
 
 # 3. 启动20小时运行
 echo -e "\n[3/3] 启动20小时交易策略..."
+# 防重复：若已有 DEMO 在跑则跳过，避免多实例
+EXISTING=$(pgrep -f "run_moe_demo.py" | head -1)
+if [ -n "$EXISTING" ]; then
+  echo "⚠️ DEMO 已在运行（PID=$EXISTING），跳过本次启动。若要重启请先: pkill -f run_moe_demo"
+  exit 0
+fi
+
 echo "=========================================="
 echo "开始时间: $(date)"
 echo "预计结束时间: $(date -d '+20 hours')"

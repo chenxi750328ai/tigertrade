@@ -11,6 +11,11 @@ sys.path.insert(0, '/home/cx/tigertrade')
 
 from src.api_adapter import api_manager
 
+try:
+    from src import order_log
+except ImportError:
+    order_log = None
+
 # 导入tiger1模块 - 处理脚本运行时的导入问题
 try:
     import importlib
@@ -56,18 +61,20 @@ except ImportError:
 class OrderExecutor:
     """订单执行器 - 统一的下单逻辑（直接调用API，模块化设计）"""
     
-    def __init__(self, risk_manager=None):
+    def __init__(self, risk_manager=None, state_fallback=None):
         """
         初始化订单执行器
         
         Args:
             risk_manager: 风险管理模块（默认使用tiger1，仅用于风控检查和止损计算）
+            state_fallback: 状态来源模块（current_position/daily_loss 等），风控检查前会从此同步到 risk_manager
         """
         self.risk_manager = risk_manager or t1
         # 当 tiger1 以 python src/tiger1.py 运行时 __main__ 可能尚未定义 check_risk_control（主块在定义之前），回退到导入的 t1
-        self._risk_fallback = None
+        self._risk_fallback = state_fallback
         if not callable(getattr(self.risk_manager, 'check_risk_control', None)):
-            self._risk_fallback = self.risk_manager  # 保留原引用用于同步 state
+            if self._risk_fallback is None:
+                self._risk_fallback = self.risk_manager  # 保留原引用用于同步 state
             self.risk_manager = t1
         # 下单逻辑直接使用api_manager，不依赖tiger1.place_tiger_order
         
@@ -257,10 +264,23 @@ class OrderExecutor:
                 t1.position_entry_times[pos_id] = time.time()
                 t1.position_entry_prices[pos_id] = price
             
+            # 写入 order_log，便于报告/分析
+            if order_log:
+                order_log.log_order(
+                    'BUY', order_quantity, limit_price, str(order_id),
+                    'success', 'real', stop_loss_price, take_profit_price,
+                    reason=reason or 'auto', source='auto',
+                    symbol=getattr(t1, '_to_api_identifier', lambda x: x)(t1.FUTURE_SYMBOL) if hasattr(t1, '_to_api_identifier') else getattr(t1, 'FUTURE_SYMBOL', ''),
+                    order_type='limit'
+                )
+            
             return True, f"订单提交成功 | 价格={limit_price:.3f}, 止损={stop_loss_price:.3f}, 止盈={take_profit_price:.3f}, 订单ID={order_id}"
             
         except Exception as e:
             error_msg = str(e)
+            if order_log:
+                _sym = getattr(t1, '_to_api_identifier', lambda x: x)(t1.FUTURE_SYMBOL) if hasattr(t1, '_to_api_identifier') else getattr(t1, 'FUTURE_SYMBOL', '')
+                order_log.log_order('BUY', 1, price, f"ORDER_{int(time.time())}_{random.randint(1000,9999)}", 'fail', 'real', stop_loss_price, take_profit_price, reason=reason or 'auto', error=error_msg, source='auto', symbol=_sym, order_type='limit')
             # 明确识别授权错误
             if 'not authorized' in error_msg.lower() or 'authorized' in error_msg.lower() or 'authorization' in error_msg.lower():
                 return False, f"❌ 授权失败: {error_msg}。需要在Tiger后台配置account授权给API用户。"
@@ -379,10 +399,18 @@ class OrderExecutor:
                     'profit': (price - buy_info['price']) * t1.FUTURE_MULTIPLIER
                 }
             
+            # 写入 order_log
+            if order_log:
+                _sym = getattr(t1, '_to_api_identifier', lambda x: x)(t1.FUTURE_SYMBOL) if hasattr(t1, '_to_api_identifier') else getattr(t1, 'FUTURE_SYMBOL', '')
+                order_log.log_order('SELL', order_quantity, limit_price, str(order_id), 'success', 'real', None, None, reason='auto', source='auto', symbol=_sym, order_type='limit')
+            
             return True, f"订单提交成功 | 价格={limit_price:.3f}, 持仓={t1.current_position}手, 订单ID={order_id}"
             
         except Exception as e:
             error_msg = str(e)
+            if order_log:
+                _sym = getattr(t1, '_to_api_identifier', lambda x: x)(t1.FUTURE_SYMBOL) if hasattr(t1, '_to_api_identifier') else getattr(t1, 'FUTURE_SYMBOL', '')
+                order_log.log_order('SELL', 1, price, f"ORDER_{int(time.time())}_{random.randint(1000,9999)}", 'fail', 'real', None, None, reason='auto', error=error_msg, source='auto', symbol=_sym, order_type='limit')
             # 明确识别授权错误
             if 'not authorized' in error_msg.lower() or 'authorized' in error_msg.lower() or 'authorization' in error_msg.lower():
                 return False, f"❌ 授权失败: {error_msg}。需要在Tiger后台配置account授权给API用户。"

@@ -87,6 +87,18 @@ except ImportError:
     except ImportError:
         order_log = None
 
+# 合约最小变动价位（必须在 place_tiger_order / verify_api 之前定义，否则 MIN_TICK 未定义报错）
+try:
+    from src.config import TradingConfig as _TC
+    FUTURE_TICK_SIZE = _TC.TICK_SIZE
+except Exception:
+    try:
+        from config import TradingConfig as _TC
+        FUTURE_TICK_SIZE = _TC.TICK_SIZE
+    except Exception:
+        FUTURE_TICK_SIZE = float(os.getenv("TICK_SIZE", "0.005"))
+MIN_TICK = FUTURE_TICK_SIZE
+
 try:
     from .strategies import time_period_strategy
     TIME_PERIOD_STRATEGY_AVAILABLE = True
@@ -664,9 +676,8 @@ def verify_api_connection():
             2,
             None)
 
-        # 初始化校验里下单：便于到后台查看订单（已打开运行）
-        place_tiger_order('BUY', 1, 91.63, 90)
-        # place_tiger_order('SELL', 1, 91.63, 90)  # 可选：若需再下一笔卖单可取消注释
+        # 不在验证时下单，避免每次启动都下一单；需要测试下单请单独运行测试脚本
+        # place_tiger_order('BUY', 1, 91.63, 90)
 
         return True
     except Exception as e:
@@ -2935,11 +2946,11 @@ if __name__ == "__main__":
             # 2. 创建数据提供者
             data_provider = MarketDataProvider(FUTURE_SYMBOL)
             
-            # 3. 创建订单执行器（使用当前模块作为risk_manager）
-            # 注意：在tiger1.py内部，可以直接使用当前模块
+            # 3. 创建订单执行器（必须用已定义 check_risk_control 的模块；__main__ 主块执行时尚未定义该函数；state_fallback 确保风控看到的是 __main__ 的实时持仓）
             import sys
-            current_module = sys.modules[__name__]
-            order_executor = OrderExecutor(current_module)
+            from src import tiger1 as _risk_mod
+            _main = sys.modules.get('__main__')
+            order_executor = OrderExecutor(_risk_mod, state_fallback=_main if _main is not _risk_mod else None)
             
             # 4. 创建交易执行器
             executor = TradingExecutor(
@@ -3668,16 +3679,7 @@ def check_risk_control(price, side):
     return True  # This is the actual end of the function
 
 
-try:
-    from src.config import TradingConfig as _TC
-    FUTURE_TICK_SIZE = _TC.TICK_SIZE
-except Exception:
-    try:
-        from config import TradingConfig as _TC
-        FUTURE_TICK_SIZE = _TC.TICK_SIZE
-    except Exception:
-        FUTURE_TICK_SIZE = float(os.getenv("TICK_SIZE", "0.005"))
-MIN_TICK = FUTURE_TICK_SIZE
+# FUTURE_TICK_SIZE/MIN_TICK 已移至文件顶部
 FUTURE_EXPIRE_DATE = '2026-03-28'  # 合约到期日
 
 # 策略参数
