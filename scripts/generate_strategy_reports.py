@@ -463,7 +463,7 @@ def write_comparison_report(run_effect: dict):
 
 
 def check_report_reasonableness(run_effect: dict, comparison_path: Path) -> Tuple[bool, List[str]]:
-    """自检：实盘/DEMO 表胜率是否与数据来源一致（无 API 时不应出现 100%）。返回 (通过, 警告列表)。"""
+    """自检：① 实盘表胜率与数据来源一致（无 API 时不应出现 100%）；② 有 DEMO 汇总时 yield_estimated/today_yield_pct 不得为空/—。返回 (通过, 警告列表)。"""
     warnings = []
     profitability = run_effect.get("profitability")
     has_api = isinstance(profitability, dict) and (profitability.get("total_trades") or 0) > 0
@@ -474,11 +474,12 @@ def check_report_reasonableness(run_effect: dict, comparison_path: Path) -> Tupl
     text = comparison_path.read_text(encoding="utf-8")
     if "## 实盘/DEMO 效果对比" not in text:
         return True, []
-    # 找到表头行，确定 win_rate 列下标
     lines = text.splitlines()
     in_table = False
     header_idx = -1
     win_rate_col = -1
+    yield_est_col = -1
+    today_yield_col = -1
     for i, line in enumerate(lines):
         if "## 实盘/DEMO 效果对比" in line:
             in_table = True
@@ -487,24 +488,46 @@ def check_report_reasonableness(run_effect: dict, comparison_path: Path) -> Tupl
             cells = [c.strip() for c in line.split("|")[1:-1]]
             if "win_rate" in cells:
                 win_rate_col = cells.index("win_rate")
+                if "yield_estimated" in cells:
+                    yield_est_col = cells.index("yield_estimated")
+                if "today_yield_pct" in cells:
+                    today_yield_col = cells.index("today_yield_pct")
                 header_idx = i
                 break
-            if header_idx >= 0:
-                break
-    if win_rate_col < 0:
+    if header_idx < 0:
         return True, []
-    for i in range(header_idx + 2, len(lines)):  # 跳过表头与分隔行
-        line = lines[i]
-        if not line.startswith("|"):
-            break
-        cells = [c.strip() for c in line.split("|")[1:-1]]
-        if len(cells) <= win_rate_col:
-            continue
-        val = cells[win_rate_col]
-        if val == "100.0" or val == "100":
-            warnings.append(
-                f"实盘/DEMO 表第{i+1}行 win_rate={val}%，但无 API 订单数据，疑似回测胜率误入实盘列，请检查。"
-            )
+    # ① 无 API 时实盘 win_rate 不应为 100
+    if not has_api and win_rate_col >= 0:
+        for i in range(header_idx + 2, len(lines)):
+            line = lines[i]
+            if not line.startswith("|"):
+                break
+            cells = [c.strip() for c in line.split("|")[1:-1]]
+            if len(cells) <= win_rate_col:
+                continue
+            val = cells[win_rate_col]
+            if val == "100.0" or val == "100":
+                warnings.append(
+                    f"实盘/DEMO 表第{i+1}行 win_rate={val}%，但无 API 订单数据，疑似回测胜率误入实盘列，请检查。"
+                )
+    # ② 有 DEMO 汇总时 yield_estimated / today_yield_pct 不得为空或 —
+    demo = run_effect.get("demo_log_stats")
+    if demo and demo.get("logs_scanned", 0) > 0 and yield_est_col >= 0 and today_yield_col >= 0:
+        for i in range(header_idx + 2, len(lines)):
+            line = lines[i]
+            if not line.startswith("|"):
+                break
+            cells = [c.strip() for c in line.split("|")[1:-1]]
+            if len(cells) <= max(yield_est_col, today_yield_col):
+                continue
+            est = cells[yield_est_col]
+            today = cells[today_yield_col]
+            empty_or_dash = lambda v: not v or v == "—" or "见根因说明" in (v or "")
+            if empty_or_dash(est) or empty_or_dash(today):
+                warnings.append(
+                    "实盘表在已有 DEMO 汇总数据（logs_scanned>0）时仍存在空项：yield_estimated 或 today_yield_pct 应为「主单 N 笔」等，请检查 generate_strategy_reports 填表逻辑。"
+                )
+                break
     return len(warnings) == 0, warnings
 
 
@@ -592,7 +615,7 @@ def main():
 
     ok, warn_list = check_report_reasonableness(run_effect, comp_path)
     if ok:
-        print("报告自检: 通过（实盘胜率列与 API 数据一致）")
+        print("报告自检: 通过（实盘胜率与数据来源一致；有 DEMO 汇总时 yield_estimated/today_yield_pct 已填）")
     else:
         for w in warn_list:
             print(f"报告自检: 警告 — {w}")
