@@ -79,7 +79,7 @@
   <div class="wrap">
     <header class="hero">
       <h1>🐯 TigerTrade</h1>
-      <p class="meta">状态 <strong style="color:var(--wip)">开发中</strong> · 目标 月盈利率 20% · <strong>今日收益率：<span id="today-yield">—</span></strong>（仅老虎后台；失败无实盘收益） · <strong>订单执行：成功 <span id="order-success">—</span> 笔，失败（含API被拒）<span id="order-fail">—</span> 笔</strong> · 回测 moe/lstm 1.6% · 算法版本 v2.0 · 数据已合并至 02-11 · 最近例行：算法优化+报告已刷新（链接为相对路径，同源即最新） · 当日实盘须有订单输出 · 内容更新 2026-02-11 · 启动时同步后台持仓已实现（见 docs/启动时持仓同步与风控.md） · 刷新 <span id="updated">--</span></p>
+      <p class="meta">状态 <strong style="color:var(--wip)">开发中</strong> · 目标 月盈利率 20% · <strong>今日收益率：<span id="today-yield">—</span></strong>（仅老虎后台；失败无实盘收益） · <strong>订单执行：成功 <span id="order-success">—</span> 笔，失败（含API被拒）<span id="order-fail">—</span> 笔</strong> · 回测 moe/lstm 1.6% · 算法版本 v2.0 · 数据已合并至 02-11 · 最近例行：算法优化+报告已刷新（链接为相对路径，同源即最新） · 当日实盘须有订单输出 · 内容更新 2026-02-24 · 启动时同步后台持仓已实现（见 docs/启动时持仓同步与风控.md） · 刷新 <span id="updated">--</span></p>
     </header>
 
     <!-- 特性 × 需求/设计/开发/测试 矩阵 -->
@@ -231,21 +231,21 @@
       </div>
       <div class="routine-row">
         <span class="routine-name">今日收益率（DEMO/回测）</span>
-        <span class="routine-date" id="r-yield-date">02-11</span>
+        <span class="routine-date" id="r-yield-date">02-24</span>
         <span class="routine-status" id="today-yield-value">—</span>
         <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/scripts/optimize_algorithm_and_profitability.py" target="_blank" rel="noopener">收益与算法</a> · <a href="https://github.com/chenxi750328ai/tigertrade/blob/main/docs/DEMO运行状态查询指南.md" target="_blank" rel="noopener">DEMO LOG</a></span>
         <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/shared_rag/best_practices/陈正霞陈正与协作分工_20260201.md" target="_blank" rel="noopener">责</a></span>
       </div>
       <div class="routine-row">
         <span class="routine-name">收益与算法优化</span>
-        <span class="routine-date" id="r7-date">02-11</span>
+        <span class="routine-date" id="r7-date">02-24</span>
         <span class="routine-status">已跑</span>
         <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/scripts/optimize_algorithm_and_profitability.py" target="_blank" rel="noopener">查</a></span>
         <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/shared_rag/best_practices/陈正霞陈正与协作分工_20260201.md" target="_blank" rel="noopener">责</a></span>
       </div>
       <div class="routine-row">
         <span class="routine-name">状态页刷新</span>
-        <span class="routine-date" id="r8-date">02-11</span>
+        <span class="routine-date" id="r8-date">02-24</span>
         <span class="routine-status">已跑</span>
         <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/docs/status.html" target="_blank" rel="noopener">查</a></span>
         <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/docs/PL.md" target="_blank" rel="noopener">责</a></span>
@@ -253,7 +253,7 @@
     </div>
 
     <footer class="footer">
-      <p>维护：陈正霞（PL），可委托陈正与。特性矩阵为开发阶段；每日例行「最近一次」随状态页刷新时一并更新（改日期与状态后提交推送）。<strong>今日收益率</strong>由 <code>docs/today_yield.json</code> 提供，运行 <code>python scripts/update_today_yield_for_status.py</code> 或 收益与算法优化 后更新并提交。<strong>策略算法与运行效果报告</strong>（含对比）见上方「策略算法与运行效果」链接；报告索引页已改为<strong>相对路径</strong>，与 status 同源打开时点击即当前生成内容，每日刷新（<code>python scripts/generate_strategy_reports.py</code> 或 收益与算法优化 流程）。<br>最后内容更新：2026-02-11</p>
+      <p>维护：陈正霞（PL），可委托陈正与。特性矩阵为开发阶段；每日例行「最近一次」随状态页刷新时一并更新（改日期与状态后提交推送）。<strong>今日收益率</strong>由 <code>docs/today_yield.json</code> 提供，运行 <code>python scripts/update_today_yield_for_status.py</code> 或 收益与算法优化 后更新并提交。<strong>策略算法与运行效果报告</strong>（含对比）见上方「策略算法与运行效果」链接；报告索引页已改为<strong>相对路径</strong>，与 status 同源打开时点击即当前生成内容，每日刷新（<code>python scripts/generate_strategy_reports.py</code> 或 收益与算法优化 流程）。<br>最后内容更新：2026-02-24</p>
       <div class="links">
         <a href="https://github.com/chenxi750328ai/tigertrade">仓库</a>
         <a href="https://github.com/chenxi750328ai/tigertrade/blob/main/README.md">README</a>

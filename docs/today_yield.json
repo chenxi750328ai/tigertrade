@@ -1,6 +1,6 @@
 {
-  "date": "2026-02-11",
-  "yield_pct": "—",
-  "yield_note": "需老虎后台数据核对",
-  "source": "none"
+  "date": "2026-02-24",
+  "yield_pct": "+5876.90 USD",
+  "yield_note": "老虎后台成交 112 笔，已实现盈亏 5876.90 USD",
+  "source": "tiger_backend"
 }

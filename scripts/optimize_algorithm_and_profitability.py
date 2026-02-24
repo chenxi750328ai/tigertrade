@@ -52,6 +52,11 @@ def _normalize_order(order):
     }
 
 
+def _status_str(st):
+    """将 status（可能为 OrderStatus 枚举）转为可比较的字符串。"""
+    return (getattr(st, "name", None) or (str(st) if st is not None else "") or "").upper()
+
+
 def _fetch_orders_from_tiger_direct(limit=1000):
     """当 api_manager 未初始化或无 get_orders 时，用 openapicfg_dem 直接拉老虎订单（与 fetch_tiger_yield_for_demo 一致）。
     返回 (orders_list_or_none, reason_if_fail)。orders 非空时 reason 为 None。"""
@@ -62,6 +67,7 @@ def _fetch_orders_from_tiger_direct(limit=1000):
     try:
         from tigeropen.tiger_open_config import TigerOpenClientConfig
         from tigeropen.trade.trade_client import TradeClient
+        from tigeropen.common.consts import SegmentType, SecurityType
     except ImportError as e:
         return None, "tigeropen 未安装或不可用: %s" % (e,)
     try:
@@ -75,9 +81,17 @@ def _fetch_orders_from_tiger_direct(limit=1000):
             symbol_api = t1._to_api_identifier(getattr(t1, "FUTURE_SYMBOL", "SIL.COMEX.202603"))
         except Exception:
             symbol_api = "SIL2603"
-        orders = client.get_orders(account=acc, symbol=symbol_api, limit=limit)
+        orders = client.get_orders(
+            account=acc,
+            symbol=symbol_api,
+            limit=limit,
+            seg_type=SegmentType.FUT,
+            sec_type=SecurityType.FUT,
+        )
         if orders is None:
             return [], "老虎 API get_orders 返回 None"
+        if hasattr(orders, "result"):
+            orders = orders.result or []
         if len(orders) == 0:
             return [], "老虎 API 返回 0 笔订单（该账户/合约可能无订单或未授权）"
         return orders, None
@@ -105,7 +119,11 @@ def _fetch_positions_from_tiger_direct():
             return None, "openapicfg_dem 中 account 为空"
         if not hasattr(client, 'get_positions'):
             return None, "TradeClient 无 get_positions 方法"
-        positions = client.get_positions(account=acc)
+        try:
+            from tigeropen.common.consts import SecurityType
+            positions = client.get_positions(account=acc, sec_type=SecurityType.FUT)
+        except Exception:
+            positions = client.get_positions(account=acc)
         if positions is None:
             return [], "老虎 API get_positions 返回 None"
         return positions, None
@@ -135,7 +153,8 @@ def analyze_backend_orders_and_positions(orders, positions=None):
         total = 0
         for p in positions:
             obj = p if not isinstance(p, dict) else p
-            sym = getattr(obj, "symbol", None) or (obj.get("symbol") if isinstance(obj, dict) else None)
+            sym = (getattr(obj, "symbol", None) or getattr(getattr(obj, "contract", None), "symbol", None) or
+                   (obj.get("symbol") if isinstance(obj, dict) else None))
             qty = getattr(obj, "quantity", None) or getattr(obj, "qty", None) or (obj.get("quantity") or obj.get("qty") if isinstance(obj, dict) else None)
             if sym and (symbol_api in str(sym) or "SIL" in str(sym)):
                 try:
@@ -153,8 +172,8 @@ def analyze_backend_orders_and_positions(orders, positions=None):
         cancelled_sl_tp = 0
         for o in orders:
             row = _normalize_order(o)
-            st = (str(row.get("status") or "")).upper()
-            side = (str(row.get("side") or "")).upper()
+            st = _status_str(row.get("status"))
+            side = _status_str(row.get("side"))
             qty = row.get("filled_quantity") or row.get("quantity") or 0
             try:
                 qty = int(float(qty))
@@ -245,7 +264,7 @@ def calculate_profitability(orders):
         filled = []
         for o in orders:
             row = _normalize_order(o)
-            st = (row.get("status") or "").upper()
+            st = _status_str(row.get("status"))
             if st in ("FILLED", "FILLED_ALL", "FINISHED"):
                 filled.append(row)
 

@@ -1,8 +1,8 @@
 # 订单日志导出与分析
 
-**生成时间**: 2026-02-11 12:22:45
+**生成时间**: 2026-02-24 16:09:41
 **数据源**: `run/order_log.jsonl`
-**总条数**: 1328
+**总条数**: 1947
 
 ## 一、结论（是否「真的」在老虎后台）
 
@@ -20,26 +20,28 @@
 
 ### 按 mode 与 status
 
-- mode=**real**, status=**fail**: 848 条
-- mode=**mock**, status=**success**: 411 条
-- mode=**real**, status=**success**: 69 条
+- mode=**real**, status=**fail**: 897 条
+- mode=**real**, status=**success**: 638 条
+- mode=**mock**, status=**success**: 412 条
 
 ### mode=real 且 status=success 中：疑似测试/mock 与可能真实单
 
 | 类型 | 条数 | 说明 |
 | --- | --- | --- |
 | 疑似测试/mock（order_id 含 Mock、TEST_、ORDER_ 等） | 64 | 来自测试或 mock 环境，**非老虎真实成交**，与老虎后台对不上是预期。 |
-| 可能为老虎真实单（order_id 为纯数字） | 5 | 才可能在老虎后台查到；可用 `scripts/verify_demo_orders_against_tiger.py` 核对。 |
+| 可能为老虎真实单（order_id 为纯数字） | 574 | 才可能在老虎后台查到；可用 `scripts/verify_demo_orders_against_tiger.py` 核对。 |
 
 ### 按 source
 
-- source=**auto**: 1290 条
-- source=**manual**: 38 条
+- source=**auto**: 1908 条
+- source=**manual**: 39 条
 
 ### 按日期（订单数）
 
 | 日期 | 总条数 | real成功（会出现在老虎） | real失败 | mock成功 |
 | --- | --- | --- | --- | --- |
+| 2026-02-24 | 3 | 1 | 2 | 0 |
+| 2026-02-11 | 616 | 568 | 47 | 1 |
 | 2026-02-10 | 45 | 4 | 29 | 12 |
 | 2026-02-09 | 82 | 4 | 56 | 22 |
 | 2026-02-08 | 404 | 14 | 280 | 110 |
@@ -54,6 +56,9 @@
 ### mode=real 且 status=fail 的典型错误（前 15 条）
 
 - `ALLOW_REAL_TRADING!=1`: 808 次
+- `持仓硬顶 pos=999>=3`: 17 次
+- `order_id无效(来自mock/测试)，未记入实盘成功`: 16 次
+- `API Error 1010: biz param error(field 'account' cannot be empty)`: 16 次
 - `cannot import name 'OrderSide' from 'tigeropen.common.consts' (/root/minicond...`: 13 次
 - `code=1200 msg=standard account response error(bad_request:Orders cannot be pl...`: 10 次
 - `下单失败: 无法创建Order对象或调用API - Order创建错误: account不能为空，无法创建订单。self.account=None, cl...`: 10 次
@@ -61,16 +66,16 @@
 
 ### mode=real 且 status=success 最近 10 条时间戳（供与老虎后台核对）
 
-- 2026-02-08T18:45:08.366561
-- 2026-02-08T18:45:44.001188
-- 2026-02-09T11:08:49.915157
-- 2026-02-09T11:09:18.999661
-- 2026-02-09T15:18:07.787336
-- 2026-02-09T15:18:37.438868
-- 2026-02-10T09:18:14.015753
-- 2026-02-10T09:18:43.469359
-- 2026-02-10T09:49:36.672069
-- 2026-02-10T10:33:18.369228
+- 2026-02-11T16:10:13.878784
+- 2026-02-11T16:10:58.780421
+- 2026-02-11T16:11:52.067872
+- 2026-02-11T16:13:07.324301
+- 2026-02-11T16:13:07.549711
+- 2026-02-11T16:13:07.765699
+- 2026-02-11T16:13:47.291553
+- 2026-02-11T16:13:49.577313
+- 2026-02-11T16:13:51.869034
+- 2026-02-24T16:04:46.959026
 
 ## 三、说明
 

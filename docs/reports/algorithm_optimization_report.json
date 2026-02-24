@@ -1,51 +1,61 @@
 {
-  "timestamp": "2026-02-11T12:22:43.184892",
+  "timestamp": "2026-02-24T16:10:49.150125",
   "algorithm_version": "2.0",
-  "profitability": null,
+  "profitability": {
+    "total_profit": 5876.90000000002,
+    "total_trades": 112,
+    "winning_trades": 32,
+    "losing_trades": 28,
+    "win_rate": 28.57142857142857,
+    "average_profit": 52.472321428571604
+  },
   "strategy_performance": {
     "moe_transformer": {
       "profitability": 0,
       "win_rate": 100.0,
       "sharpe_ratio": 0,
       "max_drawdown": 0,
-      "demo_order_success": 9743,
-      "demo_sl_tp_log": 91496,
-      "demo_execute_buy_calls": 34638,
-      "demo_success_orders_sum": 330611,
-      "demo_fail_orders_sum": 4577667,
-      "demo_logs_scanned": 20,
-      "return_pct": 2.46,
-      "num_trades": 33,
-      "avg_per_trade_pct": 0.01,
-      "top_per_trade_pct": 0.03
+      "demo_order_success": 10029,
+      "demo_sl_tp_log": 91990,
+      "demo_execute_buy_calls": 34938,
+      "demo_success_orders_sum": 336533,
+      "demo_fail_orders_sum": 4582079,
+      "demo_logs_scanned": 27,
+      "today_yield_pct": "+5876.90 USD",
+      "return_pct": 0.99,
+      "num_trades": 11,
+      "avg_per_trade_pct": 0.0,
+      "top_per_trade_pct": 0.01
     },
     "lstm": {
       "profitability": 0,
       "win_rate": 100.0,
       "sharpe_ratio": 0,
       "max_drawdown": 0,
-      "demo_order_success": 9743,
-      "demo_sl_tp_log": 91496,
-      "demo_execute_buy_calls": 34638,
-      "demo_success_orders_sum": 330611,
-      "demo_fail_orders_sum": 4577667,
-      "demo_logs_scanned": 20,
-      "return_pct": 2.46,
-      "num_trades": 33,
-      "avg_per_trade_pct": 0.01,
-      "top_per_trade_pct": 0.03
+      "demo_order_success": 10029,
+      "demo_sl_tp_log": 91990,
+      "demo_execute_buy_calls": 34938,
+      "demo_success_orders_sum": 336533,
+      "demo_fail_orders_sum": 4582079,
+      "demo_logs_scanned": 27,
+      "today_yield_pct": "+5876.90 USD",
+      "return_pct": 0.99,
+      "num_trades": 11,
+      "avg_per_trade_pct": 0.0,
+      "top_per_trade_pct": 0.01
     },
     "grid": {
       "profitability": 0,
-      "win_rate": 0.0,
+      "win_rate": 0,
       "sharpe_ratio": 0,
       "max_drawdown": 0,
-      "demo_order_success": 9743,
-      "demo_sl_tp_log": 91496,
-      "demo_execute_buy_calls": 34638,
-      "demo_success_orders_sum": 330611,
-      "demo_fail_orders_sum": 4577667,
-      "demo_logs_scanned": 20,
+      "demo_order_success": 10029,
+      "demo_sl_tp_log": 91990,
+      "demo_execute_buy_calls": 34938,
+      "demo_success_orders_sum": 336533,
+      "demo_fail_orders_sum": 4582079,
+      "demo_logs_scanned": 27,
+      "today_yield_pct": "+5876.90 USD",
       "return_pct": 0.0,
       "num_trades": 0,
       "avg_per_trade_pct": 0.0,
@@ -53,39 +63,49 @@
     },
     "boll": {
       "profitability": 0,
-      "win_rate": 36.36363636363637,
+      "win_rate": 0,
       "sharpe_ratio": 0,
       "max_drawdown": 0,
-      "demo_order_success": 9743,
-      "demo_sl_tp_log": 91496,
-      "demo_execute_buy_calls": 34638,
-      "demo_success_orders_sum": 330611,
-      "demo_fail_orders_sum": 4577667,
-      "demo_logs_scanned": 20,
-      "return_pct": 7.738568167792605,
-      "num_trades": 11,
-      "avg_per_trade_pct": 0.7,
-      "top_per_trade_pct": 7.09
+      "demo_order_success": 10029,
+      "demo_sl_tp_log": 91990,
+      "demo_execute_buy_calls": 34938,
+      "demo_success_orders_sum": 336533,
+      "demo_fail_orders_sum": 4582079,
+      "demo_logs_scanned": 27,
+      "today_yield_pct": "+5876.90 USD",
+      "return_pct": 0.0,
+      "num_trades": 0,
+      "avg_per_trade_pct": 0.0,
+      "top_per_trade_pct": 0.0
     }
   },
   "optimal_parameters": {
     "grid": {
-      "source": "backtest_grid_trading_strategy_pro1",
-      "same_code_as_live": true
+      "rsi_buy": 30,
+      "rsi_sell": 60,
+      "ma_short": 5,
+      "ma_long": 20,
+      "use_or": true
     },
     "boll": {
       "rsi_buy": 30,
       "rsi_sell": 60,
-      "ma_short": 10,
+      "ma_short": 5,
       "ma_long": 20,
       "use_or": true
     }
   },
-  "recommendations": [],
+  "recommendations": [
+    {
+      "priority": "high",
+      "issue": "胜率过低",
+      "suggestion": "需要优化策略参数或改进策略逻辑"
+    }
+  ],
   "data_sources": [
     "**DEMO 实盘收益率须以老虎后台为准**，未核对上的数据不得作为实盘收益率。见 docs/DEMO实盘收益率_定义与数据来源.md",
     "**日志与老虎后台不一致说明**：日志含模拟单与失败单，只有 mode=real 且 status=success 的才在老虎后台；核对规则为「DEMO 的单在老虎都能查到即通过」，老虎可更多（含人工单）。",
-    "收益率/胜率：API 历史订单 暂无或未解析（原因与后台订单来源见 [为何报告里后台核对数据为空_说明](../为何报告里后台核对数据为空_说明.md)）",
+    "收益率/胜率：来自 API 历史订单（老虎后台可核对）",
     "DEMO：多日志汇总（同次运行，四策略共用统计；订单成功、止损止盈等）",
     "回测：grid/BOLL 为参数网格回测，moe_transformer/lstm 为 test.csv 信号回测（scripts/backtest_model_strategies.py），产出 num_trades/return_pct/win_rate"
   ]
