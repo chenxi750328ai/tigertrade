@@ -24,7 +24,7 @@ _trading_file = _load_trading_file()
 class TradingConfig:
     """交易后端与标的配置，供下单、DEMO、行情使用。优先环境变量，其次 config/trading.json，不再硬编码。"""
     BACKEND = os.getenv("TRADING_BACKEND") or _trading_file.get("trading_backend", "tiger")
-    SYMBOL = os.getenv("TRADING_SYMBOL") or _trading_file.get("symbol", "SIL.COMEX.202603")
+    SYMBOL = os.getenv("TRADING_SYMBOL") or _trading_file.get("symbol", "SIL.COMEX.202605")
     TICK_SIZE = float(os.getenv("TICK_SIZE") or _trading_file.get("tick_size") or "0.005")
 
 class DataConfig:

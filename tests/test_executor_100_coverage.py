@@ -249,17 +249,21 @@ class TestOrderExecutor100Coverage(unittest.TestCase):
         t1.daily_loss = 0
         self.executor = OrderExecutor(t1)  # 使用真实的t1，不Mock
     
+    @patch('src.executor.order_executor.t1.get_effective_position_for_buy', return_value=0)
+    @patch('src.executor.order_executor.t1.sync_positions_from_backend', return_value=None)
     @patch('src.executor.order_executor.api_manager')
-    def test_execute_buy_api_none(self, mock_api):
-        """测试API为None"""
+    def test_execute_buy_api_none(self, mock_api, _sync, _pos):
+        """测试API为None（mock 持仓避免先被硬顶拒绝）"""
         mock_api.trade_api = None
         
         result, message = self.executor.execute_buy(100.0, 0.5, 97.0, 105.0, 0.6)
         self.assertFalse(result)
         self.assertIn("交易API未初始化", message)
     
+    @patch('src.executor.order_executor.t1.get_effective_position_for_buy', return_value=0)
+    @patch('src.executor.order_executor.t1.sync_positions_from_backend', return_value=None)
     @patch('src.executor.order_executor.api_manager')
-    def test_execute_buy_order_result_dict(self, mock_api):
+    def test_execute_buy_order_result_dict(self, mock_api, _sync, _pos):
         """测试订单结果为字典"""
         mock_trade_api = MagicMock()
         mock_order_result = {'order_id': 'TEST_123'}
@@ -271,8 +275,10 @@ class TestOrderExecutor100Coverage(unittest.TestCase):
         self.assertTrue(result)
         self.assertIn("订单提交成功", message)
     
+    @patch('src.executor.order_executor.t1.get_effective_position_for_buy', return_value=0)
+    @patch('src.executor.order_executor.t1.sync_positions_from_backend', return_value=None)
     @patch('src.executor.order_executor.api_manager')
-    def test_execute_buy_order_result_other(self, mock_api):
+    def test_execute_buy_order_result_other(self, mock_api, _sync, _pos):
         """测试订单结果为其他类型"""
         mock_trade_api = MagicMock()
         mock_order_result = "ORDER_123"
@@ -284,8 +290,10 @@ class TestOrderExecutor100Coverage(unittest.TestCase):
         self.assertTrue(result)
         self.assertIn("订单提交成功", message)
     
+    @patch('src.executor.order_executor.t1.get_effective_position_for_buy', return_value=0)
+    @patch('src.executor.order_executor.t1.sync_positions_from_backend', return_value=None)
     @patch('src.executor.order_executor.api_manager')
-    def test_execute_buy_exception(self, mock_api):
+    def test_execute_buy_exception(self, mock_api, _sync, _pos):
         """测试下单异常"""
         mock_trade_api = MagicMock()
         mock_trade_api.place_order.side_effect = Exception("API错误")

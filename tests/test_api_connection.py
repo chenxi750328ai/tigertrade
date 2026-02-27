@@ -65,8 +65,13 @@ class DummyQuoteApi:
 
 
 def test_verify_api_connection_uses_stubbed_quote_api():
+    """校验需期货交易+期货行情；stub 二者均可用则通过"""
     api_manager.is_mock_mode = False
     api_manager.quote_api = DummyQuoteApi()
+    # 校验会先查交易接口，再查期货行情
+    stub = type('StubTrade', (), {})()
+    stub.get_orders = lambda account=None, symbol=None, limit=100, **kw: []
+    api_manager.trade_api = stub
 
     assert t1.verify_api_connection() is True
 

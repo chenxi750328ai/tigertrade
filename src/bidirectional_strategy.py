@@ -37,8 +37,8 @@ except ImportError:
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         from api_adapter import api_manager
 
-# 合约配置（SIL2603：COMEX白银2026年3月期货）
-FUTURE_SYMBOL = "SIL.COMEX.202603"
+# 合约配置（SIL2605：COMEX白银2026年5月期货）
+FUTURE_SYMBOL = "SIL.COMEX.202605"
 FUTURE_CURRENCY = "USD"
 FUTURE_MULTIPLIER = 1000  # 白银期货每手1000盎司
 

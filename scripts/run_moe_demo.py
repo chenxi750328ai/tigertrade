@@ -33,7 +33,8 @@ def main():
     print(f"💡 提示: 统一使用 src/tiger1.py 作为总入口")
     print("="*70)
     
-    # 设置环境变量（如果需要）
+    # 与 run_20h_demo.sh 一致：DEMO 须能真实下单
+    os.environ['ALLOW_REAL_TRADING'] = '1'
     os.environ['TRADING_STRATEGY'] = strategy_name
     os.environ['RUN_DURATION_HOURS'] = str(duration_hours)
     

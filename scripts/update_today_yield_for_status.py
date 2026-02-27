@@ -43,11 +43,14 @@ def from_tiger_backend():
         data = json.loads(r.stdout.strip())
         if data.get("source") != "tiger_backend":
             return None
-        return {
+        res = {
             "yield_pct": data.get("yield_pct") or "—",
             "yield_note": data.get("yield_note") or "老虎后台",
             "source": "tiger_backend",
         }
+        if data.get("filled_count") == 0 and data.get("zero_trades_action"):
+            res["zero_trades_action"] = data["zero_trades_action"]
+        return res
     except Exception:
         return None
 
@@ -120,6 +123,8 @@ def main():
             out["yield_pct"] = (data.get("yield_pct") or "—").strip() or "—"
             out["yield_note"] = (data.get("yield_note") or "").strip() or "老虎后台"
             out["source"] = "tiger_backend"
+            if data.get("zero_trades_action"):
+                out["zero_trades_action"] = data["zero_trades_action"]
         else:
             # 2) 报告（API 订单解析出的 profitability）
             data = from_report()

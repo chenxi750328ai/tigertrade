@@ -11,6 +11,8 @@
 
 执行「例行工作」时，必须覆盖以下全部项。Agent 不得遗漏或只做其中一部分；新接手任务时请先查本 RAG 再开工。
 
+**例行工作目标 = 提升收益率**。不是光跑完拉倒：有问题要**解决问题**，解决后**继续工作**，**一直不停地干**直到能解决的都解决、收益率相关数据与优化到位。能自动修的（如缺 test.csv 则先生成再回测）在当轮修完再继续；不能自动修的列出原因与建议并 exit(1)，下一轮或人工介入后继续例行→解决→优化。
+
 **按角色**：设计 / 开发 / 测试 / Leader 的**每日例行工作**与职责定义见 [项目角色与每日例行工作](项目角色与每日例行工作.md)。**Leader（陈正霞）** 除本人例行外，须**监控项目计划执行、各成员进展与问题**。
 
 ---
@@ -30,10 +32,12 @@
    - 记录根因与解法（可写入 RAG 或 docs）。
 
 4. **20 小时稳定性测试（含 20 小时 DEMO 运行）**
+   - **与训练/算法优化并行**：20h DEMO 与「数据刷新+模型训练+算法优化」**可并行**；20h 运行过程中可用**定时任务**驱动新一轮训练与优化（建议间隔 4h，见 [项目组整体工作流程_供评审](../../docs/项目组整体工作流程_供评审.md) 第五节），实现**流水操作、一直不停**。优化完成且回测 OK 后，可临时重启 DEMO（仅计短暂重启间隔，不影响 20h 指标）、或优先热更新参数、或安排在每日停盘时间刷新参数/重启 DEMO。
    - **可靠性目标**：金融系统要求高可靠性；**20 小时稳定运行不出错**是项目目标之一（见 [需求分析](../../docs/需求分析和Feature测试设计.md) 1.2 可靠性目标、[CI/CD和稳定性测试流程](../../docs/CI_CD和稳定性测试流程.md)）。**不是跑一下就行**，须运行满 20h（或约定时长）且满足稳定性指标（无崩溃、错误率 &lt; 1%、有正常日志与订单输出）；跑完或定时检查运行状态与日志，异常即记录并排查。
    - **每日 DEMO 须有实盘数据，保证版本可用**：20h DEMO 运行里，除稳定性要求外，**必须有实盘数据**——即 DEMO 使用真实 API 拉取的行情（K 线/Tick）或产生可在老虎后台核对的订单；每天例行都要确保当日 DEMO 能产出实盘数据（行情或成交），不得以纯 mock/合成数据或“无新输出”视为通过。若当日因休市/维护无法获得实盘数据，须记录原因并注明“次日补跑”或等价措施。
    - **当日实盘须有订单输出**：每日 DEMO/实盘运行须有**订单输出**（即至少有一次下单尝试或成功订单记录，如 order_log/run 或 DEMO 日志中有「提交」「execute_buy」「订单」等）；若当日全程无任何订单输出，视为未达标，须排查（如未触发买入条件、风控拦截、配置错误等）并记录原因。
    - **每日期望：能有通过后台订单核对的结果**：希望当日 DEMO 能产生**至少一笔可在老虎后台核对的订单**（即 mode=real、status=success 且 order_id 为老虎返回的真实 ID），以便 API 拉取到成交单、报告中出现实际收益率/胜率（profitability、yield_verified 非 —）。若目前所有策略均无后台核对通过的结果，以今日 DEMO 产出可核对订单为当日目标之一；跑完后可查 `docs/reports/order_log_analysis.md` 中「可能为老虎真实单」条数并用 `scripts/verify_demo_orders_against_tiger.py` 核对。
+   - **今日实盘收益为 0 时（老虎后台今日 0 笔成交）**：**必须排查原因**（见 `docs/today_yield.json` 中 zero_trades_action：用 `bash scripts/run_20h_demo.sh` 启动 DEMO、确认 COMEX 交易时段、openapicfg_dem、order_log 今日 real success）；**不得仅报「今日无成交」即视为通过**。
    - **DEMO 能运行并产出结果是例行要求；否则视为异常**。除非有可解释原因（如周末/节假日不能交易、交易所维护、已知不可抗力），否则「DEMO 未运行」或「DEMO 运行但无新日志/无订单输出」或「未跑满 20h 即崩溃」均须记为**异常**并排查原因，不得仅报「未检测到」就通过。
    - **前置检查**：执行「查看或启动」前，必须确认 **`openapicfg_dem/tiger_openapi_config.properties` 存在且可读**（路径：本机多为 `/home/cx/openapicfg_dem` 或 `tigertrade/openapicfg_dem` 指向该处）。若不存在或无法解析 account，则本次例行该项判为**未通过**并记录，不得视为通过。详见 [例行未发现openapicfg_dem丢失_回溯与改进_20260208](../insights/例行未发现openapicfg_dem丢失_回溯与改进_20260208.md)。
    - 未运行时必须**启动** DEMO（不是只查看）：`bash scripts/run_20h_demo.sh` 或 `python scripts/stability_test_20h.py`。DEMO 须有**可用的日志与输出**（如订单、止损止盈统计），供收益与算法分析使用；运行过程中或跑完后按 [CI_CD和稳定性测试流程](../../docs/CI_CD和稳定性测试流程.md) 做稳定性检查（错误率、崩溃、资源等）。
@@ -80,10 +84,12 @@
 |------------|------|
 | 测试       | `cd /home/cx/tigertrade && PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/ -m "not real_api"`（与 CI 一致，推前必跑） |
 | 覆盖率     | `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/ -m "not real_api" --cov=src --cov-report=term-missing` |
-| **20h DEMO 运行** | `bash scripts/run_20h_demo.sh` 或 `python scripts/stability_test_20h.py`（目标 20 小时） |
+| **20h DEMO 运行** | `bash scripts/run_20h_demo.sh` 或 `python scripts/stability_test_20h.py`（目标 20 小时）；可与训练/优化并行，定时驱动见下。 |
+| **20h 内定时训练+优化** | `python scripts/pipeline_20h_periodic_optimization.py`（默认每 4h 一轮；`PIPELINE_OPTIMIZATION_INTERVAL_HOURS=4` 可改；`PIPELINE_ONE_SHOT=1` 只跑一轮，供 cron 调用） |
 | 数据合并+预处理 | `python scripts/merge_recent_data_and_train.py`，产出在 `data/processed/` |
 | 多模型训练 | `python scripts/train_multiple_models_comparison.py`（LSTM/Transformer/Enhanced/MoE 等） |
 | **算法优化** | `python scripts/optimize_algorithm_and_profitability.py` 等，产出算法优化与收益率报告 |
+| **今日实盘收益** | `cd /home/cx/tigertrade && python scripts/update_today_yield_for_status.py` → 产出 `docs/today_yield.json`。**今日 0 笔成交时**：必须按 today_yield.json 中 zero_trades_action 排查（用 run_20h_demo.sh 启动 DEMO、COMEX 交易时段、openapicfg_dem、order_log 今日 real success）；**不得仅报「今日无成交」即通过**。 |
 | **状态页刷新** | 编辑 `docs/status.html`，按特性更新状态，提交并推送；陈正霞负责，可委托陈正与 |
 | 真实 API 用例 | 需网络与配置时运行 `pytest tests/`（含 `real_api` 标记） |
 

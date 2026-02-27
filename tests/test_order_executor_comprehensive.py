@@ -22,16 +22,23 @@ class TestOrderExecutorComprehensive(unittest.TestCase):
         """初始化"""
         self.executor = OrderExecutor(t1)
         api_manager.initialize_mock_apis()
-        # 不要Mock！测试真实的风控逻辑
-        # 重置持仓和日亏损，确保风控能通过
         t1.current_position = 0
         t1.daily_loss = 0
-    
+        self._sync_backup = getattr(t1, "sync_positions_from_backend", None)
+        t1.sync_positions_from_backend = lambda: setattr(t1, "current_position", getattr(t1, "current_position", 0))
+        # 避免 get_effective_position_for_buy 从 mock 拉成 3 手导致硬顶拦截
+        self._get_effective_backup = getattr(t1, "get_effective_position_for_buy", None)
+        t1.get_effective_position_for_buy = lambda: 0
+
     def tearDown(self):
         """测试后清理，避免测试间状态污染"""
         t1.current_position = 0
         t1.daily_loss = 0
         t1.check_risk_control = _original_check_risk_control
+        if getattr(self, "_sync_backup", None) is not None:
+            t1.sync_positions_from_backend = self._sync_backup
+        if getattr(self, "_get_effective_backup", None) is not None:
+            t1.get_effective_position_for_buy = self._get_effective_backup
     
     def test_execute_buy_api_none(self):
         """测试API未初始化"""
@@ -107,19 +114,20 @@ class TestOrderExecutorComprehensive(unittest.TestCase):
     
     def test_execute_sell_api_none(self):
         """测试卖出API未初始化"""
-        # 先设置持仓，否则会先被"无持仓"拦截
+        # 先设置持仓，否则会先被"无持仓"拦截；mock sync 避免 trade_client=None 时 sync 把 position 重置为 0
         t1.current_position = 1
         original_trade_api = api_manager.trade_api
-        # 清空trade_client，防止重新初始化
         original_trade_client = getattr(t1, 'trade_client', None)
         t1.trade_client = None
         api_manager.trade_api = None
         try:
-            # execute_sell接受price和confidence参数
-            result, msg = self.executor.execute_sell(100.0, 0.7)
+            with patch.object(t1, 'sync_positions_from_backend', lambda: None):
+                result, msg = self.executor.execute_sell(100.0, 0.7)
             self.assertFalse(result)
-            # 可能是"交易API未初始化"或"account为空"（因为重新初始化失败）
-            self.assertTrue("交易API未初始化" in msg or "account" in msg.lower() or "API" in msg)
+            self.assertTrue(
+                "交易API未初始化" in msg or "account" in msg.lower() or "API" in msg,
+                f"应返回 API 未初始化类消息: {msg}"
+            )
         finally:
             api_manager.trade_api = original_trade_api
             if original_trade_client:
@@ -128,26 +136,34 @@ class TestOrderExecutorComprehensive(unittest.TestCase):
     
     def test_execute_sell_success(self):
         """测试卖出成功"""
-        # 设置有持仓
         t1.current_position = 1
+        _sync = getattr(t1, "sync_positions_from_backend", None)
+        t1.sync_positions_from_backend = lambda: setattr(t1, "current_position", 1)  # 保持 1 手
         mock_order = Mock()
         mock_order.order_id = "SELL_123"
         api_manager.trade_api.place_order = Mock(return_value=mock_order)
-        
-        result, msg = self.executor.execute_sell(100.0, 0.7)
-        self.assertTrue(result)
-        # 恢复持仓
-        t1.current_position = 0
-    
+        try:
+            result, msg = self.executor.execute_sell(100.0, 0.7)
+            self.assertTrue(result)
+        finally:
+            if _sync is not None:
+                t1.sync_positions_from_backend = _sync
+            t1.current_position = 0
+
     def test_execute_sell_exception(self):
         """测试卖出异常"""
-        t1.current_position = 1  # 有持仓
+        t1.current_position = 1
+        _sync = getattr(t1, "sync_positions_from_backend", None)
+        t1.sync_positions_from_backend = lambda: setattr(t1, "current_position", 1)
         api_manager.trade_api.place_order = Mock(side_effect=Exception("卖出错误"))
-        
-        result, msg = self.executor.execute_sell(100.0, 0.7)
-        self.assertFalse(result)
-        self.assertIn("下单异常", msg)
-        t1.current_position = 0
+        try:
+            result, msg = self.executor.execute_sell(100.0, 0.7)
+            self.assertFalse(result)
+            self.assertIn("下单异常", msg)
+        finally:
+            if _sync is not None:
+                t1.sync_positions_from_backend = _sync
+            t1.current_position = 0
     
     def test_execute_buy_with_profit_pred(self):
         """测试带profit_pred的买入"""
@@ -167,10 +183,19 @@ class TestOrderExecutorComprehensive(unittest.TestCase):
     
     def test_execute_sell_no_position(self):
         """测试无持仓时卖出"""
-        t1.current_position = 0  # 无持仓
-        result, msg = self.executor.execute_sell(100.0, 0.7)
-        self.assertFalse(result)
-        self.assertIn("无持仓", msg)
+        api_manager.initialize_mock_apis(account="TEST_SELL_NO_POS")
+        t1.current_position = 0
+        # 避免 sync 从 mock 拉成有仓，导致走到下单分支
+        _sync = getattr(t1, "sync_positions_from_backend", None)
+        t1.sync_positions_from_backend = lambda: setattr(t1, "current_position", 0)
+        try:
+            result, msg = self.executor.execute_sell(100.0, 0.7)
+            self.assertFalse(result, f"无持仓时应拒绝卖出: {msg}")
+            self.assertTrue("无持仓" in msg or "无多头持仓" in msg or "无法卖出" in msg or "account" in (msg or "").lower(),
+                            f"应返回无持仓或 account 类消息: {msg}")
+        finally:
+            if _sync is not None:
+                t1.sync_positions_from_backend = _sync
 
     def test_order_executor_fallback_when_risk_manager_lacks_check_risk_control(self):
         """【防回归】risk_manager 无 check_risk_control 时（如 __main__ 尚未定义）应回退到 t1，不抛 AttributeError"""

@@ -89,21 +89,24 @@ class OrderExecutor:
             
             # 检查tiger1是否有可用的客户端
             if hasattr(t1, 'trade_client') and t1.trade_client is not None:
-                account = None
-                if hasattr(t1.trade_client, 'config'):
+                # 根因：Tiger SDK 的 TradeClient.config 为 None，不能用 trade_client.config.account
+                account = getattr(t1.client_config, 'account', None) if getattr(t1, 'client_config', None) else None
+                if account is None and hasattr(t1.trade_client, 'config') and t1.trade_client.config is not None:
                     account = getattr(t1.trade_client.config, 'account', None)
                 api_manager.initialize_real_apis(t1.quote_client, t1.trade_client, account=account)
                 print(f"✅ [OrderExecutor] API初始化成功，account={account}")
             else:
-                # 如果没有客户端，尝试从配置文件创建
+                # 如果没有客户端，尝试从配置文件创建（根因修复：用绝对路径，避免 cwd 依赖导致 1010）
                 try:
                     from tigeropen.tiger_open_config import TigerOpenClientConfig
                     from tigeropen.quote.quote_client import QuoteClient
                     from tigeropen.trade.trade_client import TradeClient
-                    
+                    from pathlib import Path
+                    _root = Path(__file__).resolve().parents[2]
+                    _cfg_path = str(_root / "openapicfg_dem")
                     # 尝试demo配置
                     try:
-                        client_config = TigerOpenClientConfig(props_path='./openapicfg_dem')
+                        client_config = TigerOpenClientConfig(props_path=_cfg_path)
                         quote_client = QuoteClient(client_config)
                         trade_client = TradeClient(client_config)
                         account = getattr(client_config, 'account', None)
@@ -140,11 +143,33 @@ class OrderExecutor:
         Returns:
             (是否成功, 消息)
         """
-        # 解析实际用于风控的模块（日志显示曾出现 __main__ 无 check_risk_control，调用时动态回退到 t1）
+        # 每次买入前从老虎后台同步持仓
+        if hasattr(t1, 'sync_positions_from_backend') and callable(t1.sync_positions_from_backend):
+            try:
+                t1.sync_positions_from_backend()
+            except Exception:
+                pass
+        # 硬顶：以老虎后台为准（持仓+待成交买单），与 tiger1.DEMO_MAX_POSITION 一致，避免多轮/多进程叠单
+        HARD_MAX = getattr(t1, 'DEMO_MAX_POSITION', 2)
+        try:
+            fn = getattr(t1, 'get_effective_position_for_buy', None)
+            pos = int((fn() if callable(fn) else getattr(t1, 'current_position', 0)) or 0)
+        except Exception as e:
+            pos = HARD_MAX  # 任何异常时保守拒绝
+            if hasattr(t1, 'logger') and t1.logger:
+                t1.logger.warning("[DFX] get_effective_position_for_buy 异常: %s，保守拒绝", e)
+        # DFX：每次买入决策打 INFO，便于回溯 52/62 手问题（见 docs/回溯_62手持仓_数据定位与DFX改进.md）
+        import logging
+        _log = logging.getLogger('order_executor')
+        if pos >= HARD_MAX:
+            _log.info("[DFX] 买入拒绝 | pos=%s >= max=%s", pos, HARD_MAX)
+            return False, f"持仓已达硬顶({pos}>={HARD_MAX}手)，拒绝买入"
+        _log.info("[DFX] 买入放行 | pos=%s < max=%s", pos, HARD_MAX)
+        # 解析实际用于风控的模块
         risk = self.risk_manager if callable(getattr(self.risk_manager, 'check_risk_control', None)) else t1
-        # 若使用了 t1 回退，先同步 __main__ 的 state 到 t1，保证风控看到的是当前运行状态
+        # 同步其他 state；current_position 必须用上面 sync 后的值，不得被 __main__ 覆盖（MOE 路径 __main__ 不更新，覆盖会导致风控始终看到 0→超限 52 手）
         if self._risk_fallback is not None:
-            for attr in ('current_position', 'daily_loss', 'grid_lower', 'grid_upper', 'atr_5m'):
+            for attr in ('daily_loss', 'grid_lower', 'grid_upper', 'atr_5m'):
                 if hasattr(self._risk_fallback, attr):
                     setattr(risk, attr, getattr(self._risk_fallback, attr))
         # 风控检查 - 需要传入grid_lower参数（check_risk_control内部需要）
@@ -185,7 +210,9 @@ class OrderExecutor:
                 print("⚠️ [订单执行] trade_api为None，尝试重新初始化...")
                 # 检查是否有可用的客户端
                 if hasattr(t1, 'trade_client') and t1.trade_client is not None:
-                    account = getattr(t1.trade_client.config, 'account', None) if hasattr(t1.trade_client, 'config') else None
+                    account = getattr(t1.client_config, 'account', None) if getattr(t1, 'client_config', None) else None
+                    if account is None and getattr(t1.trade_client, 'config', None) is not None:
+                        account = getattr(t1.trade_client.config, 'account', None)
                     api_manager.initialize_real_apis(t1.quote_client, t1.trade_client, account=account)
                     trade_api = api_manager.trade_api
                     print(f"✅ [订单执行] API重新初始化成功，account={account}")
@@ -300,15 +327,34 @@ class OrderExecutor:
         Returns:
             (是否成功, 消息)
         """
+        # 每次卖出前也同步持仓，与 execute_buy 一致，确保看到最新状态（含刚成交的买单）
+        if hasattr(t1, 'sync_positions_from_backend') and callable(t1.sync_positions_from_backend):
+            try:
+                t1.sync_positions_from_backend()
+            except Exception:
+                pass
         # 若使用了 t1 回退，先同步 __main__ 的 state
         if self._risk_fallback is not None:
-            for attr in ('current_position', 'daily_loss'):
+            for attr in ('current_position', 'current_short_position', 'daily_loss'):
                 if hasattr(self._risk_fallback, attr):
                     setattr(self.risk_manager, attr, getattr(self._risk_fallback, attr))
-        # 持仓检查
+        # 持仓检查：无多头时卖出 = 卖出开仓（开空），必须阻止；空头硬顶 3 手
         if self.risk_manager.current_position <= 0:
-            return False, "无持仓，无法卖出"
-        
+            short_pos = 0
+            try:
+                fn = getattr(t1, 'get_effective_short_position_for_sell', None)
+                short_pos = int((fn() if callable(fn) else getattr(t1, 'current_short_position', 0)) or 0)
+            except Exception:
+                short_pos = 999
+            if short_pos >= 3:
+                _log = __import__('logging').getLogger('order_executor')
+                _log.info("[DFX] 卖出拒绝 | 空头=%s >= max=3（卖出开仓达硬顶）", short_pos)
+                return False, f"空头已达硬顶({short_pos}>=3手)，拒绝卖出开仓"
+            _log = __import__('logging').getLogger('order_executor')
+            _log.info("[DFX] 卖出拒绝 | 无多头持仓，拒绝卖出开仓（会开空）")
+            return False, "无多头持仓，无法卖出（不允许卖出开仓）"
+        _log = __import__('logging').getLogger('order_executor')
+        _log.info("[DFX] 卖出放行 | 多头=%s，平多 1 手", self.risk_manager.current_position)
         # 执行下单（直接调用API，不依赖tiger1.place_tiger_order）
         try:
             # 获取交易API
@@ -318,7 +364,9 @@ class OrderExecutor:
                 print("⚠️ [订单执行] trade_api为None，尝试重新初始化...")
                 # 检查是否有可用的客户端
                 if hasattr(t1, 'trade_client') and t1.trade_client is not None:
-                    account = getattr(t1.trade_client.config, 'account', None) if hasattr(t1.trade_client, 'config') else None
+                    account = getattr(t1.client_config, 'account', None) if getattr(t1, 'client_config', None) else None
+                    if account is None and getattr(t1.trade_client, 'config', None) is not None:
+                        account = getattr(t1.trade_client.config, 'account', None)
                     api_manager.initialize_real_apis(t1.quote_client, t1.trade_client, account=account)
                     trade_api = api_manager.trade_api
                     print(f"✅ [订单执行] API重新初始化成功，account={account}")

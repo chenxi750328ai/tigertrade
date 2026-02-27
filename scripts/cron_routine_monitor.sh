@@ -59,7 +59,7 @@ ANOMALY_EXIT=0
 MIN=$(date +%M)
 LATEST_DEMO_LOG=$(ls -t logs/demo_20h_*.log 2>/dev/null | head -1)
 if [ -n "$LATEST_DEMO_LOG" ] && { [ "$MIN" = "00" ] || [ "$MIN" = "30" ]; }; then
-  if python scripts/analyze_demo_log.py "$LATEST_DEMO_LOG" >> "$MONITOR_LOG" 2>&1; then
+  if bash scripts/run_anomaly_order_check.sh >> "$MONITOR_LOG" 2>&1; then
     : # 无问题
   else
     ANOMALY_EXIT=1

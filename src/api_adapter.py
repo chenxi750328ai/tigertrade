@@ -137,7 +137,6 @@ class RealTradeApiAdapter(TradeApiInterface):
                     from src.api_adapter import api_manager
                     if hasattr(api_manager, '_account') and api_manager._account:
                         account = api_manager._account
-                        # 同时更新self.account以便下次使用
                         self.account = account
                         logger.debug("从api_manager获取account成功: %s", account)
                     elif hasattr(api_manager, 'trade_api') and hasattr(api_manager.trade_api, 'account'):
@@ -639,25 +638,32 @@ class ApiAdapterManager:
         self.is_mock_mode = False
     
     def initialize_real_apis(self, quote_client, trade_client, account=None):
-        """初始化真实API"""
+        """初始化真实API。account 为空时从 openapicfg_dem 加载，确保下单不报 1010。"""
         self.quote_api = RealQuoteApiAdapter(quote_client)
         
-        # 确定account值：优先使用传入的account，否则从trade_client.config获取
-        if account:
-            final_account = account
-        elif hasattr(trade_client, 'config'):
+        # 确定account：传入 > trade_client.config > quote_client.config > 环境变量 > openapicfg_dem
+        final_account = account
+        if not final_account and hasattr(trade_client, 'config'):
             final_account = getattr(trade_client.config, 'account', None)
-        else:
-            final_account = None
-        
-        # 如果仍然没有account，尝试从quote_client.config获取（通常两者配置相同）
         if not final_account and hasattr(quote_client, 'config'):
             final_account = getattr(quote_client.config, 'account', None)
-        
-        # 如果还是没有，尝试从环境变量获取
         if not final_account:
             import os
             final_account = os.getenv('ACCOUNT') or os.getenv('TIGER_ACCOUNT')
+        # 根因修复：若仍为空，从 openapicfg_dem 加载（单一真相来源，避免分散初始化导致 1010）
+        if not final_account:
+            try:
+                from pathlib import Path
+                root = Path(__file__).resolve().parents[1]
+                cfg_path = root / "openapicfg_dem"
+                if cfg_path.exists():
+                    from tigeropen.tiger_open_config import TigerOpenClientConfig
+                    cfg = TigerOpenClientConfig(props_path=str(cfg_path))
+                    final_account = getattr(cfg, "account", None)
+                    if final_account:
+                        logger.info("[API初始化] account 从 openapicfg_dem 加载: %s", final_account[:8] + "...")
+            except Exception as e:
+                logger.debug("从 openapicfg_dem 加载 account 失败: %s", e)
         
         # 创建trade_adapter时直接传入account
         trade_adapter = RealTradeApiAdapter(trade_client, account=final_account)

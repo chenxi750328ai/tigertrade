@@ -13,8 +13,13 @@ LOG="logs/anomaly_order_check.log"
 echo "----------------------------------------"
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] 异常订单检查"
 echo "----------------------------------------"
-python scripts/analyze_demo_log.py
-RET=$?
+# 1. 超买检测（1h 内 BUY success > 20 → exit 1，只检最近 24h）
+OVERBUY_RET=0
+python scripts/analyze_order_log_for_overbuy.py || OVERBUY_RET=$?
+# 2. DEMO 日志分析
+LOG_RET=0
+python scripts/analyze_demo_log.py || LOG_RET=$?
+RET=$(( OVERBUY_RET | LOG_RET ))
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] 退出码: $RET"
 if [ $RET -ne 0 ]; then
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] ⚠️ 发现问题，请查看上方输出" >> "$LOG"

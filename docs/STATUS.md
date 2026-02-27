@@ -1,7 +1,7 @@
 # TigerTrade 项目状态（STATUS）
 
 > **项目计划**：月度/周计划、任务项与责任者见 **[项目计划_月度周计划.md](项目计划_月度周计划.md)**。  
-> **最后更新**：2026-02-05
+> **最后更新**：2026-02-05（老虎 API 约束、订单文档闭环、pytest 全绿）
 
 ---
 
@@ -31,6 +31,9 @@
 
 | 完成项 | 完成时间 | 备注 |
 |--------|----------|------|
+| 老虎 API 约束与全项目测试 | 2026-02-05 | [Tiger_API_限制与平仓脚本说明](Tiger_API_限制与平仓脚本说明.md)：约束汇总、项目内下单路径遵从表、test_tiger_api_constraints 覆盖 OrderExecutor/tiger1/api_adapter |
+| 订单与风控文档闭环 | 2026-02-05 | [订单执行流程说明](订单执行流程说明.md) 补充 §6 老虎 API 约束、§5.1 平仓脚本用法 |
+| 模型/策略回归测试 | 2026-02-05 | pytest tests/ -m "not real_api" 全绿（569 passed） |
 | 主单伴随止盈/止损单 | 2026-02-02 | api_adapter STP/STP_LMT；place_tiger_order 主单成功后提交 SL/TP |
 | DEMO 重启清仓 | 2026-02-02 | reset_demo_positions()，MOE 启动时调用 |
 | OrderExecutor 价格取整 | 2026-02-02 | execute_buy/execute_sell 按 min_tick 取整，解决 tick size 报错 |

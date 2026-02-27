@@ -22,7 +22,7 @@ import csv
 
 # Tiger Open API imports
 from tigeropen.common.consts import Language, Market, BarPeriod, QuoteRight
-from tigeropen.common.consts import OrderStatus, OrderType, Currency
+from tigeropen.common.consts import OrderStatus, OrderType, Currency, SecurityType
 from tigeropen.common.util.contract_utils import stock_contract
 from tigeropen.trade.trade_client import TradeClient
 
@@ -245,16 +245,22 @@ client_config = None
 quote_client = None
 trade_client = None
 
+# 根因修复：使用绝对路径加载配置，避免 subprocess/cron 等场景下 cwd 非项目根导致 1010
+def _abs_config_path(rel_name):
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    return str(root / rel_name)
+
 # Only try to instantiate real client objects when running with explicit args
 if len(sys.argv) > 1:
     if count_type == 'd':
         try:
-            client_config = TigerOpenClientConfig(props_path='./openapicfg_dem')
+            client_config = TigerOpenClientConfig(props_path=_abs_config_path('openapicfg_dem'))
         except Exception:
             client_config = None
     elif count_type == 'c':
         try:
-            client_config = TigerOpenClientConfig(props_path='./openapicfg_com')
+            client_config = TigerOpenClientConfig(props_path=_abs_config_path('openapicfg_com'))
         except Exception:
             client_config = None
     else:
@@ -299,7 +305,7 @@ if client_config is not None:
 # 调用上方定义的函数生成用户配置ClientConfig对象
 # client_config = get_client_config()
 
-# 合约配置（SIL2603：COMEX白银2026年3月期货）
+# 合约配置（当前 SIL2605：COMEX白银2026年5月期货，见 config/trading.json）
 # 老虎证券期货合约格式：{品种}.{交易所}.{到期月}，需确认实际合约代码
 # 交易标的：优先 config/trading.json（TradingConfig），其次环境变量
 try:
@@ -310,13 +316,13 @@ except Exception:
         from config import TradingConfig
         FUTURE_SYMBOL = TradingConfig.SYMBOL
     except Exception:
-        FUTURE_SYMBOL = os.getenv("TRADING_SYMBOL", "SIL.COMEX.202603")
+        FUTURE_SYMBOL = os.getenv("TRADING_SYMBOL", "SIL.COMEX.202605")
 FUTURE_CURRENCY = Currency.USD
 FUTURE_MULTIPLIER = 1000  # 白银期货每手1000盎司
 
 # 网格策略核心参数（匹配之前讨论的规则）
-GRID_MAX_POSITION = 3          # 最大持仓手数（默认）
-DEMO_MAX_POSITION = 3          # DEMO/沙箱硬顶，不可被时段自适应覆盖（回溯：时段曾把 GRID_MAX_POSITION 改为 8/10 导致超限）
+GRID_MAX_POSITION = 2          # 最大持仓手数（默认）
+DEMO_MAX_POSITION = 2          # DEMO/沙箱硬顶，不可被时段自适应覆盖；与 OrderExecutor HARD_MAX 一致，避免多进程/多轮测试叠单
 GRID_ATR_PERIOD = 14           # ATR计算周期
 GRID_BOLL_PERIOD = 20          # BOLL带周期
 GRID_BOLL_STD = 2              # BOLL标准差
@@ -325,6 +331,15 @@ GRID_RSI_PERIOD_5M = 14        # 5分钟RSI周期
 
 # 风控参数（6万美元账户适配，已优化放宽）
 DAILY_LOSS_LIMIT = 2000         # 日亏损上限（美元，从1200放宽到2000）
+# 合约时间限制：通知日/到期日风险与展期提示（可环境变量覆盖：NOTICE_DAYS, EXPIRY_BLOCK_DAYS）
+try:
+    NOTICE_DAYS = int(os.getenv("NOTICE_DAYS", "5"))
+except (TypeError, ValueError):
+    NOTICE_DAYS = 5
+try:
+    EXPIRY_BLOCK_DAYS = int(os.getenv("EXPIRY_BLOCK_DAYS", "2"))
+except (TypeError, ValueError):
+    EXPIRY_BLOCK_DAYS = 2
 SINGLE_TRADE_LOSS = 3000        # 单笔最大亏损（美元，从1000放宽到3000）
 STOP_LOSS_MULTIPLIER = 1.2     # 止损倍数（ATR）
 STOP_LOSS_ATR_FLOOR = float(os.getenv('STOP_LOSS_ATR_FLOOR', 0.25))  # 低波动时的 ATR 下限，避免止损过近
@@ -349,7 +364,8 @@ BOLL_DIVERGENCE_THRESHOLD = 0.2  # BOLL发散阈值（轨道间距扩大≥20%�
 ATR_AMPLIFICATION_THRESHOLD = 0.3 # ATR放大≥30%判定波动加剧
 
 # 策略全局变量
-current_position = 0           # 当前持仓手数
+current_position = 0           # 当前多头持仓手数（仅 long）
+current_short_position = 0     # 当前空头持仓手数（卖出开仓导致，仅 short；期货 API 负数量表示空）
 daily_loss = 0                 # 当日累计亏损
 grid_upper = 0                 # 网格上轨
 grid_lower = 0                 # 网格下轨
@@ -653,38 +669,44 @@ def adjust_grid_interval(trend, indicators):
 
 
 def verify_api_connection():
-    """验证API连接（使用官方标准方法get_account_info）"""
+    """本项目用期货，初始化校验必须包含期货：1) 期货交易接口（下单/查单）；2) 期货行情接口（brief+bars）。两项都可用才通过。"""
+    if api_manager.is_mock_mode:
+        print("🧪 运行在模拟模式下，跳过真实API连接验证")
+        return True
+    symbol = _to_api_identifier(FUTURE_SYMBOL)
+    # 1) 期货交易接口必须可用
+    trade_api = getattr(api_manager, "trade_api", None)
+    if trade_api is None:
+        print(f"❌ {count_type} 环境连接失败：trade_api 未初始化（请使用 python src/tiger1.py d 等方式启动）")
+        return False
     try:
-        # 检查是否为模拟模式
-        if api_manager.is_mock_mode:
-            print("🧪 运行在模拟模式下，跳过真实API连接验证")
-            return True
-        
-        # 调用API查询股票行情、交易所、合约、K线以验证连接
-        api_manager.quote_api.get_stock_briefs(['00700'])
-        api_manager.quote_api.get_future_exchanges()
-        api_manager.quote_api.get_future_contracts('COMEX')
-        api_manager.quote_api.get_all_future_contracts('SIL')
-        api_manager.quote_api.get_current_future_contract('SIL')
-        api_manager.quote_api.get_quote_permission()
-        api_manager.quote_api.get_future_brief(['SIL2603'])
-        api_manager.quote_api.get_future_bars(
-            ['SIL2603'],
+        trade_api.get_orders(limit=1)
+    except Exception as e:
+        print(f"❌ {count_type} 期货交易接口不可用：{e}")
+        return False
+    # 2) 期货行情接口必须可用（本项目用期货，校验必须包含期货）
+    quote_api = getattr(api_manager, "quote_api", None)
+    if quote_api is None:
+        print(f"❌ {count_type} 环境连接失败：期货行情 quote_api 未初始化")
+        return False
+    try:
+        quote_api.get_future_brief([symbol])
+    except Exception as e:
+        print(f"❌ {count_type} 期货行情接口不可用：{e}")
+        return False
+    try:
+        quote_api.get_future_bars(
+            [symbol],
             BarPeriod.ONE_MINUTE,
             -1,
             -1,
             2,
-            None)
-
-        # 不在验证时下单，避免每次启动都下一单；需要测试下单请单独运行测试脚本
-        # place_tiger_order('BUY', 1, 91.63, 90)
-
-        return True
+            None,
+        )
     except Exception as e:
-        # 通用异常捕获，输出详细错误
-        error_msg = str(e)
-        print(f"❌ {count_type} 环境连接失败：{error_msg}")
+        print(f"❌ {count_type} 期货行情 K 线接口不可用：{e}")
         return False
+    return True
 
 # 说明：
 # - `verify_api_connection` 主要用于手动/调试时快速验证 SDK 与网络连接是否正常，
@@ -1136,7 +1158,7 @@ def get_kline_data(symbol, period, count=100, start_time=None, end_time=None, fr
             # 实际API调用
             # 1. 统一 symbol 为 Tiger 期望的 compact 格式（如 SIL2603），SIL.COMEX.202603 需转换
             sym_list = [symbol] if isinstance(symbol, str) else list(symbol)
-            identifier = _to_api_identifier(sym_list[0]) if sym_list else 'SIL2603'
+            identifier = _to_api_identifier(sym_list[0]) if sym_list else _to_api_identifier(FUTURE_SYMBOL)
             symbol_for_api = [identifier]
             # 2. 周末/休市时：若未指定时间，用上一交易日收盘作为 end，否则 API 可能返回空
             _end = end_time
@@ -1173,7 +1195,7 @@ def get_kline_data(symbol, period, count=100, start_time=None, end_time=None, fr
                     end_time = now_utc
                     start_time = end_time - timedelta(hours=4) if period == "5min" else end_time - timedelta(hours=1)
                 # 统一 symbol 为 compact 格式（SIL2603）
-                sym_raw = symbol if isinstance(symbol, str) else (symbol[0] if symbol else 'SIL2603')
+                sym_raw = symbol if isinstance(symbol, str) else (symbol[0] if symbol else FUTURE_SYMBOL)
                 symbol1 = [_to_api_identifier(sym_raw)]
                 logger.debug("get_kline_data request: symbol=%s period=%s count=%s start_time=%s end_time=%s", symbol1, period, count, start_time, end_time)
 
@@ -1483,16 +1505,20 @@ def get_kline_data(symbol, period, count=100, start_time=None, end_time=None, fr
         logger.exception("get_kline_data exception")
         return _make_synthetic_klines(count)
 
+# 上一次 place_tiger_order 的结果，供平仓脚本等校验：(ok, order_id)
+_last_place_order_result = (False, None)
+
 def place_tiger_order(side, quantity, price, stop_loss_price=None, take_profit_price=None, tech_params=None, reason='', source='auto'):
     """下单函数（适配动态乘数）。source: 'auto' 自动订单 | 'manual' 手工订单"""
-    global current_position, daily_loss, position_entry_times, position_entry_prices, active_take_profit_orders, open_orders
+    global current_position, daily_loss, position_entry_times, position_entry_prices, active_take_profit_orders, open_orders, _last_place_order_result
 
     import time
     import random  # 添加random模块导入
     
+    _last_place_order_result = (False, None)
     # 合约代码（用于订单 LOG）
     symbol_for_log = _to_api_identifier(FUTURE_SYMBOL)
-    # 模拟订单ID生成
+    # 模拟订单ID生成（仅 mock 时使用）
     order_id = f"ORDER_{int(time.time())}_{random.randint(1000, 9999)}"
     # 订单类型（用于 LOG）：市价单 / 限价单(现价单) / 止损单 / 止盈单
     if reason == "stop_loss":
@@ -1507,12 +1533,30 @@ def place_tiger_order(side, quantity, price, stop_loss_price=None, take_profit_p
         print(f"❌ 生产模式下未启用真实交易 (ALLOW_REAL_TRADING!=1)，拒绝下单 {side} {quantity} @ {price}")
         if order_log:
             order_log.log_order(side, quantity, price, order_id, "fail", "real", stop_loss_price, take_profit_price, reason=reason, error="ALLOW_REAL_TRADING!=1", source=source, symbol=symbol_for_log, order_type=log_order_type)
+        _last_place_order_result = (False, None)
         return False
+
+    # 硬顶：所有买入入口统一拦截（与 DEMO_MAX_POSITION / OrderExecutor.HARD_MAX 一致）
+    HARD_MAX = DEMO_MAX_POSITION
+    is_close_short = 'close_short' in (reason or '').lower()
+    if str(side).upper() in ('BUY', 'LONG') and not api_manager.is_mock_mode and not is_close_short:
+        try:
+            pos = int((get_effective_position_for_buy() if callable(get_effective_position_for_buy) else current_position) or 0)
+        except Exception:
+            pos = HARD_MAX
+        if pos >= HARD_MAX:
+            logger.warning("[DFX] place_tiger_order 硬顶拒绝 BUY: pos=%s >= %s", pos, HARD_MAX)
+            if order_log:
+                order_log.log_order(side, quantity, price, order_id, "fail", "real", stop_loss_price, take_profit_price, reason=reason, error=f"持仓硬顶 pos={pos}>={HARD_MAX}", source=source, symbol=symbol_for_log, order_type=log_order_type)
+            _last_place_order_result = (False, None)
+            return False
 
     # 检查是否为模拟模式
     if api_manager.is_mock_mode:
-        # 模拟下单成功
-        print(f"✅ [模拟单] 下单成功 | {side} {quantity}手 | 价格：{price:.2f} | 订单ID：{order_id}")
+        # 模拟下单成功（未调用真实 API）
+        price_str = f"{price:.2f}" if price is not None else "市价"
+        print(f"✅ [模拟单] 下单成功 | {side} {quantity}手 | 价格：{price_str} | 订单ID：{order_id}")
+        _last_place_order_result = (True, order_id)  # order_id 为 ORDER_xxx，平仓脚本可据此识别 mock
         if order_log:
             order_log.log_order(side, quantity, price, order_id, "success", "mock", stop_loss_price, take_profit_price, reason=reason, source=source, symbol=symbol_for_log, order_type=log_order_type)
         
@@ -1568,14 +1612,7 @@ def place_tiger_order(side, quantity, price, stop_loss_price=None, take_profit_p
                         order_log.log_api_failure_for_support(side=side, quantity=quantity, price=price, symbol_submitted=symbol_for_log, order_type_api="LMT", time_in_force="DAY", limit_price=float(price) if price is not None else None, stop_price=None, error="Cannot init API", source=source, order_id=order_id)
                     return False
             
-            # 导入OrderSide（如果还没有导入）
-            try:
-                from tigeropen.common.consts import OrderSide, TimeInForce
-            except ImportError:
-                # 如果导入失败，使用字符串
-                OrderSide = type('OrderSide', (), {'BUY': 'BUY', 'SELL': 'SELL'})()
-                TimeInForce = type('TimeInForce', (), {'DAY': 'DAY'})()
-            
+            # 使用模块级 OrderSide/TimeInForce（顶部已有 fallback，避免运行时 ImportError）
             # 按合约最小变动价位取整，避免 tick size 报错
             min_tick = MIN_TICK
             try:
@@ -1605,8 +1642,8 @@ def place_tiger_order(side, quantity, price, stop_loss_price=None, take_profit_p
                 # 如果OrderSide未定义，使用字符串
                 order_side = 'BUY' if side == 'BUY' else 'SELL'
             
-            # 提交订单：期货代码必须用 SIL2603 格式，后台才能正确显示
-            symbol_for_api = _to_api_identifier(FUTURE_SYMBOL)  # SIL.COMEX.202603 -> SIL2603
+            # 提交订单：期货代码须为 compact 格式（如 SIL2605），后台才能正确显示
+            symbol_for_api = _to_api_identifier(FUTURE_SYMBOL)
             order_result = trade_api.place_order(
                 symbol=symbol_for_api,
                 side=order_side,
@@ -1627,6 +1664,7 @@ def place_tiger_order(side, quantity, price, stop_loss_price=None, take_profit_p
             
             price_str = f"{price:.3f}" if price else "市价"
             logger.info("[实盘单] 下单成功 | %s %s手 | 价格=%s | 订单ID：%s", side, quantity, price_str, order_id)
+            _last_place_order_result = (True, str(order_id))
             if order_log:
                 order_log.log_order(side, quantity, price or 0, order_id, "success", "real", stop_loss_price, take_profit_price, reason=reason, source=source, symbol=symbol_for_log, order_type=log_order_type)
             
@@ -1691,28 +1729,30 @@ def place_tiger_order(side, quantity, price, stop_loss_price=None, take_profit_p
                     pass
             import traceback
             traceback.print_exc()
+            _last_place_order_result = (False, None)
             return False
     
     # 更新简单 in-memory state consistent with previous behavior
     if side == 'BUY':
-        current_position += quantity
-        
-        # 记录买单到open_orders，用于跟踪交易闭环
-        for i in range(quantity):
-            individual_order_id = f"{order_id}_qty_{i+1}"
-            open_orders[individual_order_id] = {
-                'quantity': 1,  # 每个订单项代表1手
-                'price': price,
-                'timestamp': time.time(),
-                'type': 'buy',
-                'tech_params': tech_params or {},  # 技术参数
-                'reason': reason                   # 开仓原因
-            }
-        
-        # 记录新买入持仓的入场时间和价格
-        for pos_id in range(current_position - quantity, current_position):
-            position_entry_times[pos_id] = time.time()
-            position_entry_prices[pos_id] = price
+        if 'close_short' in (reason or '').lower():
+            global current_short_position
+            current_short_position = max(0, current_short_position - quantity)
+        else:
+            current_position += quantity
+            # 记录买单到open_orders，用于跟踪交易闭环
+            for i in range(quantity):
+                individual_order_id = f"{order_id}_qty_{i+1}"
+                open_orders[individual_order_id] = {
+                    'quantity': 1,  # 每个订单项代表1手
+                    'price': price,
+                    'timestamp': time.time(),
+                    'type': 'buy',
+                    'tech_params': tech_params or {},  # 技术参数
+                    'reason': reason                   # 开仓原因
+                }
+            for pos_id in range(current_position - quantity, current_position):
+                position_entry_times[pos_id] = time.time()
+                position_entry_prices[pos_id] = price
     else:  # SELL
         current_position -= quantity
         if current_position < 0:
@@ -2761,18 +2801,17 @@ def test_risk_control():
     current_position = 0
     global GRID_MAX_POSITION
     original_max_pos = GRID_MAX_POSITION
-    GRID_MAX_POSITION = 3
+    GRID_MAX_POSITION = DEMO_MAX_POSITION  # 与硬顶一致（2 手）
     place_tiger_order('BUY', 1, 60.0)
     place_tiger_order('BUY', 1, 62.0)
-    place_tiger_order('BUY', 1, 64.0)
-    
+    # 第 3 笔会被硬顶拒绝，持仓最多 2 手
     result = check_risk_control(66.0, 'BUY')
     assert result == False, "应当拒绝超过最大持仓的买入"
     
     GRID_MAX_POSITION = original_max_pos
     
-    # 测试结束平仓恢复：卖出本次开的 3 手
-    place_tiger_order('SELL', 3, 64.0)
+    # 测试结束平仓恢复：卖出本次开的 2 手
+    place_tiger_order('SELL', min(2, current_position), 64.0)
     print("✅ 风控功能测试通过！已平仓恢复。")
 
 
@@ -2796,8 +2835,9 @@ def run_tests():
 # ====================== 主程序 ======================
 def reset_demo_positions():
     """DEMO 重启时清理持仓相关内存状态（仅当无法从后台同步时使用）。不应在未尝试同步持仓前盲目调用。"""
-    global current_position, open_orders, closed_positions, position_entry_times, position_entry_prices, active_take_profit_orders
+    global current_position, current_short_position, open_orders, closed_positions, position_entry_times, position_entry_prices, active_take_profit_orders
     current_position = 0
+    current_short_position = 0
     open_orders.clear()
     closed_positions.clear()
     position_entry_times.clear()
@@ -2806,9 +2846,106 @@ def reset_demo_positions():
     logger.info("DEMO 持仓状态已重置: 持仓=0, 待平仓/止盈/已平仓 已清空")
 
 
+def get_effective_position_for_buy():
+    """从老虎后台计算「有效买入仓位」= 已成交持仓 + 待成交买单。用于风控硬顶，不依赖本地 current_position（多进程/不同步时会超买 52/62 手）。"""
+    try:
+        if trade_client is None:
+            return current_position
+        acc = getattr(client_config, 'account', None) if client_config else None
+        if not acc:
+            return current_position
+        symbol_api = _to_api_identifier(FUTURE_SYMBOL)
+        pos_total = 0
+        if hasattr(trade_client, 'get_positions'):
+            # 期货持仓必须 sec_type=FUT，默认 STK 会过滤掉期货导致 pos=0→风控失效→超买 52/62/74 手
+            positions = trade_client.get_positions(account=acc, sec_type=SecurityType.FUT) or []
+            for p in positions:
+                sym = (getattr(p, 'symbol', None) or getattr(getattr(p, 'contract', None), 'symbol', None) or
+                       (p.get('symbol') if isinstance(p, dict) else None))
+                qty = getattr(p, 'quantity', None) or getattr(p, 'qty', None) or (p.get('quantity') or p.get('qty') if isinstance(p, dict) else None)
+                if sym and (symbol_api in str(sym) or 'SIL' in str(sym)):
+                    try:
+                        v = int(qty or 0)
+                        if v > 0:  # 只计多头，空头(qty<0)不影响买入上限
+                            pos_total += v
+                    except (TypeError, ValueError):
+                        pass
+        pending_buy = 0
+        if hasattr(trade_client, 'get_orders'):
+            orders = trade_client.get_orders(account=acc, symbol=symbol_api, limit=200) or []
+            DONE = ('FILLED', 'FILLED_ALL', 'CANCELED', 'CANCELLED', 'REJECTED', 'EXPIRED', 'FINISHED')
+            for o in orders:
+                st = (getattr(o, 'status', None) or getattr(o, 'order_status', None) or (o.get('status') if isinstance(o, dict) else None) or '').upper()
+                if st in DONE:
+                    continue
+                side = (getattr(o, 'side', None) or getattr(o, 'action', None) or (o.get('side') if isinstance(o, dict) else None) or '').upper()
+                if side != 'BUY':
+                    continue
+                qty = getattr(o, 'quantity', None) or getattr(o, 'qty', None) or (o.get('quantity') or o.get('qty') if isinstance(o, dict) else None)
+                try:
+                    pending_buy += int(qty or 0)
+                except (TypeError, ValueError):
+                    pass
+        total = pos_total + pending_buy
+        if total >= 1:  # 接近上限时打日志，便于回溯（上限=2）
+            logger.info("[DFX] get_effective_position_for_buy: 持仓=%s, 待成交买单=%s, 合计=%s", pos_total, pending_buy, total)
+        return total
+    except Exception as e:
+        logger.warning("[DFX] get_effective_position_for_buy 失败: %s，保守拒绝买入", e)
+        return 999  # 失败时保守：假定已满，拒绝新买
+
+
+def get_effective_short_position_for_sell():
+    """从老虎后台计算「有效空头仓位」= 已成交空头 + 待成交卖单。用于阻止卖出开仓超限（空头硬顶 3 手）。"""
+    try:
+        if trade_client is None:
+            return current_short_position
+        acc = getattr(client_config, 'account', None) if client_config else None
+        if not acc:
+            return current_short_position
+        symbol_api = _to_api_identifier(FUTURE_SYMBOL)
+        short_total = 0
+        if hasattr(trade_client, 'get_positions'):
+            positions = trade_client.get_positions(account=acc, sec_type=SecurityType.FUT) or []
+            for p in positions:
+                sym = (getattr(p, 'symbol', None) or getattr(getattr(p, 'contract', None), 'symbol', None) or
+                       (p.get('symbol') if isinstance(p, dict) else None))
+                qty = getattr(p, 'quantity', None) or getattr(p, 'qty', None) or (p.get('quantity') or p.get('qty') if isinstance(p, dict) else None)
+                if sym and (symbol_api in str(sym) or 'SIL' in str(sym)):
+                    try:
+                        v = int(qty or 0)
+                        if v < 0:
+                            short_total += abs(v)
+                    except (TypeError, ValueError):
+                        pass
+        pending_sell = 0
+        if hasattr(trade_client, 'get_orders'):
+            orders = trade_client.get_orders(account=acc, symbol=symbol_api, limit=200) or []
+            DONE = ('FILLED', 'FILLED_ALL', 'CANCELED', 'CANCELLED', 'REJECTED', 'EXPIRED', 'FINISHED')
+            for o in orders:
+                st = (getattr(o, 'status', None) or getattr(o, 'order_status', None) or (o.get('status') if isinstance(o, dict) else None) or '').upper()
+                if st in DONE:
+                    continue
+                side = (getattr(o, 'side', None) or getattr(o, 'action', None) or (o.get('side') if isinstance(o, dict) else None) or '').upper()
+                if side != 'SELL':
+                    continue
+                qty = getattr(o, 'quantity', None) or getattr(o, 'qty', None) or (o.get('quantity') or o.get('qty') if isinstance(o, dict) else None)
+                try:
+                    pending_sell += int(qty or 0)
+                except (TypeError, ValueError):
+                    pass
+        total = short_total + pending_sell
+        if total >= 2:
+            logger.info("[DFX] get_effective_short_position_for_sell: 空头=%s, 待成交卖单=%s, 合计=%s", short_total, pending_sell, total)
+        return total
+    except Exception as e:
+        logger.warning("[DFX] get_effective_short_position_for_sell 失败: %s，保守拒绝卖出开仓", e)
+        return 999
+
+
 def sync_positions_from_backend():
-    """启动时从后台拉取当前持仓并同步到 current_position，不假定从 0 开始。若无法拉取则重置并打警告。"""
-    global current_position, position_entry_times, position_entry_prices, active_take_profit_orders
+    """启动时从后台拉取当前持仓并同步到 current_position（多头）和 current_short_position（空头）。期货中 qty>0=多头，qty<0=空头。"""
+    global current_position, current_short_position, position_entry_times, position_entry_prices, active_take_profit_orders
     try:
         if trade_client is None or not hasattr(trade_client, 'get_positions'):
             logger.warning("无法从后台同步持仓（无 trade_client 或 get_positions）；将重置为 0。若账户实际有仓，进程内与后台将不一致，请先手工处理或确认后再开新仓。")
@@ -2819,31 +2956,44 @@ def sync_positions_from_backend():
             logger.warning("无法从后台同步持仓（无 account）；将重置为 0。")
             reset_demo_positions()
             return
-        positions = trade_client.get_positions(account=acc)
+        # 期货持仓必须 sec_type=FUT，默认 STK 会过滤掉期货导致读到 0
+        positions = trade_client.get_positions(account=acc, sec_type=SecurityType.FUT)
         if positions is None:
             positions = []
         symbol_api = _to_api_identifier(FUTURE_SYMBOL)
-        total = 0
+        long_total = 0
+        short_total = 0
         for p in positions:
-            sym = getattr(p, 'symbol', None) or (p.get('symbol') if isinstance(p, dict) else None)
+            sym = (getattr(p, 'symbol', None) or getattr(getattr(p, 'contract', None), 'symbol', None) or
+                   (p.get('symbol') if isinstance(p, dict) else None))
             qty = getattr(p, 'quantity', None) or getattr(p, 'qty', None) or (p.get('quantity') or p.get('qty') if isinstance(p, dict) else None)
             if sym and (symbol_api in str(sym) or 'SIL' in str(sym)):
                 try:
-                    total += int(qty or 0)
+                    v = int(qty or 0)
+                    if v > 0:
+                        long_total += v
+                    elif v < 0:
+                        short_total += abs(v)  # 空头用正数表示手数
                 except (TypeError, ValueError):
                     pass
-        if total > 0:
-            current_position = total
+        if long_total > 0 or short_total > 0:
+            current_position = long_total
+            current_short_position = short_total
             position_entry_times.clear()
             position_entry_prices.clear()
             active_take_profit_orders.clear()
-            for i in range(total):
+            for i in range(long_total):
                 position_entry_times[i] = time.time()
                 position_entry_prices[i] = 0.0
-            logger.info("已从后台同步持仓: %s 手（账户 %s）。将在此基础上继续运行，不再假定从 0 开始。", total, acc)
-            print("⚠️ 已从后台同步持仓: %s 手。若超过风控上限将拒绝新开仓；请确认止损/止盈单状态。" % total)
+            logger.info("[DFX] 已从后台同步持仓: 多头=%s 手, 空头=%s 手（账户 %s）", long_total, short_total, acc)
+            print("⚠️ 已从后台同步持仓: 多头 %s 手, 空头 %s 手。若超过风控上限将拒绝新开仓。" % (long_total, short_total))
         else:
-            reset_demo_positions()
+            # 多头空头均为 0：不可盲目 reset。OrderExecutor 下单后有延迟，sync 若 reset 会覆盖
+            if current_position > 0 or current_short_position > 0:
+                # 本地>0 但后台=0：可能 pending 买单未成交，保留本地计数，避免再买
+                pass
+            else:
+                reset_demo_positions()
     except Exception as e:
         logger.warning("从后台同步持仓失败: %s；将重置为 0。若账户实际有仓请先手工处理。", e)
         print("⚠️ 同步持仓失败: %s；进程内已重置为 0。若实际有仓请核对。" % (e,))
@@ -2946,11 +3096,12 @@ if __name__ == "__main__":
             # 2. 创建数据提供者
             data_provider = MarketDataProvider(FUTURE_SYMBOL)
             
-            # 3. 创建订单执行器（必须用已定义 check_risk_control 的模块；__main__ 主块执行时尚未定义该函数；state_fallback 确保风控看到的是 __main__ 的实时持仓）
+            # 3. 创建订单执行器。必须以 实际更新 current_position 的模块 为 risk_manager，否则 __main__ 与 src.tiger1 是不同模块→更新的 current_position 与风控读取的不是同一变量→风控永远看到 0→超买 52 手
             import sys
             from src import tiger1 as _risk_mod
             _main = sys.modules.get('__main__')
-            order_executor = OrderExecutor(_risk_mod, state_fallback=_main if _main is not _risk_mod else None)
+            _risk = _main if (_main is not None and callable(getattr(_main, 'check_risk_control', None))) else _risk_mod
+            order_executor = OrderExecutor(_risk, state_fallback=_main if _main is not _risk else None)
             
             # 4. 创建交易执行器
             executor = TradingExecutor(
@@ -3610,6 +3761,57 @@ def compute_stop_loss(price: float, atr_value: float, grid_lower_val: float):
     return stop_loss_price, projected_loss
 
 
+def get_contract_expiry_risk(symbol=None):
+    """获取当前合约到期/通知日风险，供风控使用。优先用 API 的到期日，否则用合约代码推算。
+
+    Returns:
+        dict: expire_date (date), days_to_expiry (int), is_near_expiry (bool),
+              is_notice_period (bool), message (str，含展期提示)
+    """
+    today = date.today()
+    sym = (symbol or FUTURE_SYMBOL or "").strip()
+    if not sym:
+        return {"expire_date": today + timedelta(days=90), "days_to_expiry": 90,
+                "is_near_expiry": False, "is_notice_period": False, "message": ""}
+    try:
+        api_id = _to_api_identifier(sym)
+    except Exception:
+        api_id = sym
+    expire_date = None
+    try:
+        brief = get_future_brief_info(api_id)
+        if brief and isinstance(brief.get("expire_date"), date):
+            expire_date = brief["expire_date"]
+    except Exception as e:
+        logger.debug("get_contract_expiry_risk: API 获取到期日失败 %s，尝试解析合约代码", e)
+    if expire_date is None and len(api_id) >= 6:
+        try:
+            from src.futures_contract_manager import FuturesContractManager
+            base = "".join(c for c in api_id if c.isalpha()) or "SIL"
+            mgr = FuturesContractManager(base)
+            info = mgr.parse_contract(api_id)
+            expire_date = date(info["full_year"], info["month"], 25)
+        except Exception as e:
+            logger.debug("get_contract_expiry_risk: 解析合约失败 %s", e)
+    if expire_date is None:
+        expire_date = today + timedelta(days=90)
+    days_to_expiry = (expire_date - today).days
+    is_near_expiry = days_to_expiry <= NOTICE_DAYS
+    is_notice_period = is_near_expiry
+    message = ""
+    if days_to_expiry <= 0:
+        message = f"合约已到期（{expire_date}），请切换至下一合约并考虑展期。"
+    elif is_near_expiry:
+        message = f"合约即将到期（{expire_date}，剩余{days_to_expiry}天），请注意通知日风险，考虑展期至下一合约。"
+    return {
+        "expire_date": expire_date,
+        "days_to_expiry": days_to_expiry,
+        "is_near_expiry": is_near_expiry,
+        "is_notice_period": is_notice_period,
+        "message": message,
+    }
+
+
 def check_risk_control(price, side):
     """Basic risk control checks used by strategies and tests.
 
@@ -3675,12 +3877,28 @@ def check_risk_control(price, side):
         logger.warning("损失估算失败，保守拒绝交易")
         return False
 
+    # 合约时间限制：到期/通知日风险，API 能提供则用 API 到期日，否则按合约代码推算
+    try:
+        expiry_risk = get_contract_expiry_risk()
+        days_to_expiry = expiry_risk.get("days_to_expiry", 999)
+        is_notice = expiry_risk.get("is_notice_period", False)
+        msg = expiry_risk.get("message", "")
+        if days_to_expiry <= EXPIRY_BLOCK_DAYS and side == "BUY":
+            logger.warning("风控检查失败: 合约即将到期（剩余 %s 天），禁止新开多单，请考虑展期。%s", days_to_expiry, msg)
+            return False
+        if days_to_expiry <= 1 and msg:
+            logger.warning("【通知日/到期日风险】%s 请立即考虑展期或平仓。", msg)
+        elif is_notice and msg:
+            logger.warning("[DFX] 合约通知期风险: %s", msg)
+    except Exception as e:
+        logger.debug("合约到期检查跳过: %s", e)
+
     logger.debug("风控检查通过: 价格=%.3f 方向=%s", price, side)
     return True  # This is the actual end of the function
 
 
 # FUTURE_TICK_SIZE/MIN_TICK 已移至文件顶部
-FUTURE_EXPIRE_DATE = '2026-03-28'  # 合约到期日
+FUTURE_EXPIRE_DATE = '2026-05-28'  # 合约到期日兜底（当前 SIL2605；API 能获取时以 API 为准）
 
 # 策略参数
 price_current = 0

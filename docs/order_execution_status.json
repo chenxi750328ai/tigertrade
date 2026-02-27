@@ -1,6 +1,8 @@
 {
-  "real_success_count": 638,
-  "real_fail_count": 897,
-  "note": "收益率仅来自老虎后台成交；执行失败（含API被拒）时无实盘收益率。",
-  "updated": "2026-02-24 16:09:41"
+  "real_success_count": null,
+  "real_fail_count": 907,
+  "local_reject_count": 846,
+  "api_reject_count": 61,
+  "note": "成功数=老虎后台今日成交；order_log含测试污染不展示；失败=本地风控或API被拒。",
+  "updated": "2026-02-27 15:34:37"
 }

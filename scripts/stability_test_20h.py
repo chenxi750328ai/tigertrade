@@ -16,6 +16,8 @@ import signal
 
 # 添加项目路径
 sys.path.insert(0, '/home/cx/tigertrade')
+if os.getenv('ALLOW_REAL_TRADING', '') != '1':
+    os.environ['ALLOW_REAL_TRADING'] = '1'
 
 try:
     import psutil

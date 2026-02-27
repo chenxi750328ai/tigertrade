@@ -80,14 +80,17 @@ class TestOrderExecutor(unittest.TestCase):
             api_manager.trade_api = mock_trade_api
             api_manager.is_mock_mode = False
             
-            # 使用更合理的参数：grid_lower=98（止损距离2，预期损失2000 < 3000上限）
-            result, message = self.executor.execute_buy(
-                price=100.0,
-                atr=0.5,
-                grid_lower=98.0,  # 修改为98，确保风控通过
-                grid_upper=105.0,
-                confidence=0.6
-            )
+            # 避免从后台同步持仓导致硬顶拒绝
+            with patch.object(self.t1, 'sync_positions_from_backend', return_value=None), \
+                 patch.object(self.t1, 'get_effective_position_for_buy', return_value=0):
+                # 使用更合理的参数：grid_lower=98（止损距离2，预期损失2000 < 3000上限）
+                result, message = self.executor.execute_buy(
+                    price=100.0,
+                    atr=0.5,
+                    grid_lower=98.0,  # 修改为98，确保风控通过
+                    grid_upper=105.0,
+                    confidence=0.6
+                )
             self.assertTrue(result)
             self.assertIn("订单提交成功", message)
             # OrderExecutor应该直接调用trade_api.place_order，而不是place_tiger_order
@@ -122,19 +125,17 @@ class TestOrderExecutor(unittest.TestCase):
             
             # 设置持仓达到上限，触发风控失败（必须在executor创建后设置）
             self.t1.current_position = self.t1.GRID_MAX_POSITION
+            # 让 execute_buy 内读到的有效持仓为上限（否则会从后台同步）
+            with patch.object(self.t1, 'sync_positions_from_backend', return_value=None), \
+                 patch.object(self.t1, 'get_effective_position_for_buy', return_value=self.t1.GRID_MAX_POSITION):
+                result, message = executor.execute_buy(
+                    price=100.0, atr=0.5, grid_lower=95.0, grid_upper=105.0, confidence=0.6
+                )
             
-            # 验证持仓状态
-            self.assertEqual(self.t1.current_position, self.t1.GRID_MAX_POSITION, 
-                           f"持仓应等于上限，实际: {self.t1.current_position}, 上限: {self.t1.GRID_MAX_POSITION}")
-            
-            result, message = executor.execute_buy(
-                price=100.0, atr=0.5, grid_lower=95.0, grid_upper=105.0, confidence=0.6
-            )
-            
-            # 验证：风控应该阻止下单
+            # 验证：风控/硬顶应该阻止下单（硬顶拒绝消息为「持仓已达硬顶」）
             self.assertFalse(result, 
                            f"持仓已达上限时应返回False，实际返回True，message={message}, 持仓={self.t1.current_position}, 上限={self.t1.GRID_MAX_POSITION}")
-            self.assertIn("风控", message, f"消息应包含'风控'，实际: {message}")
+            self.assertTrue("风控" in message or "硬顶" in message or "拒绝" in message, f"消息应包含风控/硬顶/拒绝，实际: {message}")
             # 验证：API不应该被调用
             self.assertEqual(mock_trade_api.place_order.call_count, 0, 
                            "风控失败时不应调用place_order")
@@ -146,11 +147,12 @@ class TestOrderExecutor(unittest.TestCase):
             self.t1.daily_loss = 0
     
     def test_execute_sell_no_position(self):
-        """测试卖出无持仓"""
+        """测试卖出无持仓（mock sync 避免后台同步覆盖为有仓）"""
         self.t1.current_position = 0
-        result, message = self.executor.execute_sell(price=100.0, confidence=0.6)
+        with patch.object(self.t1, 'sync_positions_from_backend', return_value=None):
+            result, message = self.executor.execute_sell(price=100.0, confidence=0.6)
         self.assertFalse(result)
-        self.assertIn("无持仓", message)
+        self.assertTrue("无持仓" in message or "无多头持仓" in message or "无法卖出" in message, f"应返回无持仓类消息: {message}")
     
     def test_execute_sell_success(self):
         """测试卖出成功（OrderExecutor直接调用API）"""

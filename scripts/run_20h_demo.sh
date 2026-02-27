@@ -9,6 +9,9 @@ echo "=========================================="
 
 cd /home/cx/tigertrade
 
+# 确保 DEMO 可真实下单（sandbox 模式不检查，但 production 路径会用到）
+export ALLOW_REAL_TRADING=1
+
 # 1. 先运行核心测试确保没问题
 echo -e "\n[1/3] 运行核心测试..."
 python -m unittest tests.test_feature_risk_management tests.test_feature_order_execution.TestFeatureOrderExecutionWithMock -q || {
@@ -17,20 +20,31 @@ python -m unittest tests.test_feature_risk_management tests.test_feature_order_e
 }
 echo "✅ 核心测试通过"
 
-# 2. 检查API配置
+# 2. 检查API配置与 account
 echo -e "\n[2/3] 检查DEMO账户配置..."
 if [ ! -f "./openapicfg_dem/tiger_openapi_config.properties" ]; then
     echo "❌ DEMO账户配置文件不存在"
     exit 1
 fi
 echo "✅ 配置文件存在"
+python3 -c "
+from tigeropen.tiger_open_config import TigerOpenClientConfig
+cfg = TigerOpenClientConfig(props_path='./openapicfg_dem')
+acc = getattr(cfg, 'account', None)
+if not acc:
+    print('❌ openapicfg_dem 中 account 未配置，下单会报 1010')
+    exit(1)
+print('✅ account 已配置')
+" || { echo "❌ account 校验失败"; exit 1; }
 
 # 3. 启动20小时运行
 echo -e "\n[3/3] 启动20小时交易策略..."
-# 防重复：若已有 DEMO 在跑则跳过，避免多实例
+
+# 防重复：若已有 DEMO 在跑则跳过，避免多实例（多实例会共享账户但各自 current_position 独立→超限如52手）
 EXISTING=$(pgrep -f "run_moe_demo.py" | head -1)
+[ -z "$EXISTING" ] && EXISTING=$(pgrep -f "tiger1.py.*moe" | head -1)
 if [ -n "$EXISTING" ]; then
-  echo "⚠️ DEMO 已在运行（PID=$EXISTING），跳过本次启动。若要重启请先: pkill -f run_moe_demo"
+  echo "⚠️ DEMO 已在运行（PID=$EXISTING），跳过本次启动。若要重启请先: pkill -f run_moe_demo; pkill -f 'tiger1.py.*moe'"
   exit 0
 fi
 

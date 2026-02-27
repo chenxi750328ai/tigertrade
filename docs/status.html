@@ -79,7 +79,7 @@
   <div class="wrap">
     <header class="hero">
       <h1>🐯 TigerTrade</h1>
-      <p class="meta">状态 <strong style="color:var(--wip)">开发中</strong> · 目标 月盈利率 20% · <strong>今日收益率：<span id="today-yield">—</span></strong>（仅老虎后台；失败无实盘收益） · <strong>订单执行：成功 <span id="order-success">—</span> 笔，失败（含API被拒）<span id="order-fail">—</span> 笔</strong> · 回测 moe/lstm 1.6% · 算法版本 v2.0 · 数据已合并至 02-11 · 最近例行：算法优化+报告已刷新（链接为相对路径，同源即最新） · 当日实盘须有订单输出 · 内容更新 2026-02-24 · 启动时同步后台持仓已实现（见 docs/启动时持仓同步与风控.md） · 刷新 <span id="updated">--</span></p>
+      <p class="meta">状态 <strong style="color:var(--wip)">开发中</strong> · 目标 月盈利率 20% · <strong>今日收益率：<span id="today-yield">—</span></strong>（仅老虎后台；失败无实盘收益） · <strong>订单执行：成功 <span id="order-success">—</span> 笔（仅老虎后台），失败 <span id="order-fail">—</span> 笔（本地风控 <span id="order-local-reject">—</span>，API被拒 <span id="order-api-reject">—</span>）</strong> · 回测 moe/lstm 1.6% · 算法版本 v2.0 · 数据已合并至 02-11 · 最近例行：算法优化+报告已刷新（链接为相对路径，同源即最新） · 当日实盘须有订单输出 · 内容更新 2026-02-27 · 启动时同步后台持仓已实现（见 docs/启动时持仓同步与风控.md） · 刷新 <span id="updated">--</span></p>
     </header>
 
     <!-- 特性 × 需求/设计/开发/测试 矩阵 -->
@@ -280,6 +280,8 @@
     fetch('order_execution_status.json' + q).then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
       if (d && document.getElementById('order-success')) document.getElementById('order-success').textContent = d.real_success_count != null ? d.real_success_count : '—';
       if (d && document.getElementById('order-fail')) document.getElementById('order-fail').textContent = d.real_fail_count != null ? d.real_fail_count : '—';
+      if (d && document.getElementById('order-local-reject')) document.getElementById('order-local-reject').textContent = d.local_reject_count != null ? d.local_reject_count : '—';
+      if (d && document.getElementById('order-api-reject')) document.getElementById('order-api-reject').textContent = d.api_reject_count != null ? d.api_reject_count : '—';
     }).catch(function(){});
   </script>
 </body>
