@@ -5,9 +5,11 @@
 """
 
 import sys
-sys.path.insert(0, '/home/cx/tigertrade')
+from pathlib import Path
 
 from src import tiger1 as t1
+
+_REPO = Path(__file__).resolve().parents[1]
 
 
 def test_log_output():
@@ -45,7 +47,7 @@ def test_log_output():
 def explain_changes():
     """解释修改内容"""
     print(f"\n📝 修改说明:")
-    print(f"   已修改 /home/cx/tigertrade/tiger1.py 中的 grid_trading_strategy_pro1 函数")
+    print(f"   已修改 {_REPO / 'src' / 'tiger1.py'} 中的 grid_trading_strategy_pro1 函数")
     print(f"   在未触发交易时，现在会输出详细的计算过程，包括:")
     print(f"   - 当前价格")
     print(f"   - 网格下轨")
@@ -69,7 +71,7 @@ def run_syntax_check():
     print(f"\n🔧 运行语法检查...")
     try:
         import ast
-        with open('/home/cx/tigertrade/tiger1.py', 'r', encoding='utf-8') as f:
+        with open(_REPO / "src" / "tiger1.py", "r", encoding="utf-8") as f:
             source = f.read()
         ast.parse(source)
         print("✅ 代码语法正确")

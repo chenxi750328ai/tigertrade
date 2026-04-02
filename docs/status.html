@@ -79,7 +79,7 @@
   <div class="wrap">
     <header class="hero">
       <h1>🐯 TigerTrade</h1>
-      <p class="meta">状态 <strong style="color:var(--wip)">开发中</strong> · 目标 月盈利率 20% · <strong>今日收益率：<span id="today-yield">—</span></strong>（仅老虎后台；失败无实盘收益） · <strong>订单执行：成功 <span id="order-success">—</span> 笔（仅老虎后台），失败 <span id="order-fail">—</span> 笔（本地风控 <span id="order-local-reject">—</span>，API被拒 <span id="order-api-reject">—</span>）</strong> · 回测 moe/lstm 1.6% · 算法版本 v2.0 · 数据已合并至 02-11 · 最近例行：算法优化+报告已刷新（链接为相对路径，同源即最新） · 当日实盘须有订单输出 · 内容更新 2026-02-27 · 启动时同步后台持仓已实现（见 docs/启动时持仓同步与风控.md） · 刷新 <span id="updated">--</span></p>
+      <p class="meta">状态 <strong style="color:var(--wip)">开发中</strong> · 目标 月盈利率 20%、胜率&gt;60% · <strong>今日收益率：<span id="today-yield">—</span></strong>（仅老虎后台） · <strong>订单执行：成功 <span id="order-success">—</span> 笔，失败 <span id="order-fail">—</span> 笔</strong> · 回测 grid 27.92% / moe/lstm～7%（目标&gt;15%） · 置信度阈值 0.55（胜率目标） · 数据已合并至 03-04 · 内容更新 2026-03-17 · 刷新 <span id="updated">--</span></p>
     </header>
 
     <!-- 特性 × 需求/设计/开发/测试 矩阵 -->
@@ -189,7 +189,7 @@
       </div>
       <div class="routine-row">
         <span class="routine-name">CI/CD 测试</span>
-        <span class="routine-date" id="r1-date">02-11</span>
+        <span class="routine-date" id="r1-date">03-17</span>
         <span class="routine-status">已跑</span>
         <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/tree/main/.github/workflows" target="_blank" rel="noopener">查</a></span>
         <span class="cell-link"><a href="https://github.com/chenxi750328ai/tigertrade/blob/main/shared_rag/best_practices/陈正霞陈正与协作分工_20260201.md" target="_blank" rel="noopener">责</a></span>

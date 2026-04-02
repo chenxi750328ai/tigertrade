@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-从老虎后台（DEMO 账户）拉取订单，仅基于成交单统计/计算 DEMO 实盘收益率。
+从老虎后台（DEMO 账户）拉取订单，仅基于成交单统计/计算 DEMO 实盘收益率；
+并拉取期货持仓的 unrealized_pnl，与今日已实现盈亏合并写入 yield_note / combined_pnl_usd。
 产出供 update_today_yield_for_status.py 写入 today_yield.json；未拉取到或无法计算时返回 None，
 调用方必须写「—」或「需老虎后台数据核对」，不得用日志解析的百分比代替。
 
@@ -91,7 +92,38 @@ def normalize_order(order):
         "avg_fill_price": _attr(order, "avg_fill_price", "average_price"),
         "limit_price": _attr(order, "limit_price", "price"),
         "realized_pnl": _attr(order, "realized_pnl", "realized_pnL", "realized_pnl"),
+        "created_time": _attr(order, "created_time", "create_time", "order_time", "submitted_at"),
+        "update_time": _attr(order, "update_time", "updated_at", "filled_time"),
     }
+
+
+def _order_date_local(order_row):
+    """取订单日期（本地日），用于过滤「今日」。返回 datetime.date 或 None。"""
+    for key in ("created_time", "update_time"):
+        t = order_row.get(key)
+        if t is None:
+            continue
+        try:
+            if isinstance(t, (int, float)):
+                return datetime.fromtimestamp(t / 1000.0 if t > 1e12 else t).date()
+            if isinstance(t, str):
+                return datetime.fromisoformat(t.replace("Z", "+00:00")).date()
+        except Exception:
+            pass
+    return None
+
+
+def _filter_orders_by_today(orders, today_date):
+    """只保留订单日期为 today_date 的订单（按 created_time/update_time）。"""
+    if not today_date:
+        return orders
+    out = []
+    for o in orders:
+        row = normalize_order(o)
+        d = _order_date_local(row)
+        if d == today_date:
+            out.append(o)
+    return out
 
 
 def compute_yield_from_orders(orders, symbol_short="SIL2603", is_today_only=False):
@@ -152,6 +184,123 @@ def compute_yield_from_orders(orders, symbol_short="SIL2603", is_today_only=Fals
     return out
 
 
+def fetch_futures_positions_from_tiger(account):
+    """拉取期货持仓列表；失败返回 None。"""
+    if not CONFIG_PATH.exists() or not account:
+        return None
+    try:
+        from tigeropen.tiger_open_config import TigerOpenClientConfig
+        from tigeropen.trade.trade_client import TradeClient
+        from tigeropen.common.consts import SecurityType
+
+        cfg = TigerOpenClientConfig(props_path=str(CONFIG_PATH))
+        client = TradeClient(cfg)
+        try:
+            pos = client.get_positions(account=account, sec_type=SecurityType.FUT)
+        except Exception:
+            pos = client.get_positions(account=account)
+        if pos is None:
+            return []
+        if hasattr(pos, "result"):
+            return list(pos.result or [])
+        return list(pos)
+    except Exception:
+        return None
+
+
+def aggregate_silver_position_pnl(positions):
+    """汇总 SIL* 合约净手数与 unrealized_pnl（与后台持仓浮盈浮亏一致）。"""
+    empty = {
+        "unrealized_pnl": None,
+        "net_quantity": 0,
+        "position_detail": "",
+    }
+    if not positions:
+        return empty
+    total_u = 0.0
+    net_qty = 0
+    parts = []
+    any_u = False
+    for p in positions:
+        obj = p
+        contract = getattr(obj, "contract", None)
+        sym = getattr(obj, "symbol", None) or (
+            getattr(contract, "symbol", None) if contract else None
+        )
+        if not sym or "SIL" not in str(sym).upper():
+            continue
+        qty = getattr(obj, "quantity", None)
+        u = getattr(obj, "unrealized_pnl", None)
+        try:
+            qty_i = int(qty)
+        except (TypeError, ValueError):
+            qty_i = 0
+        try:
+            u_f = float(u) if u is not None else None
+        except (TypeError, ValueError):
+            u_f = None
+        if u_f is not None:
+            total_u += u_f
+            any_u = True
+        net_qty += qty_i
+        if u_f is not None:
+            parts.append("%s %s手 浮盈浮亏%.2fUSD" % (sym, qty_i, u_f))
+    return {
+        "unrealized_pnl": total_u if any_u else None,
+        "net_quantity": net_qty,
+        "position_detail": "；".join(parts) if parts else "",
+    }
+
+
+def enrich_payload_with_unrealized(payload, pos_agg):
+    """
+    在订单统计结果上合并持仓浮动盈亏：yield 展示「今日已实现 + 当前浮动」快照。
+    """
+    ur = pos_agg.get("unrealized_pnl")
+    nq = int(pos_agg.get("net_quantity") or 0)
+    payload["open_position_qty"] = nq
+    if ur is not None:
+        payload["unrealized_pnl_usd"] = round(float(ur), 2)
+    else:
+        payload["unrealized_pnl_usd"] = None
+    if pos_agg.get("position_detail"):
+        payload["position_detail"] = pos_agg["position_detail"]
+
+    if nq == 0 and ur is None:
+        return payload
+    if nq == 0 and ur is not None and abs(float(ur)) < 1e-12:
+        return payload
+    if ur is None and nq != 0:
+        base = (payload.get("yield_note") or "").strip()
+        extra = "当前持仓净%d手（后台未返回 unrealized_pnl，请在 Tiger 客户端查看浮动盈亏）" % nq
+        payload["yield_note"] = (base + "；" + extra) if base else extra
+        return payload
+
+    ur_f = float(ur) if ur is not None else 0.0
+    tr = payload.get("total_realized_pnl")
+    tr_f = float(tr) if tr is not None else None
+    comb = (tr_f if tr_f is not None else 0.0) + ur_f
+    payload["combined_pnl_usd"] = round(comb, 2)
+
+    base_note = (payload.get("yield_note") or "").strip()
+    chunks = [base_note] if base_note else []
+    chunks.append("当前持仓净%d手" % nq)
+    if ur is not None:
+        chunks.append("浮动盈亏%+.2f USD（未平仓）" % ur_f)
+    else:
+        chunks.append("浮动盈亏后台未返回数值")
+    if tr_f is not None:
+        chunks.append("今日已实现%+.2f USD" % tr_f)
+    chunks.append("已实现+浮动合计%+.2f USD" % comb)
+    payload["yield_note"] = "；".join(chunks)
+
+    if tr_f is not None:
+        payload["yield_pct"] = "%+.2f USD（已实现%+.2f+浮动%+.2f）" % (comb, tr_f, ur_f)
+    else:
+        payload["yield_pct"] = "%+.2f USD（浮动%+.2f）" % (comb, ur_f)
+    return payload
+
+
 def main():
     # 使用与 tiger1 一致的合约格式
     try:
@@ -168,6 +317,9 @@ def main():
         except Exception:
             pass
 
+    pos_list = fetch_futures_positions_from_tiger(account)
+    pos_agg = aggregate_silver_position_pnl(pos_list or [])
+
     start_time, end_time = _today_range_local()
 
     def _merge(into, from_list):
@@ -178,7 +330,7 @@ def main():
                 into.append(o)
                 seen.add(oid)
 
-    # 1) 原逻辑：当前合约 + 时间
+    # 1) 原逻辑：当前合约 + 今日时间范围
     orders = fetch_orders_from_tiger(account, symbol_api, limit=500, start_time=start_time, end_time=end_time)
     if orders is None:
         orders = []
@@ -193,12 +345,16 @@ def main():
     if verbose:
         print("fetch_tiger_yield: 再查 symbol=%s +时间 → 合并后共 %s 条" % (other, len(orders)), file=sys.stderr)
 
-    # 3) 仍为空则不带时间拉（避免时间被老虎按美东解释导致 0）
+    # 3) 仍为空则不带时间拉一次，但必须按「今日」过滤，不得把历史成交当今日
     if not orders:
         orders = fetch_orders_from_tiger(account, symbol_api, limit=200) or []
         _merge(orders, fetch_orders_from_tiger(account, other, limit=200) or [])
         if verbose:
             print("fetch_tiger_yield: 无时间 symbol=%s,%s → 合并后共 %s 条" % (symbol_api, other, len(orders)), file=sys.stderr)
+        today_date = datetime.now().date()
+        orders = _filter_orders_by_today(orders, today_date)
+        if verbose:
+            print("fetch_tiger_yield: 按今日 %s 过滤后 → %s 条" % (today_date, len(orders)), file=sys.stderr)
 
     result = compute_yield_from_orders(orders, symbol_api, is_today_only=True)
     if not result:
@@ -211,9 +367,13 @@ def main():
             "is_today_only": True,
             "zero_trades_action": "【0笔须排查】1) 用 bash scripts/run_20h_demo.sh 启动 DEMO；2) 确认 COMEX 交易时段；3) 检查 openapicfg_dem；4) 查 order_log_analysis 今日 real success。",
         }
+        enrich_payload_with_unrealized(out, pos_agg)
+        if out.get("combined_pnl_usd") is not None and out.get("yield_pct") is None:
+            out["yield_pct"] = "%+.2f USD（仅浮动，今日无新成交）" % out["combined_pnl_usd"]
         print(json.dumps(out, ensure_ascii=False, indent=2))
         sys.exit(0)  # 仍 exit 0，让调用方写入 today_yield
 
+    enrich_payload_with_unrealized(result, pos_agg)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     sys.exit(0)
 

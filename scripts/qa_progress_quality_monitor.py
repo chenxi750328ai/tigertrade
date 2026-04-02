@@ -17,9 +17,10 @@ from pathlib import Path
 
 # 项目目标（与 README/需求分析一致）
 GOALS = {
-    "win_rate_min": 60.0,       # 胜率 > 60%
+    "win_rate_min": 60.0,       # 实盘胜率 > 60%
     "backtest_return_phase1": 15.0,  # 第1周回测盈利率 > 15%
-    "monthly_return_target": 20.0,  # 月盈利率 20%
+    "monthly_return_target": 20.0,  # 实盘月盈利率 20%
+    "daily_yield_has_trades": True,  # 实盘今日须有成交（今日无成交=未达标，除非休市等不可抗力）
     "sharpe_min": 2.0,
     "max_drawdown_pct_max": 10.0,
     "profit_loss_ratio_min": 2.0,
@@ -51,6 +52,18 @@ def load_stability_stats() -> dict | None:
             except Exception:
                 pass
     return None
+
+
+def load_today_yield() -> dict | None:
+    """加载今日收益率（docs/today_yield.json），用于实盘今日收益目标判定。"""
+    p = DOCS_DIR / "today_yield.json"
+    if not p.is_file():
+        return None
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
 
 
 def scan_src_todos() -> list[tuple[str, int, str]]:
@@ -112,6 +125,21 @@ def collect_issues(report: dict | None, stability: dict | None, todos: list) -> 
             "detail": "docs/reports/algorithm_optimization_report.json 不存在或无法读取。",
             "suggestion": "运行 optimize_algorithm_and_profitability.py 生成报告。",
         })
+
+    # 实盘今日收益率目标：今日须有成交（今日无成交=未达标）
+    if GOALS.get("daily_yield_has_trades"):
+        today_yield = load_today_yield()
+        if today_yield:
+            note = (today_yield.get("yield_note") or "") or ""
+            pct = (today_yield.get("yield_pct") or "") or ""
+            if "今日无成交" in note or (str(pct).strip() in ("—", "") and "无成交" in note):
+                issues.append({
+                    "level": "high",
+                    "area": "实盘收益率",
+                    "title": "实盘今日收益率未达目标（今日无成交）",
+                    "detail": f"今日无成交，不满足「每日有成交且收益≥0」目标。yield_note: {note[:80]}",
+                    "suggestion": "按 today_yield.json 中 zero_trades_action 排查：启动 DEMO、确认交易时段、openapicfg_dem、order_log 今日 real success。每日目标不达标不停息。",
+                })
 
     if stability:
         total = (stability.get("successful_iterations") or 0) + (stability.get("failed_iterations") or 0)
@@ -184,9 +212,10 @@ def render_md(issues: list[dict], report_ts: str | None, stability_ts: str | Non
         "",
         "| 指标 | 目标值 |",
         "|------|--------|",
-        f"| 胜率 | > {GOALS['win_rate_min']}% |",
+        f"| 实盘胜率 | > {GOALS['win_rate_min']}% |",
+        "| 实盘今日收益 | 今日有成交且收益≥0（无成交须排查） |",
+        f"| 实盘月盈利率 | {GOALS['monthly_return_target']}% |",
         f"| 第1周回测盈利率 | > {GOALS['backtest_return_phase1']}% |",
-        f"| 月盈利率 | {GOALS['monthly_return_target']}% |",
         f"| 夏普比率 | > {GOALS['sharpe_min']} |",
         f"| 最大回撤 | < {GOALS['max_drawdown_pct_max']}% |",
         f"| 盈亏比 | > {GOALS['profit_loss_ratio_min']}:1 |",

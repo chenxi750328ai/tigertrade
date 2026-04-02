@@ -4,7 +4,7 @@
 流程分支（必须覆盖，缺一即 FAIL）：
   1. 禁止项：1010、account 为空、AttributeError、NameError 等
   2. 交易循环已启动 + 至少一种 feature（策略预测/风控 DFX/下单）在输出中有证据
-  3. 后台可见性：若本轮有 mode=real&status=success 且 order_id 为数字，get_orders(account,symbol) 必须能查到该 order_id
+  3. 后台可见性：若本轮有 mode=real&status=success 且 order_id 为数字，get_orders（期货 seg/sec_type）必须能查到；Tiger Order 上 **id** 为全局单号，**order_id** 为展示号，断言时须同时比对 id（不可用 order_id or id 短路）。
 
 运行：pytest tests/test_blackbox_demo.py -m blackbox -v
 
@@ -165,6 +165,18 @@ def _last_real_success_order_id_after(ts_cutoff):
     return last_oid
 
 
+def _order_id_in_backend_set(want: str, found_ids) -> bool:
+    """Tiger 返回的 order_id 可能为 int/str，与 order_log JSON 字符串统一比较。"""
+    w = str(want).strip()
+    for x in found_ids:
+        sx = str(x).strip()
+        if sx == w:
+            return True
+        if w.isdigit() and sx.isdigit() and int(w) == int(sx):
+            return True
+    return False
+
+
 def _assert_order_visible_in_backend_if_any(placed_after_iso):
     """若 order_log 在 placed_after_iso 之后有 real+success 且 order_id 为数字，则 get_orders 必须能查到该 order_id。"""
     order_id = _last_real_success_order_id_after(placed_after_iso)
@@ -183,25 +195,68 @@ def _assert_order_visible_in_backend_if_any(placed_after_iso):
         raise AssertionError("黑盒测试失败：存在 real+success 订单但无法校验后台（account 未配置）。")
     client = TradeClient(cfg)
     symbol = 'SIL2605'
-    try:
-        orders = client.get_orders(account=account, symbol=symbol, limit=100)
-    except Exception as e:
-        raise AssertionError(
-            f"黑盒测试失败：后台可见性校验时 get_orders 报错（如未授权）。order_id={order_id}\n错误: {e}"
-        )
-    if orders is None:
-        orders = []
     found = set()
-    for o in orders:
-        oid = getattr(o, 'order_id', None) or getattr(o, 'id', None)
-        if oid is not None:
-            found.add(str(oid).strip())
-    if order_id not in found:
-        raise AssertionError(
-            f"黑盒测试失败：流程分支「后台可见」未通过——刚下的单在老虎 get_orders 中查不到。\n"
-            f"order_id={order_id} account={account} 查到 {len(found)} 条。"
-            "请检查 Tiger 后台账户授权与同一账户/环境。"
-        )
+    last_err = None
+    try:
+        from tigeropen.common.consts import SegmentType, SecurityType
+        _fut_kw = dict(seg_type=SegmentType.FUT, sec_type=SecurityType.FUT)
+    except Exception:
+        _fut_kw = {}
+    # 与 OrderExecutor 一致：下单后索引传播有延迟，避免偶发「列表瞬时为空」误杀
+    for attempt in range(12):
+        try:
+            orders = client.get_orders(account=account, symbol=symbol, limit=100, **_fut_kw)
+        except Exception as e:
+            last_err = e
+            orders = None
+        if orders is None:
+            orders = []
+        found = []
+        for o in orders:
+            # Tiger Order：全局唯一单号是 id；order_id 可能是较短展示号，不能 or 合并否则永远对不上 order_log
+            for attr in ('id', 'order_id', 'external_id'):
+                oid = getattr(o, attr, None)
+                if oid is not None:
+                    found.append(oid)
+                    if _order_id_in_backend_set(order_id, [oid]):
+                        return
+        # 无 symbol 再拉一页（部分账户下列表需不按合约过滤才可见）
+        # 合约过滤列表可能不含刚提交单，扩大 limit 全量再扫（与是否为空无关）
+        if attempt >= 3:
+            try:
+                broad = client.get_orders(account=account, limit=200, **_fut_kw)
+            except Exception as e:
+                broad = None
+                last_err = last_err or e
+            if broad:
+                for o in broad:
+                    for attr in ('id', 'order_id', 'external_id'):
+                        oid = getattr(o, attr, None)
+                        if oid is not None and _order_id_in_backend_set(order_id, [oid]):
+                            return
+        # 单笔查询（部分环境 get_orders 列表滞后但 get_order 已可查）
+        try:
+            one = client.get_order(id=int(order_id)) if str(order_id).isdigit() else None
+            if one is None and str(order_id).isdigit():
+                one = client.get_order(id=str(order_id))
+        except (TypeError, ValueError, AttributeError):
+            one = None
+        except Exception as e:
+            one = None
+            last_err = last_err or e
+        if one is not None:
+            for attr in ('id', 'order_id', 'external_id'):
+                oid = getattr(one, attr, None)
+                if oid is not None and _order_id_in_backend_set(order_id, [oid]):
+                    return
+        time.sleep(1.0)
+    err_tail = f" 最后一次 get_orders 异常: {last_err}" if last_err else ""
+    raise AssertionError(
+        f"黑盒测试失败：流程分支「后台可见」未通过——刚下的单在老虎 get_orders/get_order 中查不到。\n"
+        f"order_id={order_id} account={account} 本轮列表中共 {len(found)} 个 id（已重试约 12s）。"
+        "请检查 Tiger 后台账户授权与同一账户/环境。"
+        f"{err_tail}"
+    )
 
 
 @pytest.mark.blackbox

@@ -11,9 +11,6 @@ from unittest.mock import Mock, patch, MagicMock
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-
-sys.path.insert(0, '/home/cx/tigertrade')
-
 from src import tiger1 as t1
 
 

@@ -16,6 +16,20 @@ from tigeropen.common.consts import BarPeriod, OrderType
 logger = logging.getLogger(__name__)
 
 
+def _order_status_is_filled(order_obj) -> bool:
+    """判断老虎订单是否已完全成交（FILLED / FILLED_ALL / FINISHED）。"""
+    if order_obj is None:
+        return False
+    st = getattr(order_obj, "status", None) or getattr(order_obj, "order_status", None)
+    if st is None:
+        return False
+    name = getattr(st, "name", None)
+    if name:
+        return name in ("FILLED", "FILLED_ALL", "FINISHED")
+    s = str(st).upper()
+    return ("FILLED" in s or "FINISHED" in s) and "CANCEL" not in s
+
+
 class QuoteApiInterface(ABC):
     """行情API接口抽象"""
     
@@ -284,6 +298,178 @@ class RealTradeApiAdapter(TradeApiInterface):
                 raise ValueError(auth_error)
             logger.warning("下单异常: %s", e)
             raise
+
+    def place_limit_with_bracket(
+        self,
+        symbol,
+        side,
+        quantity,
+        limit_price,
+        stop_loss_price,
+        take_profit_price,
+        time_in_force=None,
+    ):
+        """
+        老虎官方「限价主单 + 附加止损 + 附加止盈」组合单（SDK: limit_order_with_legs）。
+        两腿均为 LOSS/PROFIT 时，请求层会将 attach_type 设为 BRACKETS（括号单，一腿成交另一腿自动取消）。
+
+        约束（与 Tiger Open 文档一致）：主单须为限价；须同时提供止损价与止盈价。
+        注意：文档写明附加单能力以环球账户等为准，若 API 报错可回退为限价单 + 成交后 STP/TP。
+        """
+        if limit_price is None:
+            raise ValueError("组合单主单须为限价单（limit_price 不能为空）")
+        if stop_loss_price is None or take_profit_price is None:
+            raise ValueError("组合单须同时提供止损价与止盈价（BRACKETS）")
+
+        from tigeropen.common.util.contract_utils import future_contract, stock_contract
+        from tigeropen.common.consts import Currency
+        from tigeropen.common.util.order_utils import limit_order_with_legs, order_leg
+
+        tif = getattr(time_in_force, "name", None) or time_in_force or "DAY"
+        action = getattr(side, "name", None) or getattr(side, "value", None) or side
+        action = str(action).upper()
+        if action not in ("BUY", "SELL"):
+            raise ValueError("side 须为 BUY/SELL，当前: %s" % (side,))
+
+        account = self.account
+        if account is None:
+            account = getattr(self.client, "account", None)
+        if account is None and hasattr(self.client, "config"):
+            account = getattr(self.client.config, "account", None)
+        if not account:
+            try:
+                from src.api_adapter import api_manager
+
+                if hasattr(api_manager, "_account") and api_manager._account:
+                    account = api_manager._account
+                    self.account = account
+                elif hasattr(api_manager, "trade_api") and hasattr(api_manager.trade_api, "account"):
+                    account = api_manager.trade_api.account
+                    self.account = account
+            except Exception as e:
+                logger.warning("place_limit_with_bracket 获取 account 失败: %s", e)
+        if not account:
+            raise ValueError("account 不能为空，无法下组合单")
+
+        symbol_to_use = symbol
+        try:
+            import sys
+
+            if "tiger1" in sys.modules:
+                t1_module = sys.modules["tiger1"]
+                if hasattr(t1_module, "_to_api_identifier"):
+                    symbol_to_use = t1_module._to_api_identifier(symbol)
+            if symbol_to_use == symbol and "." in str(symbol_to_use):
+                parts = str(symbol_to_use).split(".")
+                if len(parts) >= 3:
+                    base, datepart = parts[0], parts[-1]
+                    if len(datepart) == 6 and datepart.isdigit():
+                        symbol_to_use = f"{base}{datepart[-4:]}"
+        except Exception as e:
+            logger.warning("place_limit_with_bracket symbol 转换失败，使用原值: %s", e)
+
+        contract = None
+        try:
+            contract = future_contract(symbol=symbol_to_use, currency=Currency.USD)
+        except Exception as e:
+            logger.warning("place_limit_with_bracket future_contract 失败: %s", e)
+            try:
+                contract = stock_contract(symbol_to_use, Currency.USD)
+            except Exception:
+                contract = stock_contract(symbol_to_use)
+        if contract is None:
+            raise ValueError("无法创建合约 symbol=%s" % symbol_to_use)
+
+        legs = [
+            order_leg("LOSS", price=float(stop_loss_price), time_in_force=tif),
+            order_leg("PROFIT", price=float(take_profit_price), time_in_force=tif),
+        ]
+        order = limit_order_with_legs(
+            account,
+            contract,
+            action,
+            int(quantity),
+            float(limit_price),
+            order_legs=legs,
+            time_in_force=tif,
+        )
+        logger.info(
+            "提交 BRACKETS 组合限价单 | %s %s手 LMT=%s LOSS=%s PROFIT=%s TIF=%s",
+            action,
+            quantity,
+            limit_price,
+            stop_loss_price,
+            take_profit_price,
+            tif,
+        )
+        return self.client.place_order(order)
+
+    def get_orders(self, account=None, symbol=None, limit=100, **kwargs):
+        """拉取后台订单列表，用于「下单后校验是否在后台可见」；LOG 与后台一致，不得 LOG 成功但后台无单。"""
+        account = account or self.account
+        if not account or not symbol:
+            return []
+        try:
+            from tigeropen.common.consts import SegmentType, SecurityType
+            orders = self.client.get_orders(
+                account=account,
+                symbol=symbol,
+                limit=limit,
+                seg_type=SegmentType.FUT,
+                sec_type=SecurityType.FUT,
+                **kwargs
+            )
+            if orders is None:
+                return []
+            if hasattr(orders, "result"):
+                orders = orders.result or []
+            return list(orders) if orders else []
+        except Exception as e:
+            logger.warning("get_orders 失败: %s", e)
+            return []
+
+    def get_order(self, account=None, id=None, order_id=None, **kwargs):
+        """按订单ID查询单笔订单，优先用于下单后精确校验。"""
+        _ = account or self.account  # 兼容签名，当前 Tiger get_order 主要按 id 查询
+        target_id = order_id or id
+        if not target_id:
+            return None
+        try:
+            return self.client.get_order(id=target_id, **kwargs)
+        except TypeError:
+            try:
+                return self.client.get_order(order_id=target_id, **kwargs)
+            except Exception as e:
+                logger.warning("get_order 失败: %s", e)
+                return None
+        except Exception as e:
+            logger.warning("get_order 失败: %s", e)
+            return None
+
+    def wait_until_buy_filled(self, order_id, symbol=None, timeout_sec=120, poll_sec=1.0):
+        """
+        轮询直到买单变为 FILLED 或超时。
+        用于限价买单：仅在成交后再挂交易所止损(STP)，避免「无持仓挂卖止损」被拒或 silently 无效。
+        """
+        import time as _t
+
+        deadline = _t.time() + float(timeout_sec)
+        while _t.time() < deadline:
+            one = None
+            try:
+                one = self.get_order(id=order_id, order_id=order_id)
+            except Exception as e:
+                logger.debug("wait_until_buy_filled get_order: %s", e)
+            if _order_status_is_filled(one):
+                logger.info("wait_until_buy_filled: order_id=%s 已 FILLED", order_id)
+                return True
+            _t.sleep(float(poll_sec))
+        logger.warning(
+            "wait_until_buy_filled: order_id=%s 在 %.0fs 内未 FILLED（限价可能仍未完全成交）",
+            order_id,
+            timeout_sec,
+        )
+        return False
 
 
 class MockQuoteApiAdapter(QuoteApiInterface):
@@ -598,6 +784,31 @@ class MockTradeApiAdapter(TradeApiInterface):
                     return order
         return None
     
+    def wait_until_buy_filled(self, order_id, symbol=None, timeout_sec=120, poll_sec=1.0):
+        """Mock：视为立即成交，避免单测阻塞。"""
+        return True
+
+    def place_limit_with_bracket(
+        self,
+        symbol,
+        side,
+        quantity,
+        limit_price,
+        stop_loss_price,
+        take_profit_price,
+        time_in_force=None,
+    ):
+        """Mock：与限价单相同返回，便于单测走通组合单路径。"""
+        return self.place_order(
+            symbol=symbol,
+            side=side,
+            order_type="LMT",
+            quantity=quantity,
+            time_in_force=time_in_force or "DAY",
+            limit_price=limit_price,
+            stop_price=None,
+        )
+
     def get_orders(self, account=None, symbol=None, limit=100, **kwargs):
         """查询订单列表 - Mock实现"""
         orders = list(self.orders.values())

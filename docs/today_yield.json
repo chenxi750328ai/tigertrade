@@ -1,6 +1,9 @@
 {
-  "date": "2026-02-27",
-  "yield_pct": "+7945.90 USD",
-  "yield_note": "今日成交 13 笔，已实现盈亏 7945.90 USD",
-  "source": "tiger_backend"
+  "date": "2026-04-02",
+  "yield_pct": "-2846.96 USD",
+  "yield_note": "今日成交 4 笔，已实现盈亏 -2846.96 USD",
+  "source": "tiger_backend",
+  "open_position_qty": 0,
+  "unrealized_pnl_usd": null,
+  "total_realized_pnl": -2846.96
 }

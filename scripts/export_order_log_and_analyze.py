@@ -72,6 +72,7 @@ def analyze(records):
     real_success_ts = []
     local_reject_count = 0
     api_reject_count = 0
+    allow_real_trading_by_run_env = defaultdict(int)  # DEMO=sandbox 不应产生此项；未记录=旧日志
     local_reject_keywords = ("ALLOW_REAL_TRADING", "持仓硬顶", "pos=", "order_id无效", "来自mock", "来自测试")
     # 按日期：每日的 (real成功, real失败, mock成功, 总条数)
     by_date = defaultdict(lambda: {"real_success": 0, "real_fail": 0, "mock_success": 0, "total": 0})
@@ -102,6 +103,8 @@ def analyze(records):
                     local_reject_count += 1
                 else:
                     api_reject_count += 1
+                if "ALLOW_REAL_TRADING" in err_raw:
+                    allow_real_trading_by_run_env[str(r.get("run_env") or "未记录")] += 1
             else:
                 real_success_ts.append(r.get("ts", ""))
     # real+success 中区分：order_id 疑似测试/mock（与老虎对不上）vs 可能为真实单（纯数字）
@@ -133,6 +136,7 @@ def analyze(records):
         "real_success_likely_mock": real_success_likely_mock,
         "real_success_likely_real": real_success_likely_real,
         "real_success_ts_sample": sorted(real_success_ts)[-10:] if real_success_ts else [],
+        "allow_real_trading_by_run_env": dict(sorted(allow_real_trading_by_run_env.items(), key=lambda x: -x[1])),
     }
 
 
@@ -210,6 +214,24 @@ def write_report(records, stats, out_dir, report_name="order_log_analysis.md", w
         lines.append("")
         lines.append(f"- **本地风控拒绝**（未发 API）：{local_reject} 条（如 ALLOW_REAL_TRADING、持仓硬顶）")
         lines.append(f"- **真实 API 被拒**（老虎拒绝）：{api_reject} 条（如 1010/1200/account 为空）")
+        lines.append("")
+    abe = stats.get("allow_real_trading_by_run_env") or {}
+    if abe:
+        lines.append("### `ALLOW_REAL_TRADING!=1` 按 run_env 分解（新日志才有 run_env）")
+        lines.append("")
+        lines.append("| run_env | 条数 | 说明 |")
+        lines.append("| --- | --- | --- |")
+        for env, cnt in sorted(abe.items(), key=lambda x: -x[1]):
+            note = ""
+            if env == "sandbox":
+                note = "理论上不应出现（DEMO 不检查此开关）；若出现请反馈"
+            elif env == "production":
+                note = "综合账户 `c` 未 export ALLOW_REAL_TRADING=1 时的预期"
+            elif env == "未记录":
+                note = "旧日志无 `run_env` 字段，或 pytest/CI 混入"
+            lines.append(f"| {env} | {cnt} | {note} |")
+        lines.append("")
+        lines.append("**说明**：若你**一直用 DEMO**（`python src/tiger1.py d ...`），`RUN_ENV=sandbox`，**代码路径不会**产生 `ALLOW_REAL_TRADING!=1`。汇总里的 808 次主要来自**未记录**、**production** 或**历史/测试**写入，并非 DEMO 正常下单。")
         lines.append("")
     if stats["real_errors"]:
         lines.append("### mode=real 且 status=fail 的典型错误（前 15 条）")

@@ -15,6 +15,12 @@ try:
     from src import order_log
 except ImportError:
     order_log = None
+try:
+    from src.order_log import log_dfx as _log_dfx
+except ImportError:
+    def _log_dfx(*_a, **_k):
+        """order_log 不可用时静默跳过（极少见）；正常环境必有 src.order_log.log_dfx"""
+        pass
 
 # 导入tiger1模块 - 处理脚本运行时的导入问题
 try:
@@ -51,6 +57,7 @@ except ImportError:
     class OrderType:
         LMT = 'LMT'
         MKT = 'MKT'
+        STP = 'STP'
     class OrderSide:
         BUY = 'BUY'
         SELL = 'SELL'
@@ -224,6 +231,7 @@ class OrderExecutor:
             order_side = OrderSide.BUY
             order_type = OrderType.LMT  # 限价单（有价格时）
             order_quantity = 1  # 数量：1手
+            _log = __import__('logging').getLogger('order_executor')
             
             # 转换symbol格式：SIL.COMEX.202603 -> SIL2603（Tiger API可能期望简短格式）
             symbol_to_use = t1.FUTURE_SYMBOL
@@ -251,17 +259,63 @@ class OrderExecutor:
             limit_price = round(price / min_tick) * min_tick if min_tick > 0 else price
             nd = max(0, int(round(-math.log10(min_tick)))) if min_tick > 0 else 2
             limit_price = round(limit_price, nd)
-            
-            # 提交订单（使用位置参数，兼容Tiger API）
-            order_result = trade_api.place_order(
-                symbol_to_use,  # 使用转换后的symbol（SIL2603格式）
-                order_side,
-                order_type,
-                order_quantity,
-                TimeInForce.DAY,
-                limit_price,  # limit_price（已按 min_tick 取整）
-                None    # stop_price
-            )
+
+            # 止损+止盈为必须项；优先老虎 BRACKETS（limit_order_with_legs + LOSS + PROFIT）
+            _sl = round(stop_loss_price / min_tick) * min_tick if min_tick > 0 else stop_loss_price
+            _tp = round(take_profit_price / min_tick) * min_tick if min_tick > 0 else take_profit_price
+            _sl = round(_sl, nd)
+            _tp = round(_tp, nd)
+
+            used_bracket = False
+            bracket_fn = getattr(trade_api, "place_limit_with_bracket", None)
+            if callable(bracket_fn):
+                try:
+                    order_result = bracket_fn(
+                        symbol_to_use,
+                        order_side,
+                        order_quantity,
+                        limit_price,
+                        _sl,
+                        _tp,
+                        TimeInForce.DAY,
+                    )
+                    used_bracket = True
+                    _log.info("[OrderExecutor] 已提交老虎 BRACKETS 组合单（限价+止损+止盈）")
+                    _boid = getattr(order_result, "order_id", None) or (
+                        order_result.get("order_id") if isinstance(order_result, dict) else None
+                    ) or str(order_result)
+                    _log_dfx(
+                        "bracket_submitted",
+                        "OrderExecutor limit_order_with_legs",
+                        order_id=str(_boid),
+                        symbol=str(symbol_to_use),
+                        limit_price=float(limit_price),
+                        stop_loss=float(_sl),
+                        take_profit=float(_tp),
+                        quantity=int(order_quantity),
+                    )
+                except Exception as br_e:
+                    _log.warning("[OrderExecutor] 组合单失败，回退为限价单+成交后止损/止盈: %s", br_e)
+                    _log_dfx(
+                        "bracket_failed",
+                        str(br_e),
+                        symbol=str(symbol_to_use),
+                        limit_price=float(limit_price),
+                        stop_loss=float(_sl),
+                        take_profit=float(_tp),
+                        quantity=int(order_quantity),
+                    )
+
+            if not used_bracket:
+                order_result = trade_api.place_order(
+                    symbol_to_use,
+                    order_side,
+                    order_type,
+                    order_quantity,
+                    TimeInForce.DAY,
+                    limit_price,
+                    None,
+                )
             
             # 处理返回结果
             if hasattr(order_result, 'order_id'):
@@ -271,9 +325,137 @@ class OrderExecutor:
             else:
                 order_id = str(order_result)
             
+            # 仅当后台能查到该单才记为成功，避免 LOG 显示成功但后台无订单
+            account = getattr(trade_api, 'account', None) or getattr(t1, 'client_config', None) and getattr(t1.client_config, 'account', None)
+            if account and callable(getattr(trade_api, 'get_orders', None)):
+                try:
+                    found = False
+                    _oid = str(order_id)
+                    for _ in range(8):  # 给后端订单索引一点传播时间（约 8 秒）
+                        if callable(getattr(trade_api, 'get_order', None)):
+                            one = trade_api.get_order(account=account, id=order_id)
+                            if one is not None:
+                                found = True
+                                break
+                        recent = trade_api.get_orders(account=account, symbol=symbol_to_use, limit=30)
+                        for o in (recent or []):
+                            oid = getattr(o, 'order_id', None) or getattr(o, 'id', None)
+                            if oid is not None and str(oid) == _oid:
+                                found = True
+                                break
+                        if found:
+                            break
+                        time.sleep(1)
+                    if not found:
+                        _log = __import__('logging').getLogger('order_executor')
+                        _log.warning("[OrderExecutor] 订单已提交但后台未查到 order_id=%s，不记为成功", order_id)
+                        return False, "订单已提交后 8 秒内后台未查到，可能被拒或延迟，请核对后台"
+                except Exception as verify_e:
+                    _log = __import__('logging').getLogger('order_executor')
+                    _log.warning("[OrderExecutor] 后台校验异常: %s，不记为成功", verify_e)
+                    return False, f"订单已提交但后台校验失败: {verify_e}，请核对后台"
+            
+            # 未走组合单时：主单 FILLED 后再挂 STP/TP（与 place_tiger_order 回退路径一致）
+            if not used_bracket and (stop_loss_price is not None or take_profit_price is not None):
+                _wait_fn = getattr(trade_api, "wait_until_buy_filled", None)
+                if callable(_wait_fn):
+                    if not _wait_fn(order_id, symbol_to_use, timeout_sec=120, poll_sec=1.0):
+                        _log.warning(
+                            "[OrderExecutor] 买单 %s 超时未 FILLED，跳过交易所止损/止盈；请依赖策略软止损或成交后补挂",
+                            order_id,
+                        )
+                        _log_dfx(
+                            "sl_tp_skipped",
+                            "buy_not_filled_within_timeout",
+                            parent_order_id=str(order_id),
+                            symbol=str(symbol_to_use),
+                            timeout_sec=120,
+                        )
+                        _sl = None
+                        _tp = None
+                    else:
+                        _sl = round(stop_loss_price / min_tick) * min_tick if stop_loss_price is not None and min_tick > 0 else None
+                        _tp = round(take_profit_price / min_tick) * min_tick if take_profit_price is not None and min_tick > 0 else None
+                else:
+                    _sl = round(stop_loss_price / min_tick) * min_tick if stop_loss_price is not None and min_tick > 0 else None
+                    _tp = round(take_profit_price / min_tick) * min_tick if take_profit_price is not None and min_tick > 0 else None
+                if _sl is not None:
+                    try:
+                        _stp = getattr(OrderType, 'STP', 'STP')
+                        sl_ret = trade_api.place_order(
+                            symbol=symbol_to_use,
+                            side=OrderSide.SELL,
+                            order_type=_stp,
+                            quantity=order_quantity,
+                            time_in_force=TimeInForce.DAY,
+                            limit_price=None,
+                            stop_price=_sl,
+                        )
+                        _sl_cid = getattr(sl_ret, "order_id", None) or (
+                            sl_ret.get("order_id") if isinstance(sl_ret, dict) else None
+                        ) or str(sl_ret)
+                        _log.info("[OrderExecutor] 已提交止损单 | SELL %s手 | 触发价=%.3f", order_quantity, _sl)
+                        _log_dfx(
+                            "stop_loss_submitted",
+                            "",
+                            parent_order_id=str(order_id),
+                            child_order_id=str(_sl_cid),
+                            symbol=str(symbol_to_use),
+                            stop_price=float(_sl),
+                            quantity=int(order_quantity),
+                        )
+                    except Exception as sl_e:
+                        _log.warning("[OrderExecutor] 止损单提交失败（主单已成交）：%s", sl_e)
+                        _log_dfx(
+                            "stop_loss_submit_failed",
+                            str(sl_e),
+                            parent_order_id=str(order_id),
+                            symbol=str(symbol_to_use),
+                            stop_price=float(_sl),
+                            quantity=int(order_quantity),
+                        )
+                if _tp is not None:
+                    try:
+                        _lmt = getattr(OrderType, 'LMT', 'LMT')
+                        tp_ret = trade_api.place_order(
+                            symbol=symbol_to_use,
+                            side=OrderSide.SELL,
+                            order_type=_lmt,
+                            quantity=order_quantity,
+                            time_in_force=TimeInForce.DAY,
+                            limit_price=_tp,
+                            stop_price=None,
+                        )
+                        _tp_cid = getattr(tp_ret, "order_id", None) or (
+                            tp_ret.get("order_id") if isinstance(tp_ret, dict) else None
+                        ) or str(tp_ret)
+                        _log.info("[OrderExecutor] 已提交止盈单 | SELL %s手 | 价格=%.3f", order_quantity, _tp)
+                        _log_dfx(
+                            "take_profit_submitted",
+                            "",
+                            parent_order_id=str(order_id),
+                            child_order_id=str(_tp_cid),
+                            symbol=str(symbol_to_use),
+                            limit_price=float(_tp),
+                            quantity=int(order_quantity),
+                        )
+                    except Exception as tp_e:
+                        _log.warning("[OrderExecutor] 止盈单提交失败（主单已成交）：%s", tp_e)
+                        _log_dfx(
+                            "take_profit_submit_failed",
+                            str(tp_e),
+                            parent_order_id=str(order_id),
+                            symbol=str(symbol_to_use),
+                            limit_price=float(_tp),
+                            quantity=int(order_quantity),
+                        )
+            
             # 更新持仓状态（与tiger1保持一致）
             t1.current_position += order_quantity
-            
+            try:
+                t1._last_buy_success_ts = time.time()
+            except Exception:
+                pass
             # 记录订单信息（与tiger1保持一致）
             order_id_str = f"ORDER_{int(time.time())}_{random.randint(1000, 9999)}"
             for i in range(order_quantity):
@@ -298,7 +480,8 @@ class OrderExecutor:
                     'success', 'real', stop_loss_price, take_profit_price,
                     reason=reason or 'auto', source='auto',
                     symbol=getattr(t1, '_to_api_identifier', lambda x: x)(t1.FUTURE_SYMBOL) if hasattr(t1, '_to_api_identifier') else getattr(t1, 'FUTURE_SYMBOL', ''),
-                    order_type='limit'
+                    order_type='limit_bracket' if used_bracket else 'limit',
+                    run_env=getattr(t1, 'RUN_ENV', None),
                 )
             
             return True, f"订单提交成功 | 价格={limit_price:.3f}, 止损={stop_loss_price:.3f}, 止盈={take_profit_price:.3f}, 订单ID={order_id}"
@@ -307,7 +490,7 @@ class OrderExecutor:
             error_msg = str(e)
             if order_log:
                 _sym = getattr(t1, '_to_api_identifier', lambda x: x)(t1.FUTURE_SYMBOL) if hasattr(t1, '_to_api_identifier') else getattr(t1, 'FUTURE_SYMBOL', '')
-                order_log.log_order('BUY', 1, price, f"ORDER_{int(time.time())}_{random.randint(1000,9999)}", 'fail', 'real', stop_loss_price, take_profit_price, reason=reason or 'auto', error=error_msg, source='auto', symbol=_sym, order_type='limit')
+                order_log.log_order('BUY', 1, price, f"ORDER_{int(time.time())}_{random.randint(1000,9999)}", 'fail', 'real', stop_loss_price, take_profit_price, reason=reason or 'auto', error=error_msg, source='auto', symbol=_sym, order_type='limit', run_env=getattr(t1, 'RUN_ENV', None))
             # 明确识别授权错误
             if 'not authorized' in error_msg.lower() or 'authorized' in error_msg.lower() or 'authorization' in error_msg.lower():
                 return False, f"❌ 授权失败: {error_msg}。需要在Tiger后台配置account授权给API用户。"
@@ -425,11 +608,40 @@ class OrderExecutor:
             else:
                 order_id = str(order_result)
             
+            # 仅当后台能查到该单才记为成功，避免 LOG 显示成功但后台无订单
+            account = getattr(trade_api, 'account', None) or getattr(t1, 'client_config', None) and getattr(t1.client_config, 'account', None)
+            if account and callable(getattr(trade_api, 'get_orders', None)):
+                try:
+                    found = False
+                    _oid = str(order_id)
+                    for _ in range(8):
+                        if callable(getattr(trade_api, 'get_order', None)):
+                            one = trade_api.get_order(account=account, id=order_id)
+                            if one is not None:
+                                found = True
+                                break
+                        recent = trade_api.get_orders(account=account, symbol=symbol_to_use, limit=30)
+                        for o in (recent or []):
+                            oid = getattr(o, 'order_id', None) or getattr(o, 'id', None)
+                            if oid is not None and str(oid) == _oid:
+                                found = True
+                                break
+                        if found:
+                            break
+                        time.sleep(1)
+                    if not found:
+                        _log = __import__('logging').getLogger('order_executor')
+                        _log.warning("[OrderExecutor] 卖单已提交但后台未查到 order_id=%s，不记为成功", order_id)
+                        return False, "订单已提交后 8 秒内后台未查到，可能被拒或延迟，请核对后台"
+                except Exception as verify_e:
+                    _log = __import__('logging').getLogger('order_executor')
+                    _log.warning("[OrderExecutor] 卖单后台校验异常: %s，不记为成功", verify_e)
+                    return False, f"订单已提交但后台校验失败: {verify_e}，请核对后台"
+            
             # 更新持仓状态（与tiger1保持一致）
             t1.current_position -= order_quantity
             if t1.current_position < 0:
                 t1.current_position = 0
-            
             # 按先进先出原则匹配买单进行平仓
             remaining_qty = order_quantity
             while remaining_qty > 0 and t1.open_orders:
@@ -450,7 +662,7 @@ class OrderExecutor:
             # 写入 order_log
             if order_log:
                 _sym = getattr(t1, '_to_api_identifier', lambda x: x)(t1.FUTURE_SYMBOL) if hasattr(t1, '_to_api_identifier') else getattr(t1, 'FUTURE_SYMBOL', '')
-                order_log.log_order('SELL', order_quantity, limit_price, str(order_id), 'success', 'real', None, None, reason='auto', source='auto', symbol=_sym, order_type='limit')
+                order_log.log_order('SELL', order_quantity, limit_price, str(order_id), 'success', 'real', None, None, reason='auto', source='auto', symbol=_sym, order_type='limit', run_env=getattr(t1, 'RUN_ENV', None))
             
             return True, f"订单提交成功 | 价格={limit_price:.3f}, 持仓={t1.current_position}手, 订单ID={order_id}"
             
@@ -458,7 +670,7 @@ class OrderExecutor:
             error_msg = str(e)
             if order_log:
                 _sym = getattr(t1, '_to_api_identifier', lambda x: x)(t1.FUTURE_SYMBOL) if hasattr(t1, '_to_api_identifier') else getattr(t1, 'FUTURE_SYMBOL', '')
-                order_log.log_order('SELL', 1, price, f"ORDER_{int(time.time())}_{random.randint(1000,9999)}", 'fail', 'real', None, None, reason='auto', error=error_msg, source='auto', symbol=_sym, order_type='limit')
+                order_log.log_order('SELL', 1, price, f"ORDER_{int(time.time())}_{random.randint(1000,9999)}", 'fail', 'real', None, None, reason='auto', error=error_msg, source='auto', symbol=_sym, order_type='limit', run_env=getattr(t1, 'RUN_ENV', None))
             # 明确识别授权错误
             if 'not authorized' in error_msg.lower() or 'authorized' in error_msg.lower() or 'authorization' in error_msg.lower():
                 return False, f"❌ 授权失败: {error_msg}。需要在Tiger后台配置account授权给API用户。"

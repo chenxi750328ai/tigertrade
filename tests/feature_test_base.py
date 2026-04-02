@@ -8,8 +8,6 @@ Feature测试基类
 import sys
 import os
 import unittest
-sys.path.insert(0, '/home/cx/tigertrade')
-
 from src.api_adapter import api_manager
 
 # 全局标志：是否已初始化真实API

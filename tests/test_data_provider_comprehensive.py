@@ -6,8 +6,6 @@ import unittest
 import sys
 import pandas as pd
 from unittest.mock import Mock, patch, MagicMock
-sys.path.insert(0, '/home/cx/tigertrade')
-
 from src.executor.data_provider import MarketDataProvider
 from src import tiger1 as t1
 from src.api_adapter import api_manager

@@ -151,7 +151,7 @@ def run_stability_test():
             data_provider=data_provider,
             order_executor=order_executor,
             config={
-                'confidence_threshold': 0.4,
+                'confidence_threshold': 0.55,  # 与 tiger1 MOE 一致，提升胜率目标
                 'loop_interval': 5
             }
         )

@@ -5,9 +5,6 @@ import pytest
 
 # Keep argv simple so tiger1 does not misinterpret pytest flags
 sys.argv = ['pytest']
-
-sys.path.insert(0, '/home/cx/tigertrade')
-
 from src import tiger1 as t1
 from src.api_adapter import api_manager
 

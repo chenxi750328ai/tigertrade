@@ -12,8 +12,6 @@ sys.argv = ['pytest', 'd']
 # Provide lightweight fake `tigeropen` modules so tests can import `tigertrade.tiger1` without the real SDK.
 import types as _types
 import sys as _sys
-_sys.path.insert(0, '/home/cx/tigertrade')
-
 def _inject_stubs():
     _consts = _types.SimpleNamespace(
         Language=None,

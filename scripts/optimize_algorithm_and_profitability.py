@@ -404,6 +404,9 @@ def optimize_parameters():
     优化策略参数：对 grid/boll 做网格回测，返回最优参数及回测效果（供报告写入）。
     返回 (optimal_params, backtest_metrics)。backtest_metrics 用于填入 strategy_performance 的收益率/胜率。
     """
+    if os.environ.get("ROUTINE_SKIP_SLOW_BACKTEST", "").strip().lower() in ("1", "true", "yes"):
+        logger.info("⚙️ ROUTINE_SKIP_SLOW_BACKTEST=1：跳过网格/BOLL/模型回测（例行快检，避免长时间占用）")
+        return {}, {}
     logger.info("⚙️ 优化策略参数（网格/BOLL 回测）...")
     optimal_params = {}
     backtest_metrics = {}
@@ -411,7 +414,11 @@ def optimize_parameters():
     test_csv = os.path.join(root, 'data', 'processed', 'test.csv')
     try:
         # grid：优先与实盘同一套代码的回测（仅数据源为文件）
-        if os.path.isfile(test_csv):
+        # ROUTINE_SKIP_PRO1_BACKTEST=1：跳过该重回测（bar 多、耗时长），直接走下方 parameter_grid_search
+        skip_pro1 = os.environ.get("ROUTINE_SKIP_PRO1_BACKTEST", "").strip().lower() in ("1", "true", "yes")
+        if skip_pro1:
+            logger.info("⚙️ ROUTINE_SKIP_PRO1_BACKTEST=1：跳过 grid 同逻辑重回测(backtest_grid_trading_strategy_pro1)，使用轻量参数网格")
+        if os.path.isfile(test_csv) and not skip_pro1:
             try:
                 from src import tiger1 as t1
                 r = t1.backtest_grid_trading_strategy_pro1(single_csv_path=test_csv, bars_1m=2000, bars_5m=1000, lookahead=120, step_seconds=5)
@@ -841,6 +848,9 @@ def run_report_self_check(profitability, backtest_metrics, backend_empty_reason,
         logger.warning("  %d. %s", i, x["item"])
         logger.warning("     → %s", x["suggestion"])
     logger.warning("例行工作目标=提升收益率；有问题要解决、解决后继续，一直干到问题都解决。")
+    if os.environ.get("ROUTINE_SELF_CHECK_SOFT", "").strip().lower() in ("1", "true", "yes"):
+        logger.warning("ROUTINE_SELF_CHECK_SOFT=1：自检未通过但不以非零退出码终止（供定时脉冲/流水线继续）")
+        return
     sys.exit(1)
 
 

@@ -1,6 +1,6 @@
 # 策略对比报告
 
-*报告生成时间：2026-02-27T15:37:09.478534*
+*报告生成时间：2026-03-30T20:03:57.499890*
 
 **算法版本**：2.0（重大变更与对比见 [algorithm_versions.md](../../algorithm_versions.md)）
 
@@ -17,9 +17,9 @@
 
 | 策略 | num_trades | return_pct | avg_per_trade_pct | top_per_trade_pct | win_rate |
 | --- | --- | --- | --- | --- | --- |
-| moe_transformer | 100 | 7.01 | 0.0 | 0.03 | 98.0 |
-| lstm | 100 | 7.01 | 0.0 | 0.03 | 98.0 |
-| grid | 7 | 27.92 | 3.99 | 7.21 | 100.0 |
+| moe_transformer | 144 | 10.42 | 0.0 | 0.03 | 98.6 |
+| lstm | 144 | 10.42 | 0.0 | 0.03 | 98.6 |
+| grid | 2 | 7.52 | 3.76 | 8.38 | 50.0 |
 | boll | 2 | 7.52 | 3.76 | 8.38 | 50.0 |
 
 *说明*：**num_trades**=实际成交笔数；**return_pct**=总收益率；**avg_per_trade_pct**=单笔平均%；**top_per_trade_pct**=单笔TOP%；**win_rate**=胜率。
@@ -30,10 +30,10 @@
 
 | 策略 | num_trades | return_pct_verified | return_pct_estimated | avg_per_trade_pct | top_per_trade_pct | win_rate |
 | --- | --- | --- | --- | --- | --- | --- |
-| moe_transformer | 10 | +7945.90 USD | —（见根因说明） | 1563.31 USD | 15633.14 USD | 10.0 |
-| lstm | 10 | +7945.90 USD | —（见根因说明） | 1563.31 USD | 15633.14 USD | 10.0 |
-| grid | 10 | +7945.90 USD | —（见根因说明） | 1563.31 USD | 15633.14 USD | 10.0 |
-| boll | 10 | +7945.90 USD | —（见根因说明） | 1563.31 USD | 15633.14 USD | 10.0 |
+| moe_transformer | 14 | —（见根因说明） | —（见根因说明） | -2178.98 USD | -30505.78 USD | 14.3 |
+| lstm | 14 | —（见根因说明） | —（见根因说明） | -2178.98 USD | -30505.78 USD | 14.3 |
+| grid | 14 | —（见根因说明） | —（见根因说明） | -2178.98 USD | -30505.78 USD | 14.3 |
+| boll | 14 | —（见根因说明） | —（见根因说明） | -2178.98 USD | -30505.78 USD | 14.3 |
 
 *说明*：与回测表同指标；**return_pct_verified**=老虎核对收益率，**return_pct_estimated**=未核对推算；无数据时为 —（见根因说明）。
 
@@ -50,11 +50,12 @@
 
 ## 今日收益率（DEMO/实盘）
 
-- 日期：2026-02-27
-- **实际收益率（老虎后台核对）**：+7945.90 USD
+- 日期：2026-03-30
+- **实际收益率（老虎后台核对）**：—
 - **推算收益率（未核对）**：—（根因见 [算法优化报告](../algorithm_optimization_report.md) 中「本报告空项根因说明」）
-- 当前展示：+7945.90 USD
+- 当前展示：无老虎核对；实盘笔数见上表「num_trades」列（DEMO 主单）
 - **空项根因**：实际/推算收益率为空时，原因均写在 [算法优化报告](../algorithm_optimization_report.md) 的「本报告空项根因说明」中，须追根问底、不忽悠。
+- （若为 —：运行 `python scripts/optimize_algorithm_and_profitability.py` 或 `update_today_yield_for_status.py` 更新。）
 
 ## 指标说明（含义与计算方式）
 

@@ -5,8 +5,6 @@ Feature级测试：交易循环执行（Feature 6）
 import unittest
 import sys
 import time
-sys.path.insert(0, '/home/cx/tigertrade')
-
 from src.executor.trading_executor import TradingExecutor
 from src.executor.data_provider import MarketDataProvider
 from src.executor.order_executor import OrderExecutor

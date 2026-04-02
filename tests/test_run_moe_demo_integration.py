@@ -7,10 +7,11 @@ run_moe_demo.py 集成测试
 import unittest
 import sys
 import os
+from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 import pandas as pd
 
-sys.path.insert(0, '/home/cx/tigertrade')
+_REPO_ROOT = Path(__file__).resolve().parents[1]
 
 # 保存真实 check_risk_control（导入时尚未被其他测试替换），本模块测试风控时恢复使用
 import src.tiger1 as _t1_mod
@@ -41,7 +42,7 @@ class TestRunMoeDemoIntegration(unittest.TestCase):
     
     def test_order_placement_logic_exists(self):
         """测试1: 确保run_moe_demo.py使用新的模块化架构"""
-        demo_file = '/home/cx/tigertrade/scripts/run_moe_demo.py'
+        demo_file = str(_REPO_ROOT / "scripts" / "run_moe_demo.py")
         self.assertTrue(os.path.exists(demo_file), "run_moe_demo.py文件不存在")
         
         with open(demo_file, 'r', encoding='utf-8') as f:
@@ -56,14 +57,12 @@ class TestRunMoeDemoIntegration(unittest.TestCase):
         # 两种方式都可以，关键是统一入口
         
         # 验证tiger1.py支持moe策略
-        import sys
-        sys.path.insert(0, '/home/cx/tigertrade')
         from src import tiger1 as t1
         # 检查tiger1.py的main函数是否支持moe
         import inspect
         main_source = inspect.getsource(t1.__main__) if hasattr(t1, '__main__') else ''
         # 或者检查tiger1.py文件内容
-        with open('/home/cx/tigertrade/src/tiger1.py', 'r') as f:
+        with open(_REPO_ROOT / "src" / "tiger1.py", "r", encoding="utf-8") as f:
             tiger1_content = f.read()
             self.assertIn("strategy_type in ('moe', 'moe_transformer')", tiger1_content, 
                          "tiger1.py应该支持moe策略")
@@ -224,9 +223,9 @@ class TestRunMoeDemoIntegration(unittest.TestCase):
     
     def test_demo_script_imports(self):
         """测试8: DEMO脚本的导入检查（新架构）"""
-        demo_file = '/home/cx/tigertrade/scripts/run_moe_demo.py'
-        
-        with open(demo_file, 'r', encoding='utf-8') as f:
+        demo_file = str(_REPO_ROOT / "scripts" / "run_moe_demo.py")
+
+        with open(demo_file, "r", encoding="utf-8") as f:
             content = f.read()
         
         # run_moe_demo 通过 subprocess 调用 tiger1，只需检查入口与子进程
@@ -236,7 +235,7 @@ class TestRunMoeDemoIntegration(unittest.TestCase):
 
     def test_verify_api_does_not_place_order_on_start(self):
         """【防回归】verify_api_connection 不得在每次启动时调用 place_tiger_order（避免每启一个 DEMO 下一单）"""
-        with open('/home/cx/tigertrade/src/tiger1.py', 'r') as f:
+        with open(_REPO_ROOT / "src" / "tiger1.py", "r", encoding="utf-8") as f:
             content = f.read()
         # 查找 verify_api_connection 函数体，检查是否有未注释的 place_tiger_order 调用
         import re
@@ -255,7 +254,7 @@ class TestRunMoeDemoIntegration(unittest.TestCase):
 
     def test_order_executor_writes_order_log(self):
         """【防回归】OrderExecutor 成功/失败下单时应写入 order_log，便于报告分析"""
-        with open('/home/cx/tigertrade/src/executor/order_executor.py', 'r') as f:
+        with open(_REPO_ROOT / "src" / "executor" / "order_executor.py", "r", encoding="utf-8") as f:
             content = f.read()
         self.assertIn('order_log', content, "OrderExecutor 应导入 order_log")
         self.assertIn('order_log.log_order', content, "OrderExecutor 成功/失败下单时应调用 order_log.log_order")
@@ -263,7 +262,7 @@ class TestRunMoeDemoIntegration(unittest.TestCase):
     def test_tiger1_main_entry_no_attribute_error(self):
         """【防回归】以 __main__ 启动 tiger1（DEMO 入口）时，启动阶段不得出现 AttributeError check_risk_control、MIN_TICK NameError"""
         import subprocess
-        cwd = '/home/cx/tigertrade'
+        cwd = str(_REPO_ROOT)
         cmd = [sys.executable, 'src/tiger1.py', 'd', 'moe']
         proc = subprocess.Popen(
             cmd,

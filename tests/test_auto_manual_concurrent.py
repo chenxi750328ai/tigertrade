@@ -12,8 +12,6 @@ import threading
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
 # 手工订单轮询间隔（秒）：在测试中每次 on_price_update 的间隔
 POLL_INTERVAL = 2
 # 并发运行时长（秒）

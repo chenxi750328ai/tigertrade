@@ -36,7 +36,7 @@ def from_tiger_backend():
             cwd=str(ROOT),
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=60,
         )
         if r.returncode != 0:
             return None
@@ -44,12 +44,24 @@ def from_tiger_backend():
         if data.get("source") != "tiger_backend":
             return None
         res = {
-            "yield_pct": data.get("yield_pct") or "—",
+            "yield_pct": (data.get("yield_pct") or "—"),
             "yield_note": data.get("yield_note") or "老虎后台",
             "source": "tiger_backend",
         }
+        if isinstance(res["yield_pct"], str):
+            res["yield_pct"] = res["yield_pct"].strip() or "—"
         if data.get("filled_count") == 0 and data.get("zero_trades_action"):
             res["zero_trades_action"] = data["zero_trades_action"]
+        res["filled_count"] = data.get("filled_count", 0)
+        for k in (
+            "open_position_qty",
+            "unrealized_pnl_usd",
+            "combined_pnl_usd",
+            "position_detail",
+            "total_realized_pnl",
+        ):
+            if k in data:
+                res[k] = data[k]
         return res
     except Exception:
         return None
@@ -76,7 +88,7 @@ def from_report():
     total_profit = prof.get("total_profit", 0)
     if total == 0:
         return {"yield_pct": "—", "yield_note": "暂无交易", "source": "report"}
-    note = f"胜率 {win_rate:.1f}%"
+    note = f"胜率 {win_rate:.1f}%（报告为历史/累计，非仅今日；实盘以老虎后台为准）"
     if avg_profit is not None:
         note += f" · 均盈 {avg_profit:.2f} USD"
     if total_profit is not None:
@@ -123,8 +135,33 @@ def main():
             out["yield_pct"] = (data.get("yield_pct") or "—").strip() or "—"
             out["yield_note"] = (data.get("yield_note") or "").strip() or "老虎后台"
             out["source"] = "tiger_backend"
-            if data.get("zero_trades_action"):
+            for k in (
+                "open_position_qty",
+                "unrealized_pnl_usd",
+                "combined_pnl_usd",
+                "position_detail",
+                "total_realized_pnl",
+            ):
+                if k in data:
+                    out[k] = data[k]
+            if data.get("filled_count") == 0 and data.get("zero_trades_action"):
                 out["zero_trades_action"] = data["zero_trades_action"]
+            # 后台查为 0 时以运行 LOG 为准：若今日 LOG 有主单成功，则标注「后台未查到但 LOG 有记录」
+            if data.get("filled_count") == 0 or "今日无成交" in (out.get("yield_note") or ""):
+                try:
+                    from scripts.analyze_demo_log import aggregate_demo_logs, find_today_demo_logs
+                    today_logs = find_today_demo_logs()
+                    if today_logs:
+                        today_agg = aggregate_demo_logs(today_logs)
+                        if today_agg and today_agg.get("order_success", 0) > 0:
+                            n = today_agg["order_success"]
+                            out["yield_note"] = (
+                                "老虎后台未查到今日成交；运行 LOG 显示今日主单成功 %s 次，请核对后台或时区。"
+                                % n
+                            )
+                            out["yield_pct"] = "待核对（LOG有%d笔）" % n
+                except Exception:
+                    pass
         else:
             # 2) 报告（API 订单解析出的 profitability）
             data = from_report()

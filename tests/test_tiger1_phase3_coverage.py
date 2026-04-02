@@ -17,10 +17,6 @@ from unittest.mock import patch, MagicMock, Mock, PropertyMock
 import tempfile
 import shutil
 
-tigertrade_dir = '/home/cx/tigertrade'
-if tigertrade_dir not in sys.path:
-    sys.path.insert(0, tigertrade_dir)
-
 os.environ['ALLOW_REAL_TRADING'] = '0'
 
 from src import tiger1 as t1

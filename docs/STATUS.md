@@ -1,7 +1,17 @@
 # TigerTrade 项目状态（STATUS）
 
 > **项目计划**：月度/周计划、任务项与责任者见 **[项目计划_月度周计划.md](项目计划_月度周计划.md)**。  
-> **最后更新**：2026-02-05（老虎 API 约束、订单文档闭环、pytest 全绿）
+> **最后更新**：2026-04-02（Leader 日/周/月对齐汇报、四月计划第七节、DFX 门禁）
+
+---
+
+## 0. 例行心跳（定期汇报入口）
+
+- **Leader 日计划 ↔ 周/月计划**：[例行汇报_日周月对齐_陈正霞.md](reports/例行汇报_日周月对齐_陈正霞.md)（目标与《项目计划》一致，每日填「三、四」节）
+- **最新一轮汇总**：[`docs/reports/routine_pulse_latest.md`](reports/routine_pulse_latest.md)（由 `scripts/write_routine_pulse.py` 生成）
+- **刷新并写入**：`ROUTINE_PULSE_REFRESH=1 python scripts/write_routine_pulse.py`
+- **快检式优化（不跑任何回测，自检可能报「四策略无数据」）**：`ROUTINE_SKIP_SLOW_BACKTEST=1 ROUTINE_SELF_CHECK_SOFT=1 python scripts/optimize_algorithm_and_profitability.py`
+- **推荐例行（跳过 pro1 重回测，仍产出四策略网格/模型回测数据）**：`ROUTINE_SKIP_PRO1_BACKTEST=1 python scripts/optimize_algorithm_and_profitability.py`
 
 ---
 
@@ -10,9 +20,9 @@
 | 维度 | 状态 | 说明 |
 |------|------|------|
 | 整体 | 🟢 活跃开发中 | 订单与风控已完善，DEMO 可重启清仓、主单伴随止盈止损 |
-| 订单与风控 | ✅ 已落地 | 主单成功后提交 STP 止损、LMT 止盈；价格按 min_tick 取整；OrderExecutor 已修复 tick size |
+| 订单与风控 | ✅ 已落地 | 主单成功后提交 STP 止损、LMT 止盈；place_tiger_order 与 OrderExecutor 均支持；价格按 min_tick 取整 |
 | DEMO | 🔄 运行中 | MOE 策略，启动时 reset_demo_positions() 清仓；日志见 `logs/demo_restart_*.log` |
-| 测试与 CI | 🟢 可用 | pytest / coverage 已配置；建议 `pytest tests/ -m "not real_api"` |
+| 测试与 CI | 🟢 可用 | `pytest tests/ -m "not real_api"` + `scripts/verify_design_completeness_and_dfx.py`（与主 CI / daily 工作流一致） |
 | 文档与计划 | ✅ 已建立 | 订单执行流程说明、项目计划（月度/周）、本文 STATUS |
 
 ---
@@ -24,6 +34,7 @@
 - **2 月重点**：订单与风控完善、DEMO 稳定、计划与 STATUS 联动（进行中）。
 - **二月交付**：模型超参纳入优化、大模型搜参**单策略首轮出结果**（不推到三月）；确需长周期的工作见 [项目计划](项目计划_月度周计划.md)「确需长周期的工作（供评审）」。
 - **3 月草案**：收益率分析、20h DEMO 验证、算法优化延续（待启动）。
+- **4 月（进行中）**：生产就绪与监控；详见 [项目计划](项目计划_月度周计划.md)「七、2026 年 4 月」及 Leader [例行汇报](reports/例行汇报_日周月对齐_陈正霞.md)。
 
 ---
 
@@ -34,7 +45,9 @@
 | 老虎 API 约束与全项目测试 | 2026-02-05 | [Tiger_API_限制与平仓脚本说明](Tiger_API_限制与平仓脚本说明.md)：约束汇总、项目内下单路径遵从表、test_tiger_api_constraints 覆盖 OrderExecutor/tiger1/api_adapter |
 | 订单与风控文档闭环 | 2026-02-05 | [订单执行流程说明](订单执行流程说明.md) 补充 §6 老虎 API 约束、§5.1 平仓脚本用法 |
 | 模型/策略回归测试 | 2026-02-05 | pytest tests/ -m "not real_api" 全绿（569 passed） |
+| DFX/设计完备性门禁 + 黑盒后台可见 + 测试路径可移植 | 2026-04-02 | `verify_design_completeness_and_dfx.py`、Tiger Order `id` 对齐、批量去 `/home/cx/tigertrade`；详见 [测试加强清单](reports/测试加强清单_覆盖率与漏测.md) |
 | 主单伴随止盈/止损单 | 2026-02-02 | api_adapter STP/STP_LMT；place_tiger_order 主单成功后提交 SL/TP |
+| OrderExecutor 主单后提交 SL/TP | 2026-03-01 | MOE 路径 execute_buy 主单成功后自动提交止损(STP)与止盈(LMT)；test_execute_buy_submits_stop_loss_and_take_profit_orders 断言 |
 | DEMO 重启清仓 | 2026-02-02 | reset_demo_positions()，MOE 启动时调用 |
 | OrderExecutor 价格取整 | 2026-02-02 | execute_buy/execute_sell 按 min_tick 取整，解决 tick size 报错 |
 | 订单执行流程说明更新 | 2026-02-02 | 含 SL/TP、STP/STP_LMT、价格取整、DEMO 重置 |

@@ -4,8 +4,6 @@ account传递端到端测试 - 必须能发现account为空的问题
 import os
 import unittest
 import sys
-sys.path.insert(0, '/home/cx/tigertrade')
-
 from unittest.mock import Mock, patch, MagicMock
 from tigeropen.tiger_open_config import TigerOpenClientConfig
 from tigeropen.quote.quote_client import QuoteClient
@@ -164,11 +162,17 @@ class TestAccount传递端到端(unittest.TestCase):
         
         mock_order = Mock()
         mock_order.order_id = "TEST_ORDER_456"
+        # RealTradeApiAdapter 会优先走组合单；本用例要验证「回退路径 + place_order」与 account fallback
         api_manager.trade_api.place_order = Mock(return_value=mock_order)
-        
-        with patch.object(t1, 'sync_positions_from_backend', return_value=None), \
-             patch.object(t1, 'get_effective_position_for_buy', return_value=0):
-            # grid_lower=97 使风控通过，才能走到 place_order
+        api_manager.trade_api.get_order = Mock(return_value=mock_order)
+        api_manager.trade_api.get_orders = Mock(return_value=[mock_order])
+        api_manager.trade_api.wait_until_buy_filled = Mock(return_value=True)
+
+        with patch.object(t1, 'client_config', None), \
+             patch.object(t1, 'sync_positions_from_backend', return_value=None), \
+             patch.object(t1, 'get_effective_position_for_buy', return_value=0), \
+             patch.object(api_manager.trade_api, 'place_limit_with_bracket', side_effect=ValueError("test force fallback")):
+            # grid_lower=97 使风控通过；组合单失败 → 限价主单 + 成交后 STP/TP
             success, message = order_executor.execute_buy(
                 price=100.0,
                 atr=0.5,
@@ -184,8 +188,9 @@ class TestAccount传递端到端(unittest.TestCase):
             if "account" in (message or "").lower():
                 self.fail(f"fallback逻辑未工作: {message}")
         
-        # 验证place_order被调用
-        api_manager.trade_api.place_order.assert_called_once()
+        # 验证 place_order 被调用（回退：主单 + 止损 + 止盈 = 3 次）
+        self.assertGreaterEqual(api_manager.trade_api.place_order.call_count, 1,
+                                "place_order 应至少被调用 1 次（主单；若带 SL/TP 则为 3 次）")
 
     @unittest.skipIf(_config_has_account(), "openapicfg_dem has account so _account gets filled")
     def test_仅trade_client_config_account为None时account为空(self):

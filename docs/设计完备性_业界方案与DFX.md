@@ -130,4 +130,10 @@
 
 需求分析主入口：[需求分析和Feature测试设计](需求分析和Feature测试设计.md)。本文档为该需求的**设计完备性补充**，与实现保持一致并随实现更新。
 
-**验收方式**：设计完备性由**例行自检**或 **CI 测试**验收，不单独占状态页一行。例行中检查本文档与 [需求分析和Feature测试设计](需求分析和Feature测试设计.md) 及当前实现（脚本/模块引用）是否一致；CI 可增加文档存在性检查（如上述两文档存在）。参见 [例行工作清单](../shared_rag/best_practices/例行工作清单_agent必读.md)。
+**验收方式（已落地为硬门禁，禁止仅「文档在仓库」即通过）**：
+
+1. **自动化**：在仓库 `tigertrade/` 根目录执行  
+   `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python scripts/verify_design_completeness_and_dfx.py`  
+   ——校验关键文档文件存在，并跑通 DFX/组合单相关回归用例（见 `tests/test_design_completeness_dfx_gate.py`、`tests/test_executor_dfx_emission.py` 等）。
+2. **CI**：主工作流含步骤「Design completeness + DFX gate」，与上条脚本一致。
+3. **例行**：仍须对照本文与 [需求分析和Feature测试设计](需求分析和Feature测试设计.md) 检查实现是否一致；不单独占状态页一行。详见 [例行工作清单](../shared_rag/best_practices/例行工作清单_agent必读.md)「设计完备性（DFX，必须可执行验收）」。

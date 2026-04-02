@@ -7,10 +7,6 @@ import unittest
 import sys
 import os
 from unittest.mock import patch, MagicMock
-
-sys.path.insert(0, '/home/cx/tigertrade')
-
-
 class TestOrderExecutionReal(unittest.TestCase):
     """真实下单逻辑测试"""
     

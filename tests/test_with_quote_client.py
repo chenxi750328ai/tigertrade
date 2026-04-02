@@ -11,8 +11,6 @@ import datetime
 from zoneinfo import ZoneInfo
 
 # 添加当前目录到路径
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
 from src import tiger1 as t1
 from src.api_adapter import MockQuoteApiAdapter, ApiAdapterManager
 

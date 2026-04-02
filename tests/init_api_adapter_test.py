@@ -13,8 +13,6 @@ from datetime import datetime, timedelta
 import time
 
 # 添加tigertrade目录到路径
-sys.path.insert(0, '/home/cx/tigertrade')
-
 from src import tiger1 as t1
 from src.api_adapter import api_manager
 

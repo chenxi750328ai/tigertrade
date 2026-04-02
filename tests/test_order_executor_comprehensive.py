@@ -5,8 +5,6 @@
 import unittest
 import sys
 from unittest.mock import Mock, patch, MagicMock
-sys.path.insert(0, '/home/cx/tigertrade')
-
 from src.executor.order_executor import OrderExecutor
 from src.api_adapter import api_manager
 from src import tiger1 as t1
@@ -24,6 +22,10 @@ class TestOrderExecutorComprehensive(unittest.TestCase):
         api_manager.initialize_mock_apis()
         t1.current_position = 0
         t1.daily_loss = 0
+        # 若本机已加载 openapicfg，client_config.account 非空会触发「下单后后台校验」；
+        # 仅替换 place_order 的 Mock 不会写入 orders，校验必失败 —— 单测与 client_config 解耦
+        self._client_config_backup = getattr(t1, "client_config", None)
+        t1.client_config = None
         self._sync_backup = getattr(t1, "sync_positions_from_backend", None)
         t1.sync_positions_from_backend = lambda: setattr(t1, "current_position", getattr(t1, "current_position", 0))
         # 避免 get_effective_position_for_buy 从 mock 拉成 3 手导致硬顶拦截
@@ -35,6 +37,7 @@ class TestOrderExecutorComprehensive(unittest.TestCase):
         t1.current_position = 0
         t1.daily_loss = 0
         t1.check_risk_control = _original_check_risk_control
+        t1.client_config = getattr(self, "_client_config_backup", None)
         if getattr(self, "_sync_backup", None) is not None:
             t1.sync_positions_from_backend = self._sync_backup
         if getattr(self, "_get_effective_backup", None) is not None:

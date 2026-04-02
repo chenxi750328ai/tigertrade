@@ -2,7 +2,11 @@
 # -*- coding: utf-8 -*-
 """
 平仓脚本：将 DEMO 账户持仓恢复为 0（多头和空头）
-用法: cd /home/cx/tigertrade && python scripts/close_demo_positions.py d
+用法:
+  cd /home/cx/tigertrade && python scripts/close_demo_positions.py d
+  # 若后台有两手持仓但 sync 显示 0，强制平 2 手多头：
+  python scripts/close_demo_positions.py d --long 2
+  # 强制平空头：--short N
 使用 openapicfg_dem 配置，拉取老虎持仓后：
 - 多头：SELL 平仓
 - 空头：BUY 平仓（买入平仓）
@@ -16,6 +20,28 @@ os.chdir('/home/cx/tigertrade')
 # 必须在 import tiger1 前设置，否则会走 mock 不下真实单
 if len(sys.argv) < 2 or sys.argv[1] not in ('d', 'c'):
     sys.argv = [sys.argv[0], 'd']
+
+def _parse_force_close():
+    """解析 --long N 与 --short N，返回 (force_long, force_short)。未指定则为 None。"""
+    force_long, force_short = None, None
+    argv = sys.argv
+    i = 2  # 跳过 script, d/c
+    while i < len(argv) - 1:
+        if argv[i] == '--long':
+            try:
+                force_long = max(0, int(argv[i + 1]))
+            except (ValueError, TypeError):
+                pass
+            i += 2
+        elif argv[i] == '--short':
+            try:
+                force_short = max(0, int(argv[i + 1]))
+            except (ValueError, TypeError):
+                pass
+            i += 2
+        else:
+            i += 1
+    return force_long, force_short
 
 from scripts.close_utils import is_real_order_id as _is_real_order_id, wait_order_fill as _wait_order_fill
 
@@ -55,8 +81,14 @@ def main():
     t1.sync_positions_from_backend()
     long_qty = t1.current_position
     short_qty = getattr(t1, 'current_short_position', 0)
+    force_long, force_short = _parse_force_close()
+    if force_long is not None:
+        long_qty = max(long_qty, force_long)
+    if force_short is not None:
+        short_qty = max(short_qty, force_short)
     if long_qty <= 0 and short_qty <= 0:
         print("✅ 当前无持仓，无需平仓")
+        print("若后台实际有仓（例如两手持仓）但此处显示 0，请执行: python scripts/close_demo_positions.py d --long 2")
         return 0
     print(f"⚠️ 当前持仓: 多头 {long_qty} 手, 空头 {short_qty} 手，开始平仓...")
     # 先平空、再平多（避免平多后 net 变空头，再 BUY 时被误判）

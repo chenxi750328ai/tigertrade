@@ -3,9 +3,6 @@ import pandas as pd
 import numpy as np
 
 sys.argv = ['pytest']
-
-sys.path.insert(0, '/home/cx/tigertrade')
-
 from src import tiger1 as t1
 
 

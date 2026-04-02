@@ -14,8 +14,6 @@ from datetime import datetime
 import time
 
 # 添加tigertrade目录到路径
-sys.path.insert(0, '/home/cx/tigertrade')
-
 # 无 GPU/策略 时测试仍运行，用例用 mock 通过（不跳过整模块）
 import pytest
 try:

@@ -43,6 +43,21 @@ def find_all_demo_logs():
     return out
 
 
+def find_today_demo_logs():
+    """仅返回「今日」有写入的 DEMO 日志（按文件 mtime 日期=当天），用于与老虎后台 0 笔时对照 LOG 是否今日有单。"""
+    from datetime import datetime
+    today = datetime.now().date()
+    out = []
+    for p in find_all_demo_logs():
+        try:
+            if p.stat().st_mtime and datetime.fromtimestamp(p.stat().st_mtime).date() == today:
+                out.append(p)
+        except Exception:
+            pass
+    out.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return out
+
+
 def aggregate_demo_logs(log_paths=None):
     """对多份 DEMO 日志做汇总统计，供策略报告与优化报告使用。"""
     paths = log_paths if log_paths is not None else find_all_demo_logs()

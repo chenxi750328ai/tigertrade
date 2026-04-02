@@ -5,8 +5,6 @@
 import unittest
 import sys
 from unittest.mock import Mock, patch, MagicMock
-sys.path.insert(0, '/home/cx/tigertrade')
-
 from src.executor.trading_executor import TradingExecutor
 from src.executor.data_provider import MarketDataProvider
 from src.executor.order_executor import OrderExecutor

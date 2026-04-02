@@ -5,8 +5,6 @@ import unittest.mock as mock
 from unittest.mock import MagicMock
 
 # Add project path
-sys.path.insert(0, '/home/cx/tigertrade')
-
 # Import the module to test
 from src import tiger1
 

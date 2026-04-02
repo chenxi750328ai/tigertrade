@@ -1,10 +1,5 @@
-import sys
 import os
 from types import SimpleNamespace
-
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if ROOT not in sys.path:
-    sys.path.insert(0, ROOT)
 
 from src import tiger1 as t1
 from src.api_adapter import api_manager

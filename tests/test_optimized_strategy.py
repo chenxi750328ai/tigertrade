@@ -12,8 +12,6 @@ import pandas as pd
 import numpy as np
 
 # 添加项目路径（优先 tigertrade1 以加载 tiger2，无则用 stub）
-sys.path.insert(0, '/home/cx/tigertrade1')
-
 try:
     __import__('tiger2')
     HAS_TIGER2 = True

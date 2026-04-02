@@ -14,8 +14,6 @@ import warnings
 import time
 
 # 添加tigertrade目录到路径
-sys.path.insert(0, '/home/cx/tigertrade')
-
 from src import tiger1 as t1
 from src.api_agent import api_agent
 

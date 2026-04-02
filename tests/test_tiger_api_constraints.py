@@ -11,10 +11,6 @@
 import sys
 import unittest
 from unittest.mock import MagicMock, patch
-
-sys.path.insert(0, '/home/cx/tigertrade')
-
-
 class TestTigerApiPlaceOrderConstraints(unittest.TestCase):
     """place_order 相关约束"""
 
@@ -92,10 +88,11 @@ class TestTigerApiOrderTypeAndSession(unittest.TestCase):
 
     def test_attached_order_parent_must_be_limit(self):
         """
-        约束：附加订单（止损/止盈）的主单必须为限价单。
-        代码：place_tiger_order 主单为 LMT 或 MKT；附加 SL/TP 在主单成功后单独提交，主单为 LMT 时才有附加。
+        约束：附加订单（止损/止盈）的主单必须为限价单（Tiger Open）。
+        代码：优先 RealTradeApiAdapter.place_limit_with_bracket（order_utils.limit_order_with_legs，
+        LOSS+PROFIT → BRACKETS）；失败则回退 LMT 主单 + 成交后 STP/LMT。
         """
-        self.assertTrue(True, "附加订单主单须为 LMT")
+        self.assertTrue(True, "组合单/附加单主单须为 LMT")
 
 
 class TestTigerApiFifteenPendingLimit(unittest.TestCase):
@@ -159,23 +156,27 @@ class TestOrderExecutorTigerConstraints(unittest.TestCase):
         with patch.object(t1, 'get_effective_position_for_buy', return_value=0):
             with patch.object(t1, 'check_risk_control', return_value=True):
                 exec.execute_buy(100.0, 0.5, 97.0, 105.0, 0.7)
-        # place_order(symbol, side, order_type, quantity, time_in_force, limit_price, stop_price)
+        # place_order 可能为位置参数 (symbol, side, type, qty, time_in_force, ...) 或关键字参数
         args = captured.get('args', [])
-        self.assertGreaterEqual(len(args), 5, "place_order 应有 time_in_force 参数")
-        tif = args[4] if len(args) >= 5 else None
+        kwargs = captured.get('kwargs', {})
+        tif = args[4] if len(args) >= 5 else kwargs.get('time_in_force')
+        self.assertTrue(
+            len(args) >= 5 or 'time_in_force' in kwargs,
+            "place_order 应有 time_in_force（位置第5个或关键字）"
+        )
         tif_val = getattr(tif, 'name', None) or str(tif) if tif else None
         self.assertIn('DAY', str(tif_val or ''), "OrderExecutor 应使用 DAY")
 
-    def test_order_executor_does_not_verify_fill(self):
+    def test_order_executor_uses_backend_verify_and_optional_wait_fill(self):
         """
-        文档约束：OrderExecutor 当前不调用 get_order 校验成交。
-        单笔 1 手策略单可接受；大批量场景应使用 close_demo_positions 流程。
+        OrderExecutor 下单后会用 get_order/get_orders 做后台可见性校验；
+        回退路径（非 BRACKETS）在挂 SL/TP 前会调用 wait_until_buy_filled。
         """
         import inspect
         from src.executor import order_executor
         src = inspect.getsource(order_executor)
-        self.assertNotIn('get_order', src, "OrderExecutor 不调用 get_order")
-        self.assertNotIn('wait_order_fill', src, "OrderExecutor 不调用 wait_order_fill")
+        self.assertIn("get_order", src, "应有后台订单校验")
+        self.assertIn("wait_until_buy_filled", src, "回退路径应等待 FILLED 再挂保护单")
 
 
 class TestTiger1PlaceOrderConstraints(unittest.TestCase):

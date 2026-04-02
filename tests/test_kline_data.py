@@ -11,8 +11,6 @@ sys.argv = ['pytest', 'd']
 import types
 import sys as _sys
 # ensure project root is on sys.path so `importlib.import_module('tigertrade.tiger1')` works
-_sys.path.insert(0, '/home/cx/tigertrade')
-
 def _inject_tigeropen_stubs():
     """仅在 import 失败时注入，避免覆盖已加载的真实 tigeropen。"""
     _consts = types.SimpleNamespace(

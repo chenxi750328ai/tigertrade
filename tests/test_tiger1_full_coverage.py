@@ -21,11 +21,6 @@ from unittest.mock import Mock, patch, MagicMock
 import tempfile
 import shutil
 
-# 添加tigertrade目录到路径
-tigertrade_dir = '/home/cx/tigertrade'
-if tigertrade_dir not in sys.path:
-    sys.path.insert(0, tigertrade_dir)
-
 # 设置环境变量确保使用模拟模式
 os.environ['ALLOW_REAL_TRADING'] = '0'
 

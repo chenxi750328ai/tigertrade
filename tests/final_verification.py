@@ -6,6 +6,10 @@
 
 import sys
 import os
+from pathlib import Path
+
+_REPO = Path(__file__).resolve().parents[1]
+
 
 def main():
     """主验证函数"""
@@ -13,8 +17,6 @@ def main():
     print("="*60)
     
     # 添加项目路径
-    sys.path.insert(0, '/home/cx/tigertrade1')
-    
     try:
         import tiger2
         print("✅ tiger2模块导入成功")
@@ -44,7 +46,7 @@ def main():
     # 检查是否包含优化特征
     source_code = ""
     try:
-        with open('/home/cx/tigertrade1/tiger2.py', 'r', encoding='utf-8') as f:
+        with open(_REPO / "src" / "tiger1.py", "r", encoding="utf-8") as f:
             source_code = f.read()
     except Exception as e:
         print(f"❌ 读取源码失败: {e}")

@@ -10,8 +10,6 @@ import pytest
 import sys
 import os
 import time
-sys.path.insert(0, '/home/cx/tigertrade')
-
 # 初始化真实API（DEMO账户）
 from tigeropen.tiger_open_config import TigerOpenClientConfig
 from tigeropen.quote.quote_client import QuoteClient

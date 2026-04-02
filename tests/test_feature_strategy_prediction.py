@@ -4,8 +4,6 @@ Feature级测试：交易策略预测（Feature 2）
 """
 import unittest
 import sys
-sys.path.insert(0, '/home/cx/tigertrade')
-
 from src.strategies.strategy_factory import StrategyFactory
 from src.executor.data_provider import MarketDataProvider
 from src import tiger1 as t1

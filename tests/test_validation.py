@@ -13,8 +13,6 @@ import pandas as pd
 import numpy as np
 
 # 添加项目路径
-sys.path.insert(0, '/home/cx/tigertrade')
-
 def _ensure_tigeropen_stubs():
     """仅在 contract_utils 未加载时注入最小 stub，供 test_validation 单独运行时导入 tiger1。"""
     if 'tigeropen.common.util.contract_utils' in sys.modules:

@@ -15,8 +15,6 @@ from datetime import datetime
 import time
 
 # 添加tigertrade目录到路径
-sys.path.insert(0, '/home/cx/tigertrade')
-
 try:
     import torch
     from src.strategies.model_comparison_strategy import ModelComparisonStrategy

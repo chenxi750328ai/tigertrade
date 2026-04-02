@@ -4,8 +4,6 @@ Feature级测试：风险管理（Feature 4）
 """
 import unittest
 import sys
-sys.path.insert(0, '/home/cx/tigertrade')
-
 from src import tiger1 as t1
 
 

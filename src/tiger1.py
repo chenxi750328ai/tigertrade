@@ -20,6 +20,10 @@ from collections import deque
 from dotenv import load_dotenv
 import csv
 
+# 从项目根 .env 加载 ALLOW_REAL_TRADING 等（避免只改 shell 未 export 导致综合账户路径全拒单）
+_TIGER_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+load_dotenv(os.path.join(_TIGER_ROOT, ".env"))
+
 # Tiger Open API imports
 from tigeropen.common.consts import Language, Market, BarPeriod, QuoteRight
 from tigeropen.common.consts import OrderStatus, OrderType, Currency, SecurityType
@@ -382,6 +386,8 @@ closed_positions = {}          # 已平仓的交易记录 {order_id: {'buy_order
 position_entry_times = {}      # 记录每个持仓的入场时间 {position_id: timestamp}
 position_entry_prices = {}     # 记录每个持仓的入场价格 {position_id: entry_price}
 active_take_profit_orders = {} # 跟踪已提交的止盈单 {position_id: {'target_price': price, 'submit_time': timestamp}}
+# 最近一次买入成功时间（用于后台持仓同步延迟保护，防止短时回写导致超仓）
+_last_buy_success_ts = 0.0
 
 # 止盈参数（可通过命令行参数或环境变量调整）
 TAKE_PROFIT_TIMEOUT = 15       # 止盈单超时（分钟）
@@ -389,6 +395,10 @@ MIN_PROFIT_RATIO = float(0.02) # 最低主动止盈比例（2%）
 
 # 运行环境标识（用于日志/模拟下单提示），以及今日日期用于每日亏损重置
 RUN_ENV = 'sandbox' if count_type == 'd' else 'production'
+if RUN_ENV == 'production' and os.getenv('ALLOW_REAL_TRADING', '0') != '1':
+    print("⚠️ 【配置】RUN_ENV=production（综合账户 c）且 ALLOW_REAL_TRADING!=1：place_tiger_order 将拒绝真实下单。")
+    print("   修复：export ALLOW_REAL_TRADING=1 或在项目根 .env 写入 ALLOW_REAL_TRADING=1（见 .env.example）。")
+    print("   DEMO 账户请用：python src/tiger1.py d ...（RUN_ENV=sandbox，不检查此项）。")
 today = datetime.now().date()
 
 # 初始化时段自适应策略（如果可用）
@@ -1508,9 +1518,28 @@ def get_kline_data(symbol, period, count=100, start_time=None, end_time=None, fr
 # 上一次 place_tiger_order 的结果，供平仓脚本等校验：(ok, order_id)
 _last_place_order_result = (False, None)
 
+
+def _dfx_log(event: str, detail: str = "", **fields):
+    """组合单/止损/止盈路径写入 run/dfx_execution.jsonl（项目 DFX，不依赖用户是否重定向 stdout）。"""
+    try:
+        if order_log is not None and hasattr(order_log, "log_dfx"):
+            order_log.log_dfx(event, detail, **fields)
+            return
+        import importlib
+
+        for mod in ("src.order_log", "order_log"):
+            try:
+                importlib.import_module(mod).log_dfx(event, detail, **fields)
+                return
+            except Exception:
+                continue
+    except Exception as e:
+        logger.warning("[DFX] log_dfx 失败: %s | event=%s", e, event)
+
+
 def place_tiger_order(side, quantity, price, stop_loss_price=None, take_profit_price=None, tech_params=None, reason='', source='auto'):
     """下单函数（适配动态乘数）。source: 'auto' 自动订单 | 'manual' 手工订单"""
-    global current_position, daily_loss, position_entry_times, position_entry_prices, active_take_profit_orders, open_orders, _last_place_order_result
+    global current_position, daily_loss, position_entry_times, position_entry_prices, active_take_profit_orders, open_orders, _last_place_order_result, _last_buy_success_ts
 
     import time
     import random  # 添加random模块导入
@@ -1532,7 +1561,7 @@ def place_tiger_order(side, quantity, price, stop_loss_price=None, take_profit_p
     if RUN_ENV == 'production' and os.getenv('ALLOW_REAL_TRADING', '0') != '1':
         print(f"❌ 生产模式下未启用真实交易 (ALLOW_REAL_TRADING!=1)，拒绝下单 {side} {quantity} @ {price}")
         if order_log:
-            order_log.log_order(side, quantity, price, order_id, "fail", "real", stop_loss_price, take_profit_price, reason=reason, error="ALLOW_REAL_TRADING!=1", source=source, symbol=symbol_for_log, order_type=log_order_type)
+            order_log.log_order(side, quantity, price, order_id, "fail", "real", stop_loss_price, take_profit_price, reason=reason, error="ALLOW_REAL_TRADING!=1", source=source, symbol=symbol_for_log, order_type=log_order_type, run_env=RUN_ENV)
         _last_place_order_result = (False, None)
         return False
 
@@ -1547,7 +1576,7 @@ def place_tiger_order(side, quantity, price, stop_loss_price=None, take_profit_p
         if pos >= HARD_MAX:
             logger.warning("[DFX] place_tiger_order 硬顶拒绝 BUY: pos=%s >= %s", pos, HARD_MAX)
             if order_log:
-                order_log.log_order(side, quantity, price, order_id, "fail", "real", stop_loss_price, take_profit_price, reason=reason, error=f"持仓硬顶 pos={pos}>={HARD_MAX}", source=source, symbol=symbol_for_log, order_type=log_order_type)
+                order_log.log_order(side, quantity, price, order_id, "fail", "real", stop_loss_price, take_profit_price, reason=reason, error=f"持仓硬顶 pos={pos}>={HARD_MAX}", source=source, symbol=symbol_for_log, order_type=log_order_type, run_env=RUN_ENV)
             _last_place_order_result = (False, None)
             return False
 
@@ -1558,7 +1587,7 @@ def place_tiger_order(side, quantity, price, stop_loss_price=None, take_profit_p
         print(f"✅ [模拟单] 下单成功 | {side} {quantity}手 | 价格：{price_str} | 订单ID：{order_id}")
         _last_place_order_result = (True, order_id)  # order_id 为 ORDER_xxx，平仓脚本可据此识别 mock
         if order_log:
-            order_log.log_order(side, quantity, price, order_id, "success", "mock", stop_loss_price, take_profit_price, reason=reason, source=source, symbol=symbol_for_log, order_type=log_order_type)
+            order_log.log_order(side, quantity, price, order_id, "success", "mock", stop_loss_price, take_profit_price, reason=reason, source=source, symbol=symbol_for_log, order_type=log_order_type, run_env=RUN_ENV)
         
         # 如果设置了止盈单
         if take_profit_price is not None:
@@ -1602,13 +1631,13 @@ def place_tiger_order(side, quantity, price, stop_loss_price=None, take_profit_p
                     else:
                         logger.warning("[place_tiger_order] API初始化失败")
                         if order_log:
-                            order_log.log_order(side, quantity, price or 0, order_id, "fail", "real", stop_loss_price, take_profit_price, reason=reason, error="API init failed", source=source, symbol=symbol_for_log, order_type=log_order_type)
+                            order_log.log_order(side, quantity, price or 0, order_id, "fail", "real", stop_loss_price, take_profit_price, reason=reason, error="API init failed", source=source, symbol=symbol_for_log, order_type=log_order_type, run_env=RUN_ENV)
                             order_log.log_api_failure_for_support(side=side, quantity=quantity, price=price, symbol_submitted=symbol_for_log, order_type_api="LMT", time_in_force="DAY", limit_price=float(price) if price is not None else None, stop_price=None, error="API init failed", source=source, order_id=order_id)
                         return False
                 else:
                     logger.warning("[place_tiger_order] 无法初始化API trade_client=%s quote_client=%s", trade_client is not None, quote_client is not None)
                     if order_log:
-                        order_log.log_order(side, quantity, price or 0, order_id, "fail", "real", stop_loss_price, take_profit_price, reason=reason, error="Cannot init API", source=source, symbol=symbol_for_log, order_type=log_order_type)
+                        order_log.log_order(side, quantity, price or 0, order_id, "fail", "real", stop_loss_price, take_profit_price, reason=reason, error="Cannot init API", source=source, symbol=symbol_for_log, order_type=log_order_type, run_env=RUN_ENV)
                         order_log.log_api_failure_for_support(side=side, quantity=quantity, price=price, symbol_submitted=symbol_for_log, order_type_api="LMT", time_in_force="DAY", limit_price=float(price) if price is not None else None, stop_price=None, error="Cannot init API", source=source, order_id=order_id)
                     return False
             
@@ -1644,15 +1673,67 @@ def place_tiger_order(side, quantity, price, stop_loss_price=None, take_profit_p
             
             # 提交订单：期货代码须为 compact 格式（如 SIL2605），后台才能正确显示
             symbol_for_api = _to_api_identifier(FUTURE_SYMBOL)
-            order_result = trade_api.place_order(
-                symbol=symbol_for_api,
-                side=order_side,
-                order_type=order_type,
-                quantity=quantity,
-                time_in_force=TimeInForce.DAY,
-                limit_price=limit_price,
-                stop_price=None
-            )
+            used_bracket_combo = False
+            order_result = None
+            # 买入限价且同时有止损/止盈：优先老虎 BRACKETS（limit_order_with_legs）
+            if (
+                side == "BUY"
+                and limit_price is not None
+                and stop_loss_price is not None
+                and take_profit_price is not None
+            ):
+                _sl_r = round(stop_loss_price / min_tick) * min_tick if min_tick > 0 else stop_loss_price
+                _tp_r = round(take_profit_price / min_tick) * min_tick if min_tick > 0 else take_profit_price
+                _sl_r = round(_sl_r, 2)
+                _tp_r = round(_tp_r, 2)
+                _bracket_fn = getattr(trade_api, "place_limit_with_bracket", None)
+                if callable(_bracket_fn):
+                    try:
+                        order_result = _bracket_fn(
+                            symbol_for_api,
+                            order_side,
+                            quantity,
+                            limit_price,
+                            _sl_r,
+                            _tp_r,
+                            TimeInForce.DAY,
+                        )
+                        used_bracket_combo = True
+                        logger.info("[实盘单] 已提交 BRACKETS 组合单 | LMT=%s LOSS=%s PROFIT=%s", limit_price, _sl_r, _tp_r)
+                        _boid = getattr(order_result, "order_id", None) or (
+                            order_result.get("order_id") if isinstance(order_result, dict) else None
+                        ) or str(order_result)
+                        _dfx_log(
+                            "bracket_submitted",
+                            "limit_order_with_legs BRACKETS",
+                            order_id=str(_boid),
+                            symbol=str(symbol_for_api),
+                            limit_price=float(limit_price),
+                            stop_loss=float(_sl_r),
+                            take_profit=float(_tp_r),
+                            quantity=int(quantity),
+                        )
+                    except Exception as combo_e:
+                        logger.warning("[实盘单] 组合单失败，回退限价单+成交后止损/止盈: %s", combo_e)
+                        _dfx_log(
+                            "bracket_failed",
+                            str(combo_e),
+                            symbol=str(symbol_for_api),
+                            limit_price=float(limit_price) if limit_price is not None else None,
+                            stop_loss=float(_sl_r),
+                            take_profit=float(_tp_r),
+                            quantity=int(quantity),
+                        )
+            if not used_bracket_combo:
+                order_result = trade_api.place_order(
+                    symbol=symbol_for_api,
+                    side=order_side,
+                    order_type=order_type,
+                    quantity=quantity,
+                    time_in_force=TimeInForce.DAY,
+                    limit_price=limit_price,
+                    stop_price=None,
+                )
             
             # 处理返回结果（可能是对象或字典）
             if hasattr(order_result, 'order_id'):
@@ -1662,16 +1743,73 @@ def place_tiger_order(side, quantity, price, stop_loss_price=None, take_profit_p
             else:
                 order_id = str(order_result)
             
+            # 仅当后台能查到该单才记为成功，避免 LOG 显示成功但后台无订单
+            account = getattr(trade_api, 'account', None) or (getattr(client_config, 'account', None) if client_config else None)
+            if account and callable(getattr(trade_api, 'get_orders', None)):
+                try:
+                    found = False
+                    _oid = str(order_id)
+                    for _ in range(8):  # 给后端订单索引一点传播时间（约 8 秒）
+                        if callable(getattr(trade_api, 'get_order', None)):
+                            one = trade_api.get_order(account=account, id=order_id)
+                            if one is not None:
+                                found = True
+                                break
+                        recent = trade_api.get_orders(account=account, symbol=symbol_for_api, limit=30)
+                        for o in (recent or []):
+                            oid = getattr(o, 'order_id', None) or getattr(o, 'id', None)
+                            if oid is not None and str(oid) == _oid:
+                                found = True
+                                break
+                        if found:
+                            break
+                        time.sleep(1)
+                    if not found:
+                        logger.warning("[实盘单] 订单已提交但后台未查到 order_id=%s，不记为成功", order_id)
+                        _last_place_order_result = (False, str(order_id))
+                        if order_log:
+                            order_log.log_order(side, quantity, price or 0, order_id, "fail", "real", stop_loss_price, take_profit_price, reason=reason, source=source, symbol=symbol_for_log, order_type=log_order_type, error="订单提交后 8 秒内后台未查到，可能被拒或延迟，请核对后台", run_env=RUN_ENV)
+                        return
+                except Exception as verify_e:
+                    logger.warning("[实盘单] 后台校验异常: %s，不记为成功", verify_e)
+                    _last_place_order_result = (False, str(order_id))
+                    if order_log:
+                        order_log.log_order(side, quantity, price or 0, order_id, "fail", "real", stop_loss_price, take_profit_price, reason=reason, source=source, symbol=symbol_for_log, order_type=log_order_type, error=f"后台校验失败: {verify_e}", run_env=RUN_ENV)
+                    return
+            
+            if used_bracket_combo:
+                log_order_type = "limit_bracket"
             price_str = f"{price:.3f}" if price else "市价"
             logger.info("[实盘单] 下单成功 | %s %s手 | 价格=%s | 订单ID：%s", side, quantity, price_str, order_id)
             _last_place_order_result = (True, str(order_id))
             if order_log:
-                order_log.log_order(side, quantity, price or 0, order_id, "success", "real", stop_loss_price, take_profit_price, reason=reason, source=source, symbol=symbol_for_log, order_type=log_order_type)
+                order_log.log_order(side, quantity, price or 0, order_id, "success", "real", stop_loss_price, take_profit_price, reason=reason, source=source, symbol=symbol_for_log, order_type=log_order_type, run_env=RUN_ENV)
             
-            # 主单成功后，立即提交止损单和止盈单（仅对买入单），避免股价突变来不及止损（使用上文已导入的 OrderSide）
-            if side == 'BUY' and (stop_loss_price is not None or take_profit_price is not None):
-                _sl_rounded = round(stop_loss_price / min_tick) * min_tick if stop_loss_price is not None and min_tick > 0 else None
-                _tp_rounded = round(take_profit_price / min_tick) * min_tick if take_profit_price is not None and min_tick > 0 else None
+            # 未使用组合单时：主单 FILLED 后再提交止损/止盈（使用上文已导入的 OrderSide）
+            if side == "BUY" and not used_bracket_combo and (stop_loss_price is not None or take_profit_price is not None):
+                # 限价买单：须等 FILLED 后再挂 STP/TP，否则券商侧常因无持仓而拒单或止损无效
+                _wait_fn = getattr(trade_api, "wait_until_buy_filled", None)
+                if callable(_wait_fn):
+                    if not _wait_fn(order_id, symbol_for_api, timeout_sec=120, poll_sec=1.0):
+                        logger.warning(
+                            "[实盘单] 买单 %s 超时未 FILLED，跳过交易所止损/止盈提交（避免无持仓挂卖）；请依赖策略软止损或成交后补挂",
+                            order_id,
+                        )
+                        _dfx_log(
+                            "sl_tp_skipped",
+                            "buy_not_filled_within_timeout",
+                            parent_order_id=str(order_id),
+                            symbol=str(symbol_for_api),
+                            timeout_sec=120,
+                        )
+                        _sl_rounded = None
+                        _tp_rounded = None
+                    else:
+                        _sl_rounded = round(stop_loss_price / min_tick) * min_tick if stop_loss_price is not None and min_tick > 0 else None
+                        _tp_rounded = round(take_profit_price / min_tick) * min_tick if take_profit_price is not None and min_tick > 0 else None
+                else:
+                    _sl_rounded = round(stop_loss_price / min_tick) * min_tick if stop_loss_price is not None and min_tick > 0 else None
+                    _tp_rounded = round(take_profit_price / min_tick) * min_tick if take_profit_price is not None and min_tick > 0 else None
                 if _sl_rounded is not None:
                     try:
                         sl_result = trade_api.place_order(
@@ -1685,8 +1823,25 @@ def place_tiger_order(side, quantity, price, stop_loss_price=None, take_profit_p
                         )
                         _sl_id = getattr(sl_result, 'order_id', None) or (sl_result.get('order_id') if isinstance(sl_result, dict) else None) or str(sl_result)
                         logger.info("[实盘单] 已提交止损单 | SELL %s手 | 触发价=%.3f | 订单ID：%s", quantity, _sl_rounded, _sl_id)
+                        _dfx_log(
+                            "stop_loss_submitted",
+                            "",
+                            parent_order_id=str(order_id),
+                            child_order_id=str(_sl_id),
+                            symbol=str(symbol_for_api),
+                            stop_price=float(_sl_rounded),
+                            quantity=int(quantity),
+                        )
                     except Exception as sl_e:
                         logger.warning("[实盘单] 止损单提交失败（主单已成交）：%s", sl_e)
+                        _dfx_log(
+                            "stop_loss_submit_failed",
+                            str(sl_e),
+                            parent_order_id=str(order_id),
+                            symbol=str(symbol_for_api),
+                            stop_price=float(_sl_rounded) if _sl_rounded is not None else None,
+                            quantity=int(quantity),
+                        )
                 if _tp_rounded is not None:
                     try:
                         tp_result = trade_api.place_order(
@@ -1700,13 +1855,30 @@ def place_tiger_order(side, quantity, price, stop_loss_price=None, take_profit_p
                         )
                         _tp_id = getattr(tp_result, 'order_id', None) or (tp_result.get('order_id') if isinstance(tp_result, dict) else None) or str(tp_result)
                         logger.info("[实盘单] 已提交止盈单 | SELL %s手 | 价格=%.3f | 订单ID：%s", quantity, _tp_rounded, _tp_id)
+                        _dfx_log(
+                            "take_profit_submitted",
+                            "",
+                            parent_order_id=str(order_id),
+                            child_order_id=str(_tp_id),
+                            symbol=str(symbol_for_api),
+                            limit_price=float(_tp_rounded),
+                            quantity=int(quantity),
+                        )
                     except Exception as tp_e:
                         logger.warning("[实盘单] 止盈单提交失败（主单已成交）：%s", tp_e)
+                        _dfx_log(
+                            "take_profit_submit_failed",
+                            str(tp_e),
+                            parent_order_id=str(order_id),
+                            symbol=str(symbol_for_api),
+                            limit_price=float(_tp_rounded) if _tp_rounded is not None else None,
+                            quantity=int(quantity),
+                        )
         
         except Exception as e:
             logger.warning("下单失败：%s", e)
             if order_log:
-                order_log.log_order(side, quantity, price or 0, order_id, "fail", "real", stop_loss_price, take_profit_price, reason=reason, error=str(e), source=source, symbol=symbol_for_log, order_type=log_order_type)
+                order_log.log_order(side, quantity, price or 0, order_id, "fail", "real", stop_loss_price, take_profit_price, reason=reason, error=str(e), source=source, symbol=symbol_for_log, order_type=log_order_type, run_env=RUN_ENV)
                 # API 失败时写入完整订单参数，便于提供给老虎客服排查
                 try:
                     _sym = _to_api_identifier(FUTURE_SYMBOL)
@@ -1739,6 +1911,7 @@ def place_tiger_order(side, quantity, price, stop_loss_price=None, take_profit_p
             current_short_position = max(0, current_short_position - quantity)
         else:
             current_position += quantity
+            _last_buy_success_ts = time.time()
             # 记录买单到open_orders，用于跟踪交易闭环
             for i in range(quantity):
                 individual_order_id = f"{order_id}_qty_{i+1}"
@@ -2458,11 +2631,15 @@ def boll1m_grid_strategy():
     # - 分场景处理：震荡上行、震荡下行、单边上涨等情形时的开仓/风控策略有所不同
     # - 该函数被单元测试通过 monkeypatch 的方式调用，函数内部尽量避免对外部状态的强依赖
     global current_position
-    # 线程中可能拿不到全局 check_risk_control，显式从本模块取（风控与异常管理）
-    try:
-        _check_risk = check_risk_control
-    except NameError:
-        _check_risk = sys.modules[__name__].check_risk_control
+    # 线程启动早于文件尾部函数定义时，check_risk_control 可能尚未注入 __main__。
+    # 这里做安全回退，避免线程崩溃导致策略卡死。
+    _check_risk = globals().get('check_risk_control')
+    if _check_risk is None:
+        _check_risk = getattr(sys.modules.get(__name__), 'check_risk_control', None)
+    if _check_risk is None:
+        logger.warning("[DFX] check_risk_control 尚未就绪，当前轮次跳过开仓")
+        def _check_risk(*_args, **_kwargs):
+            return False
 
     # Track whether we executed a sell in this iteration
     sold_this_iteration = False
@@ -2977,6 +3154,21 @@ def sync_positions_from_backend():
                 except (TypeError, ValueError):
                     pass
         if long_total > 0 or short_total > 0:
+            prev_long = int(current_position or 0)
+            prev_short = int(current_short_position or 0)
+            # 后台刚成交后的短窗口内可能回写滞后（例如本地已 2 手，后台瞬时仍报 1 手）。
+            # 为避免误降再开到第 3 手，120 秒内若后台<本地，则保留本地更高值。
+            lag_guard = False
+            try:
+                if (time.time() - float(_last_buy_success_ts or 0.0)) <= 120:
+                    if long_total < prev_long:
+                        long_total = prev_long
+                        lag_guard = True
+                    if short_total < prev_short:
+                        short_total = prev_short
+                        lag_guard = True
+            except Exception:
+                pass
             current_position = long_total
             current_short_position = short_total
             position_entry_times.clear()
@@ -2985,6 +3177,8 @@ def sync_positions_from_backend():
             for i in range(long_total):
                 position_entry_times[i] = time.time()
                 position_entry_prices[i] = 0.0
+            if lag_guard:
+                logger.info("[DFX] 同步延迟保护生效：保留本地持仓 long=%s short=%s（后台回写滞后）", current_position, current_short_position)
             logger.info("[DFX] 已从后台同步持仓: 多头=%s 手, 空头=%s 手（账户 %s）", long_total, short_total, acc)
             print("⚠️ 已从后台同步持仓: 多头 %s 手, 空头 %s 手。若超过风控上限将拒绝新开仓。" % (long_total, short_total))
         else:
@@ -3109,7 +3303,7 @@ if __name__ == "__main__":
                 data_provider=data_provider,
                 order_executor=order_executor,
                 config={
-                    'confidence_threshold': 0.4,
+                    'confidence_threshold': 0.55,  # 提高阈值以提升胜率（目标>60%）：仅执行高置信度信号
                     'loop_interval': 5
                 }
             )

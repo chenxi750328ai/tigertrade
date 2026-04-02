@@ -8,8 +8,6 @@ Feature测试：买入白银（SIL2603）
 import unittest
 import sys
 import pytest
-sys.path.insert(0, '/home/cx/tigertrade')
-
 from src.executor.order_executor import OrderExecutor
 from src.api_adapter import api_manager
 from src import tiger1 as t1

@@ -8,8 +8,6 @@
 """
 import unittest
 import sys
-sys.path.insert(0, '/home/cx/tigertrade')
-
 from unittest.mock import patch, MagicMock
 from src import tiger1 as t1
 

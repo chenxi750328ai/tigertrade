@@ -37,6 +37,27 @@ if not acc:
 print('✅ account 已配置')
 " || { echo "❌ account 校验失败"; exit 1; }
 
+# 2.5 预检期货行情权限（无权限会导致 tiger1 启动即退出、今日成交长期为 0）
+echo -e "\n[2.5/3] 预检期货行情权限..."
+python3 -c "
+import sys
+sys.path.insert(0, '/home/cx/tigertrade')
+from tigeropen.tiger_open_config import TigerOpenClientConfig
+from tigeropen.quote.quote_client import QuoteClient
+from src import tiger1 as t1
+
+cfg = TigerOpenClientConfig(props_path='./openapicfg_dem')
+qc = QuoteClient(cfg)
+sym = t1._to_api_identifier(t1.FUTURE_SYMBOL)
+qc.get_future_brief([sym])
+print('✅ 期货行情权限可用')
+" || {
+    echo '❌ 期货行情权限不可用（permission denied）'
+    echo '   说明：清仓成功只能证明交易接口可用；MOE 运行还需要期货行情权限。'
+    echo '   处理：在 Tiger 后台给当前 API 用户/设备开通 Futures quote 权限后重试。'
+    exit 1
+}
+
 # 3. 启动20小时运行
 echo -e "\n[3/3] 启动20小时交易策略..."
 
@@ -53,12 +74,14 @@ echo "开始时间: $(date)"
 echo "预计结束时间: $(date -d '+20 hours')"
 echo "=========================================="
 
-# 后台运行，输出到日志文件
-nohup python scripts/run_moe_demo.py > logs/demo_20h_$(date +%Y%m%d_%H%M%S).log 2>&1 &
+# 后台运行，输出到日志文件（路径只算一次，避免秒级漂移导致「提示的文件名和实际不一致」）
+mkdir -p logs
+DEMO_LOG="logs/demo_20h_$(date +%Y%m%d_%H%M%S).log"
+nohup python scripts/run_moe_demo.py > "$DEMO_LOG" 2>&1 &
 DEMO_PID=$!
 
 echo "✅ DEMO策略已启动（PID: $DEMO_PID）"
-echo "📝 日志文件: logs/demo_20h_$(date +%Y%m%d_%H%M%S).log"
+echo "📝 日志文件: $DEMO_LOG"
 echo ""
 echo "监控命令:"
 echo "  tail -f logs/demo_20h_*.log"

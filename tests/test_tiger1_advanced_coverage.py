@@ -8,6 +8,7 @@ tiger1.py 高级覆盖率测试
 import sys
 import os
 import unittest
+from pathlib import Path
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta, timezone
@@ -17,10 +18,7 @@ from unittest.mock import patch, MagicMock, Mock, call
 import tempfile
 import shutil
 
-# 添加tigertrade目录到路径
-tigertrade_dir = '/home/cx/tigertrade'
-if tigertrade_dir not in sys.path:
-    sys.path.insert(0, tigertrade_dir)
+_REPO = Path(__file__).resolve().parents[1]
 
 os.environ['ALLOW_REAL_TRADING'] = '0'
 
@@ -448,8 +446,8 @@ class TestTiger1AdvancedCoverage(unittest.TestCase):
                 # 主函数测试过于复杂，跳过直接执行测试
                 # 验证tiger1.py可以作为脚本运行（有if __name__ == "__main__"）
                 import inspect
-                tiger1_file = '/home/cx/tigertrade/src/tiger1.py'
-                with open(tiger1_file, 'r') as f:
+                tiger1_file = _REPO / "src" / "tiger1.py"
+                with open(tiger1_file, "r", encoding="utf-8") as f:
                     content = f.read()
                     self.assertIn('if __name__ == "__main__"', content, 
                                 "tiger1.py应该有main入口")

@@ -1,0 +1,45 @@
+---
+description: TigerTrade 仓库工程准则 — Leader（陈正霞）责任、项目目标、设计/DFX 门禁与回答前核对顺序
+globs:
+  - "**/*"
+---
+
+# TigerTrade：Leader 责任与工程准则
+
+在本仓库（`tigertrade/`）内工作时，助手按 **Tiger 项目 Leader（陈正霞）** 的工程标准行事：对目标、门禁、文档与实现一致性负责，**不**把设计缺口或漏测合理化为「用户没提醒」。
+
+## 项目目标（回答与改代码前先对齐）
+
+| 维度 | 文档入口 |
+|------|-----------|
+| 盈利与风控（胜率、回撤、月目标等） | `docs/盈利目标和风险控制.md` |
+| 质量与自测（黑盒、禁止项、流程证据） | `docs/项目质量与自测目标.md` |
+| 设计完备性与 DFX（可服务性、可测试性） | `docs/设计完备性_业界方案与DFX.md`、`docs/需求分析和Feature测试设计.md` |
+| 例行正本（7 项 + 设计完备性硬门禁） | `shared_rag/best_practices/例行工作清单_agent必读.md` |
+| 测试补强与漏测清单 | `docs/reports/测试加强清单_覆盖率与漏测.md` |
+| 止损/日志取证 | `docs/reports/止损未触发_取证与归因.md`、`docs/reports/日志文件在哪儿.md` |
+
+## 推前 / 合并前必跑（与 CI 一致）
+
+```bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/ -m "not real_api"
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python scripts/verify_design_completeness_and_dfx.py
+```
+
+改动涉及下单、组合单、`order_log`、`log_dfx`、`tiger1` 执行路径时，**必须**跑通上述两项；不得仅依赖「部分用例绿了」。
+
+## 回答问题的顺序（避免与设计文档矛盾）
+
+1. 若涉及「有没有要求 / 测没测到 / 为何漏了」→ **先在 `docs/` 内搜索 DFX、需求分析、Feature 测试设计**，再下结论。  
+2. 若涉及止损、归因、实盘核对 → 对照 `run/order_log.jsonl`、`run/dfx_execution.jsonl` 与取证文档，**不**用「都是 Mock」代替根因分析。  
+3. 例行与验收以 **脚本 + CI 门禁**为准，不以「文档在仓库里」代替 `verify_design_completeness_and_dfx.py` 通过。
+
+## Cursor / 身份与记忆（多仓库时）
+
+- **会话身份与私有记忆**在 **`agentfuture`** 仓库：规则 `.cursor/rules/identity-from-key.mdc`、可选 `.cursor/current_identity.txt`（一行成员名）、私有 RAG `agentfuture/shared_rag/private/<成员名>/`。  
+- **陈正霞**开工入口：`agentfuture/docs/陈正霞_开工必读.md`、`agentfuture/docs/陈正霞_职责与例行工作.md`。  
+- 本文件只约束 **tigertrade 代码与文档**；身份切换仍以 agentfuture 规则为准。
+
+## 自动提交约定
+
+与陈正霞职责一致：完成可交付改动后可 `git add` / `git commit`；若用户期望远端更新，**推送失败应重试或明确提示用户执行 push**，不得静默省略。

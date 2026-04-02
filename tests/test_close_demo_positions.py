@@ -8,8 +8,6 @@
 import sys
 import unittest
 from unittest.mock import MagicMock
-
-sys.path.insert(0, '/home/cx/tigertrade')
 from scripts.close_utils import is_real_order_id as _is_real_order_id, wait_order_fill
 
 

@@ -6,8 +6,6 @@
 import sys
 import os
 # 添加tigertrade根目录到路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-
 from src import tiger1 as t1
 import pandas as pd
 import numpy as np

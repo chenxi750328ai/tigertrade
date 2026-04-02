@@ -12,8 +12,6 @@ import numpy as np
 from datetime import datetime
 
 # 添加tigertrade目录到路径
-sys.path.insert(0, '/home/cx/tigertrade')
-
 from src.api_agent import APIAgent, MockQuoteClient, MockTradeClient
 
 

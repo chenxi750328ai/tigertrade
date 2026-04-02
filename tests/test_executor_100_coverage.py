@@ -12,9 +12,6 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import time
-
-sys.path.insert(0, '/home/cx/tigertrade')
-
 from src.executor import MarketDataProvider, OrderExecutor, TradingExecutor
 from src.strategies.base_strategy import BaseTradingStrategy
 from src import tiger1 as t1
@@ -294,12 +291,15 @@ class TestOrderExecutor100Coverage(unittest.TestCase):
     @patch('src.executor.order_executor.t1.sync_positions_from_backend', return_value=None)
     @patch('src.executor.order_executor.api_manager')
     def test_execute_buy_exception(self, mock_api, _sync, _pos):
-        """测试下单异常"""
-        mock_trade_api = MagicMock()
+        """测试下单异常（无 place_limit_with_bracket，否则 MagicMock 会先「组合单成功」）"""
+        mock_trade_api = MagicMock(
+            spec=["place_order", "get_order", "get_orders", "account", "wait_until_buy_filled"]
+        )
+        mock_trade_api.account = None
         mock_trade_api.place_order.side_effect = Exception("API错误")
         mock_api.trade_api = mock_trade_api
-        
-        result, message = self.executor.execute_buy(100.0, 0.5, 97.0, 105.0, 0.6)
+        with patch.object(t1, "client_config", None):
+            result, message = self.executor.execute_buy(100.0, 0.5, 97.0, 105.0, 0.6)
         self.assertFalse(result)
         self.assertIn("下单异常", message)
     

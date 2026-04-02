@@ -1,18 +1,18 @@
 {
-  "timestamp": "2026-02-27T15:36:21.948986",
+  "timestamp": "2026-03-30T20:03:34.971583",
   "algorithm_version": "2.0",
   "profitability": {
-    "total_profit": 15633.14,
-    "total_trades": 10,
-    "winning_trades": 1,
-    "losing_trades": 0,
-    "win_rate": 10.0,
-    "average_profit": 1563.3139999999999
+    "total_profit": -30505.78,
+    "total_trades": 14,
+    "winning_trades": 2,
+    "losing_trades": 1,
+    "win_rate": 14.285714285714285,
+    "average_profit": -2178.9842857142858
   },
   "strategy_performance": {
     "moe_transformer": {
       "profitability": 0,
-      "win_rate": 98.0,
+      "win_rate": 98.6,
       "sharpe_ratio": 0,
       "max_drawdown": 0,
       "demo_order_success": 10031,
@@ -21,15 +21,14 @@
       "demo_success_orders_sum": 337710,
       "demo_fail_orders_sum": 5780638,
       "demo_logs_scanned": 30,
-      "today_yield_pct": "+7945.90 USD",
-      "return_pct": 7.01,
-      "num_trades": 100,
+      "return_pct": 10.42,
+      "num_trades": 144,
       "avg_per_trade_pct": 0.0,
       "top_per_trade_pct": 0.03
     },
     "lstm": {
       "profitability": 0,
-      "win_rate": 98.0,
+      "win_rate": 98.6,
       "sharpe_ratio": 0,
       "max_drawdown": 0,
       "demo_order_success": 10031,
@@ -38,15 +37,14 @@
       "demo_success_orders_sum": 337710,
       "demo_fail_orders_sum": 5780638,
       "demo_logs_scanned": 30,
-      "today_yield_pct": "+7945.90 USD",
-      "return_pct": 7.01,
-      "num_trades": 100,
+      "return_pct": 10.42,
+      "num_trades": 144,
       "avg_per_trade_pct": 0.0,
       "top_per_trade_pct": 0.03
     },
     "grid": {
       "profitability": 0,
-      "win_rate": 100.0,
+      "win_rate": 50.0,
       "sharpe_ratio": 0,
       "max_drawdown": 0,
       "demo_order_success": 10031,
@@ -55,11 +53,10 @@
       "demo_success_orders_sum": 337710,
       "demo_fail_orders_sum": 5780638,
       "demo_logs_scanned": 30,
-      "today_yield_pct": "+7945.90 USD",
-      "return_pct": 27.92,
-      "num_trades": 7,
-      "avg_per_trade_pct": 3.99,
-      "top_per_trade_pct": 7.21
+      "return_pct": 7.522877435064933,
+      "num_trades": 2,
+      "avg_per_trade_pct": 3.76,
+      "top_per_trade_pct": 8.38
     },
     "boll": {
       "profitability": 0,
@@ -72,7 +69,6 @@
       "demo_success_orders_sum": 337710,
       "demo_fail_orders_sum": 5780638,
       "demo_logs_scanned": 30,
-      "today_yield_pct": "+7945.90 USD",
       "return_pct": 7.522877435064933,
       "num_trades": 2,
       "avg_per_trade_pct": 3.76,
@@ -81,12 +77,15 @@
   },
   "optimal_parameters": {
     "grid": {
-      "source": "backtest_grid_trading_strategy_pro1",
-      "same_code_as_live": true
+      "rsi_buy": 30,
+      "rsi_sell": 60,
+      "ma_short": 5,
+      "ma_long": 30,
+      "use_or": false
     },
     "boll": {
       "rsi_buy": 30,
-      "rsi_sell": 65,
+      "rsi_sell": 60,
       "ma_short": 5,
       "ma_long": 30,
       "use_or": false
@@ -97,6 +96,11 @@
       "priority": "high",
       "issue": "胜率过低",
       "suggestion": "需要优化策略参数或改进策略逻辑"
+    },
+    {
+      "priority": "high",
+      "issue": "平均收益为负",
+      "suggestion": "需要重新评估策略有效性"
     }
   ],
   "data_sources": [
