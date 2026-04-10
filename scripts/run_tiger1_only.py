@@ -6,8 +6,12 @@
 """
 
 import subprocess
+import sys
 import time
 from datetime import datetime
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
 
 def run_tiger1_continuous():
     """连续运行tiger1策略"""
@@ -17,8 +21,8 @@ def run_tiger1_continuous():
         try:
             print(f"\n🕒 [{datetime.now().strftime('%H:%M:%S')}] 开始运行tiger1策略...")
             result = subprocess.run(
-                ["python", "/home/cx/tigertrade/src/tiger1.py", "d"],
-                cwd="/home/cx/tigertrade",
+                [sys.executable, str(_REPO_ROOT / "src" / "tiger1.py"), "d"],
+                cwd=str(_REPO_ROOT),
                 capture_output=True,
                 text=True,
                 timeout=60

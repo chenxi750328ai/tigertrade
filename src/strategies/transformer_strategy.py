@@ -8,6 +8,9 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_DEFAULT_TRANSFORMER_MODEL = _REPO_ROOT / "models" / "transformer_raw_features_best.pth"
+
 
 class TransformerStrategy(TradingStrategy):
     """
@@ -16,7 +19,9 @@ class TransformerStrategy(TradingStrategy):
     使用训练好的模型进行预测
     """
     
-    def __init__(self, model_path='/home/cx/tigertrade/models/transformer_raw_features_best.pth'):
+    def __init__(self, model_path=None):
+        if model_path is None:
+            model_path = str(_DEFAULT_TRANSFORMER_MODEL)
         super().__init__(name='TransformerStrategy')
         self.model_path = model_path
         self.model = None
@@ -31,7 +36,7 @@ class TransformerStrategy(TradingStrategy):
         
         try:
             checkpoint = torch.load(self.model_path, map_location=self.device)
-            # TODO: 需要实际的模型类
+            # NOTE: 骨架阶段；接入实际 TransformerModel 与 state_dict 后再启用推理
             # self.model = TransformerModel(...)
             # self.model.load_state_dict(checkpoint['model_state_dict'])
             # self.model.to(self.device)
@@ -93,7 +98,7 @@ class TransformerStrategy(TradingStrategy):
     
     def _prepare_sequence(self, df):
         """准备模型输入序列"""
-        # TODO: 实际的特征工程
+        # NOTE: 与训练侧特征 schema 对齐后扩展
         features = ['open', 'high', 'low', 'close', 'volume']
         sequence = df[features].values.astype(np.float32)
         sequence = torch.from_numpy(sequence).unsqueeze(0).to(self.device)

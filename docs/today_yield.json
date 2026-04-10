@@ -1,9 +1,11 @@
 {
-  "date": "2026-04-02",
-  "yield_pct": "-2846.96 USD",
-  "yield_note": "今日成交 4 笔，已实现盈亏 -2846.96 USD",
+  "date": "2026-04-10",
+  "yield_pct": "-6960.98 USD（浮动-6960.98）",
+  "yield_note": "今日无成交（老虎后台 0 笔策略成交；限价 100 的 FILLED 已视为测试单排除，不计入实盘收益）；当前持仓净-2手；浮动盈亏-6960.98 USD（未平仓）；已实现+浮动合计-6960.98 USD",
   "source": "tiger_backend",
-  "open_position_qty": 0,
-  "unrealized_pnl_usd": null,
-  "total_realized_pnl": -2846.96
+  "open_position_qty": -2,
+  "unrealized_pnl_usd": -6960.98,
+  "combined_pnl_usd": -6960.98,
+  "position_detail": "SIL2605 -2手 浮盈浮亏-6960.98USD",
+  "zero_trades_action": "【0笔须排查】1) 用 bash scripts/run_20h_demo.sh 启动 DEMO；2) 确认 COMEX 交易时段；3) 检查 openapicfg_dem；4) 查 order_log_analysis 今日 real success。"
 }

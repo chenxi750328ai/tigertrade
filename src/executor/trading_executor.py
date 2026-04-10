@@ -5,9 +5,13 @@
 import time
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, Tuple
+import os
 import pandas as pd
 import sys
-sys.path.insert(0, '/home/cx/tigertrade')
+
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 from src.strategies.base_strategy import BaseTradingStrategy
 from .data_provider import MarketDataProvider

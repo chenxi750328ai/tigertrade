@@ -5,8 +5,13 @@
 用于查询Tiger API中的订单信息
 """
 
+import os
 import sys
-sys.path.insert(0, '/home/cx/tigertrade')
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 from tigeropen.tiger_open_config import TigerOpenClientConfig
 from tigeropen.trade.trade_client import TradeClient
@@ -17,6 +22,8 @@ def query_orders():
     print("="*70)
     print("📋 查询订单")
     print("="*70)
+
+    os.chdir(_REPO_ROOT)
     
     try:
         client_config = TigerOpenClientConfig(props_path='./openapicfg_dem')

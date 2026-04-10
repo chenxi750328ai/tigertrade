@@ -5,10 +5,12 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-sys.path.insert(0, '/home/cx/tigertrade')
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 def main():
-    data_path = Path("/home/cx/tigertrade/data/processed/test.csv")
+    data_path = _REPO_ROOT / "data" / "processed" / "test.csv"
     if not data_path.exists():
         print(f"❌ 数据不存在: {data_path}")
         return 1

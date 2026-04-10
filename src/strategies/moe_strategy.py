@@ -10,7 +10,10 @@ import os
 import threading
 from typing import Tuple, Optional, Dict, Any
 import sys
-sys.path.insert(0, '/home/cx/tigertrade')
+
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 from src.strategies.moe_transformer import MoETradingTransformerWithProfit
 from src.strategies.llm_strategy import LLMTradingStrategy

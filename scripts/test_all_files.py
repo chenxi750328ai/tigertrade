@@ -9,8 +9,9 @@ import sys
 import importlib.util
 from pathlib import Path
 
-# 添加tigertrade目录到路径
-sys.path.insert(0, '/home/cx/tigertrade')
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 def test_python_file(file_path):
     """测试单个Python文件"""
@@ -59,7 +60,7 @@ def main():
     """主函数"""
     print("🚀 开始测试所有Python文件...\n")
     
-    base_path = '/home/cx/tigertrade'
+    base_path = str(_REPO_ROOT)
     
     # 测试各个目录
     directories = {

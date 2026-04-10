@@ -7,6 +7,9 @@
 import os
 import re
 import sys
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
 
 def count_test_cases_in_file(file_path):
     """统计单个文件中的测试用例数量"""
@@ -23,7 +26,7 @@ def count_test_cases_in_file(file_path):
 
 def analyze_tests():
     """分析所有测试文件"""
-    tests_dir = '/home/cx/tigertrade/tests'
+    tests_dir = str(_REPO_ROOT / "tests")
     
     if not os.path.exists(tests_dir):
         print(f"❌ 测试目录不存在: {tests_dir}")

@@ -3,7 +3,7 @@
 """
 平仓脚本：将 DEMO 账户持仓恢复为 0（多头和空头）
 用法:
-  cd /home/cx/tigertrade && python scripts/close_demo_positions.py d
+  cd <仓库根> && python scripts/close_demo_positions.py d
   # 若后台有两手持仓但 sync 显示 0，强制平 2 手多头：
   python scripts/close_demo_positions.py d --long 2
   # 强制平空头：--short N
@@ -15,8 +15,10 @@
 import sys
 import os
 
-sys.path.insert(0, '/home/cx/tigertrade')
-os.chdir('/home/cx/tigertrade')
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+os.chdir(_REPO_ROOT)
 # 必须在 import tiger1 前设置，否则会走 mock 不下真实单
 if len(sys.argv) < 2 or sys.argv[1] not in ('d', 'c'):
     sys.argv = [sys.argv[0], 'd']

@@ -25,6 +25,8 @@ from sklearn.cluster import KMeans
 from scipy.stats import pearsonr, spearmanr
 from datetime import datetime
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+
 # 导入模型
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from train_raw_features_transformer import TransformerTradingModel, TradingSequenceDataset
@@ -441,8 +443,10 @@ class FeatureDiscovery:
         
         return custom_indicators, df
     
-    def generate_report(self, output_dir='/home/cx/tigertrade/docs'):
+    def generate_report(self, output_dir=None):
         """生成完整分析报告"""
+        if output_dir is None:
+            output_dir = str(_REPO_ROOT / 'docs')
         print(f"\n{'='*80}")
         print(f"📄 生成分析报告")
         print(f"{'='*80}\n")
@@ -502,8 +506,9 @@ class FeatureDiscovery:
 
 def main():
     """主函数"""
-    model_path = '/home/cx/tigertrade/models/transformer_raw_features_best.pth'
-    data_file = '/home/cx/trading_data/val_raw_features.csv'
+    model_path = str(_REPO_ROOT / 'models' / 'transformer_raw_features_best.pth')
+    _data_root = os.environ.get('TRADING_DATA_DIR', str(Path.home() / 'trading_data'))
+    data_file = os.path.join(_data_root, 'val_raw_features.csv')
     
     # 检查文件是否存在
     if not Path(model_path).exists():

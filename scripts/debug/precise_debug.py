@@ -5,7 +5,9 @@
 """
 
 import sys
-sys.path.insert(0, '/home/cx/tigertrade')
+from pathlib import Path
+_R = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_R))
 
 from src import tiger1 as t1
 import pandas as pd

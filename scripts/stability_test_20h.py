@@ -14,8 +14,10 @@ from datetime import datetime, timedelta
 import traceback
 import signal
 
-# 添加项目路径
-sys.path.insert(0, '/home/cx/tigertrade')
+# 添加项目路径（仓库根目录，可移植）
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 if os.getenv('ALLOW_REAL_TRADING', '') != '1':
     os.environ['ALLOW_REAL_TRADING'] = '1'
 
@@ -121,7 +123,7 @@ def run_stability_test():
         # 初始化策略
         logger.info("📋 初始化策略...")
         strategy_config = {}
-        config_path = '/home/cx/tigertrade/config/strategy_config.json'
+        config_path = os.path.join(_REPO_ROOT, 'config', 'strategy_config.json')
         if os.path.exists(config_path):
             with open(config_path, 'r') as f:
                 config = json.load(f)

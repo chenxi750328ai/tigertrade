@@ -9,7 +9,10 @@ import numpy as np
 import json
 from itertools import product
 import sys
-sys.path.append('/home/cx/tigertrade/scripts')
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.append(str(_REPO_ROOT / "scripts"))
 from risk_management import RiskManager
 
 def backtest_with_params(data, params):
@@ -117,7 +120,7 @@ def grid_search():
     print("🔍 参数网格搜索开始...\n")
     
     # 读取数据
-    data = pd.read_csv('/home/cx/tigertrade/data/processed/test.csv')
+    data = pd.read_csv(_REPO_ROOT / "data" / "processed" / "test.csv")
     
     # 定义参数网格
     param_grid = {

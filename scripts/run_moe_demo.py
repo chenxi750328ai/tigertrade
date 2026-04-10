@@ -14,6 +14,8 @@ import sys
 import os
 import subprocess
 
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 # 统一使用tiger1.py作为总入口
 # tiger1.py支持命令行参数：python src/tiger1.py [账户类型] [策略类型]
 # 账户类型：'d' = DEMO账户, 'c' = 综合账户
@@ -51,7 +53,7 @@ def main():
     
     try:
         # 运行tiger1.py
-        result = subprocess.run(cmd, cwd='/home/cx/tigertrade')
+        result = subprocess.run(cmd, cwd=_REPO_ROOT)
         # 20h 运行完毕（或异常退出）后做一次异常订单检查（无止损止盈、超仓、风控报错等）
         print("\n" + "=" * 70)
         print("📋 运行结束，执行异常订单检查（看 LOG 发现问题）")
@@ -59,7 +61,7 @@ def main():
         try:
             analyze_exit = subprocess.run(
                 [sys.executable, 'scripts/analyze_demo_log.py'],
-                cwd='/home/cx/tigertrade'
+                cwd=_REPO_ROOT
             )
             if analyze_exit.returncode != 0:
                 print("\n⚠️ 异常订单检查发现问题，请查看上方输出。")

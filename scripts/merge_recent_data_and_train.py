@@ -7,7 +7,9 @@ import pandas as pd
 from datetime import datetime
 from pathlib import Path
 
-sys.path.insert(0, '/home/cx/tigertrade')
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 def main():
     base = Path('/home/cx/trading_data')
@@ -77,7 +79,7 @@ def main():
     print("="*60)
     from scripts.data_preprocessing import TigerTradeDataProcessor, _ensure_sample_data
     # 使用合并后的文件
-    output_dir = '/home/cx/tigertrade/data/processed'
+    output_dir = str(_REPO_ROOT / 'data' / 'processed')
     processor = TigerTradeDataProcessor(input_file, output_dir)
     (processor
      .load_data()

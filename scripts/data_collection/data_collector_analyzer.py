@@ -7,6 +7,7 @@
 import sys
 import os
 import json
+from pathlib import Path
 import csv
 import pandas as pd
 import numpy as np
@@ -18,8 +19,9 @@ import pickle
 import threading
 import time
 
-# 添加tigertrade目录到路径
-sys.path.insert(0, '/home/cx/tigertrade')
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 from src import tiger1 as t1
 
@@ -294,7 +296,7 @@ def enhance_strategy_with_logging():
         """增强版网格交易策略，带数据收集功能"""
         # 导入必要的库
         import sys
-        sys.path.insert(0, '/home/cx/tigertrade')
+        sys.path.insert(0, str(_REPO_ROOT))
         from src import tiger1 as t1_mod
         
         # 获取市场数据

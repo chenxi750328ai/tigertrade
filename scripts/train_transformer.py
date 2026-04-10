@@ -17,6 +17,8 @@ import sys
 # 设置设备
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+
 class TimeSeriesDataset(Dataset):
     """时间序列数据集"""
     
@@ -147,8 +149,8 @@ def main():
     print("="*70)
     
     # 配置
-    DATA_DIR = Path("/home/cx/tigertrade/data/processed")
-    OUTPUT_DIR = Path("/home/cx/tigertrade/models")
+    DATA_DIR = _REPO_ROOT / "data" / "processed"
+    OUTPUT_DIR = _REPO_ROOT / "models"
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     
     SEQUENCE_LENGTH = 20

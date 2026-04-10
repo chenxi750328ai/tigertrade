@@ -16,7 +16,9 @@ import logging
 from datetime import datetime, timedelta
 import traceback
 
-sys.path.insert(0, '/home/cx/tigertrade')
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 from src import tiger1 as t1
 from src.api_adapter import api_manager

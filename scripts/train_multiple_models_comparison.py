@@ -13,8 +13,11 @@ from datetime import datetime, timedelta
 import warnings
 warnings.filterwarnings("ignore")
 
-# 添加项目路径
-sys.path.insert(0, '/home/cx/tigertrade')
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 from src.strategies import llm_strategy
 from src.strategies.large_transformer_strategy import LargeTradingTransformer, LargeTransformerStrategy

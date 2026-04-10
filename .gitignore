@@ -121,3 +121,6 @@ docs/SIL白银期货交易分析.xlsx
 **/*交易记录*.txt
 **/*账单*.pdf
 **/*报表*.pdf
+
+# Leader 例行脚本每次覆写的跟进信号（避免无意义 diff）
+docs/reports/leader_routine_agent_signal.json

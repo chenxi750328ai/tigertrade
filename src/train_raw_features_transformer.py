@@ -15,6 +15,8 @@ from pathlib import Path
 from datetime import datetime
 import json
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+
 # 设置随机种子
 torch.manual_seed(42)
 np.random.seed(42)
@@ -403,7 +405,7 @@ def main():
             best_val_acc = val_acc
             best_epoch = epoch + 1
             
-            save_dir = Path('/home/cx/tigertrade/models')
+            save_dir = _REPO_ROOT / 'models'
             save_dir.mkdir(exist_ok=True)
             
             model_path = save_dir / 'transformer_raw_features_best.pth'
@@ -427,10 +429,10 @@ def main():
     print(f"结束时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
     # 保存训练历史
-    history_file = '/home/cx/tigertrade/results/transformer_raw_features_history.json'
-    Path(history_file).parent.mkdir(exist_ok=True)
+    history_file = _REPO_ROOT / 'results' / 'transformer_raw_features_history.json'
+    history_file.parent.mkdir(exist_ok=True)
     
-    with open(history_file, 'w') as f:
+    with open(str(history_file), 'w') as f:
         json.dump(training_history, f, indent=2)
     
     print(f"\n训练历史已保存: {history_file}")

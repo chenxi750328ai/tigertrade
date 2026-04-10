@@ -303,8 +303,9 @@ class TestOrderExecutor100Coverage(unittest.TestCase):
         self.assertFalse(result)
         self.assertIn("下单异常", message)
     
+    @patch('src.executor.order_executor.t1.sync_positions_from_backend', return_value=None)
     @patch('src.executor.order_executor.api_manager')
-    def test_execute_sell_api_none(self, mock_api):
+    def test_execute_sell_api_none(self, mock_api, _sync):
         """测试卖出时API为None"""
         mock_api.trade_api = None
         t1.current_position = 1
@@ -313,8 +314,9 @@ class TestOrderExecutor100Coverage(unittest.TestCase):
         self.assertFalse(result)
         self.assertIn("交易API未初始化", message)
     
+    @patch('src.executor.order_executor.t1.sync_positions_from_backend', return_value=None)
     @patch('src.executor.order_executor.api_manager')
-    def test_execute_sell_order_result_dict(self, mock_api):
+    def test_execute_sell_order_result_dict(self, mock_api, _sync):
         """测试卖出订单结果为字典"""
         mock_trade_api = MagicMock()
         mock_order_result = {'id': 'TEST_456'}
@@ -327,8 +329,9 @@ class TestOrderExecutor100Coverage(unittest.TestCase):
         self.assertTrue(result)
         self.assertIn("订单提交成功", message)
     
+    @patch('src.executor.order_executor.t1.sync_positions_from_backend', return_value=None)
     @patch('src.executor.order_executor.api_manager')
-    def test_execute_sell_exception(self, mock_api):
+    def test_execute_sell_exception(self, mock_api, _sync):
         """测试卖出异常"""
         mock_trade_api = MagicMock()
         mock_trade_api.place_order.side_effect = Exception("API错误")

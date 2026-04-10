@@ -11,9 +11,12 @@ import time
 import argparse
 from datetime import datetime
 
-# 添加当前目录到路径
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, '/home/cx/tigertrade')
+# 添加 src 与仓库根到路径（可移植）
+_SRC = os.path.dirname(os.path.abspath(__file__))
+_REPO = os.path.dirname(_SRC)
+for _p in (_SRC, _REPO):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 def main():
     """主函数"""

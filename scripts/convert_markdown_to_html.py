@@ -7,8 +7,11 @@ import sys
 import os
 import re
 from datetime import datetime
+from pathlib import Path
 
-sys.path.insert(0, '/home/cx/tigertrade')
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 try:
     import markdown
@@ -230,7 +233,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         md_file = sys.argv[1]
     else:
-        md_file = '/home/cx/tigertrade/docs/WEEKLY_REPORT_2026_WEEK05.md'
+        md_file = str(_REPO_ROOT / "docs" / "WEEKLY_REPORT_2026_WEEK05.md")
     
     # 自动生成HTML文件名
     if md_file.endswith('.md'):

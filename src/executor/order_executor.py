@@ -4,10 +4,14 @@
 """
 from typing import Tuple, Optional
 import math
+import os
 import sys
 import time
 import random
-sys.path.insert(0, '/home/cx/tigertrade')
+
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 from src.api_adapter import api_manager
 
@@ -49,20 +53,7 @@ except (ImportError, AttributeError):
                 return 0
         t1 = MockTiger1()
 
-# 导入订单类型（如果可用）
-try:
-    from tigeropen.common.consts import OrderType, OrderSide, TimeInForce
-except ImportError:
-    # 如果导入失败，使用字符串常量
-    class OrderType:
-        LMT = 'LMT'
-        MKT = 'MKT'
-        STP = 'STP'
-    class OrderSide:
-        BUY = 'BUY'
-        SELL = 'SELL'
-    class TimeInForce:
-        DAY = 'DAY'
+from src.tigeropen_consts_compat import OrderType, OrderSide, TimeInForce
 
 
 class OrderExecutor:

@@ -2,10 +2,13 @@
 # 定时监控入口：供 crontab 每 N 分钟调用，把检查结果写入日志并在有真实错误时退出码非 0
 # 用法: bash scripts/cron_routine_monitor.sh
 # 建议 crontab: 每 2 分钟执行一次（快速发现错误）
-#   */2 * * * * cd /home/cx/tigertrade && bash scripts/cron_routine_monitor.sh >> logs/routine_monitor.log 2>&1
+#   */2 * * * * /path/to/tigertrade/scripts/cron_routine_monitor.sh >> /path/to/tigertrade/logs/routine_monitor.log 2>&1
 # 内含：每半点（00/30 分）执行一次异常订单检查（analyze_demo_log：无止损止盈、超仓、风控报错）
 
-cd /home/cx/tigertrade
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+export TIGERTRADE_ROOT="$REPO_ROOT"
 MONITOR_LOG="logs/routine_monitor.log"
 mkdir -p logs
 

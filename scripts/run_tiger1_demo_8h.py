@@ -10,13 +10,15 @@ import time
 import signal
 import subprocess
 from datetime import datetime, timedelta
+from pathlib import Path
 
-# 添加tigertrade到路径
-sys.path.insert(0, '/home/cx/tigertrade')
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 # 运行配置
 RUN_DURATION_HOURS = 20
-LOG_DIR = '/home/cx/tigertrade/logs'
+LOG_DIR = str(_REPO_ROOT / "logs")
 LOG_FILE = os.path.join(LOG_DIR, f'tiger1_demo_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log')
 PID_FILE = '/tmp/tiger1_demo.pid'
 
@@ -50,8 +52,8 @@ def main():
     print(f"📝 日志文件: {LOG_FILE}")
     print("="*60)
     
-    # 切换到tigertrade目录
-    os.chdir('/home/cx/tigertrade')
+    # 切换到仓库根目录
+    os.chdir(str(_REPO_ROOT))
     
     # 构建运行命令（使用'd'参数表示DEMO/sandbox模式）
     cmd = [

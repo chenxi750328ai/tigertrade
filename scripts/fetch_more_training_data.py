@@ -8,8 +8,11 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import time
+from pathlib import Path
 
-sys.path.insert(0, '/home/cx/tigertrade')
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 from src import tiger1 as t1
 from scripts.analysis.generate_multitimeframe_training_data_direct import generate_training_data_direct

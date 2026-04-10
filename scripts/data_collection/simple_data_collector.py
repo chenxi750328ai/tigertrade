@@ -7,9 +7,11 @@
 import sys
 import os
 from datetime import datetime
+from pathlib import Path
 
-# 添加tigertrade目录到路径
-sys.path.insert(0, '/home/cx/tigertrade')
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 def collect_data_once():
     """运行一次数据收集"""

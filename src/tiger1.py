@@ -26,9 +26,21 @@ load_dotenv(os.path.join(_TIGER_ROOT, ".env"))
 
 # Tiger Open API imports
 from tigeropen.common.consts import Language, Market, BarPeriod, QuoteRight
-from tigeropen.common.consts import OrderStatus, OrderType, Currency, SecurityType
+from tigeropen.common.consts import OrderStatus, Currency, SecurityType
 from tigeropen.common.util.contract_utils import stock_contract
 from tigeropen.trade.trade_client import TradeClient
+
+try:
+    from .tigeropen_consts_compat import OrderType, OrderSide, TimeInForce
+except ImportError:
+    try:
+        from src.tigeropen_consts_compat import OrderType, OrderSide, TimeInForce
+    except ImportError:
+        # 直接运行 python src/tiger1.py 时无包上下文：从 src/ 目录加载 compat
+        _td = os.path.dirname(os.path.abspath(__file__))
+        if _td not in sys.path:
+            sys.path.insert(0, _td)
+        from tigeropen_consts_compat import OrderType, OrderSide, TimeInForce
 
 # 导入API适配器
 try:
@@ -114,19 +126,6 @@ except ImportError:
         print("⚠️ 警告：无法导入time_period_strategy模块，时段自适应功能将不可用")
         TIME_PERIOD_STRATEGY_AVAILABLE = False
         time_period_strategy = None
-
-# 为OrderSide和TimeInForce创建模拟类，如果无法导入
-try:
-    from tigeropen.common.consts import OrderSide, TimeInForce
-except ImportError:
-    class OrderSide:
-        BUY = 'BUY'
-        SELL = 'SELL'
-    
-    class TimeInForce:
-        DAY = 'DAY'
-        GTC = 'GTC'
-
 
 # 全局数据收集器
 class DataCollector:
@@ -2202,11 +2201,6 @@ def place_take_profit_order(entry_side: str, quantity: int, take_profit_price: f
         if trade_api is None:
             logger.warning("[place_take_profit_order] trade_api 未初始化")
             return False
-        try:
-            from tigeropen.common.consts import OrderSide, TimeInForce
-        except ImportError:
-            OrderSide = type('OrderSide', (), {'BUY': 'BUY', 'SELL': 'SELL'})()
-            TimeInForce = type('TimeInForce', (), {'DAY': 'DAY'})()
         symbol_for_api = _to_api_identifier(FUTURE_SYMBOL)
         order_side = OrderSide.SELL if entry_side == 'BUY' else OrderSide.BUY
         tp_result = trade_api.place_order(
@@ -3241,7 +3235,7 @@ if __name__ == "__main__":
             import json
             
             # 加载策略配置
-            config_path = '/home/cx/tigertrade/config/strategy_config.json'
+            config_path = os.path.join(_TIGER_ROOT, 'config', 'strategy_config.json')
             strategy_name = 'moe_transformer'
             if os.path.exists(config_path):
                 with open(config_path, 'r') as f:

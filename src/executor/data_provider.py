@@ -2,10 +2,14 @@
 市场数据提供者
 统一的数据获取和指标计算模块
 """
+import os
 import pandas as pd
 from typing import Dict, Any, Optional
 import sys
-sys.path.insert(0, '/home/cx/tigertrade')
+
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 from src import tiger1 as t1
 

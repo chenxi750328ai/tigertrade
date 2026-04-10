@@ -1,8 +1,52 @@
 {
-  "real_success_count": 4,
+  "real_success_count": 0,
   "real_fail_count": 919,
   "local_reject_count": 851,
   "api_reject_count": 68,
   "note": "成功数=老虎后台今日成交；order_log含测试污染不展示；失败=本地风控或API被拒。",
-  "updated": "2026-04-02 18:24:02"
+  "project_goal_ref": "第一目标：盈利与风控（月20%、胜率>60%等）见 docs/盈利目标和风险控制.md",
+  "fail_interpretation": "real_fail 为 order_log 中 mode=real&fail 的条数（常含历史累积+pytest）；local_reject=api_reject 为按 error 文本粗分。扭亏靠策略与执行，不单靠降 fail 数字。",
+  "top_real_fail_errors": [
+    {
+      "error": "ALLOW_REAL_TRADING!=1",
+      "count": 808
+    },
+    {
+      "error": "order_id无效(来自mock/测试)，未记入实盘成功",
+      "count": 26
+    },
+    {
+      "error": "API Error 1010: biz param error(field 'account' cannot be empty)",
+      "count": 26
+    },
+    {
+      "error": "持仓硬顶 pos=999>=3",
+      "count": 17
+    },
+    {
+      "error": "cannot import name 'OrderSide' from 'tigeropen.common.consts' (/root/minicond...",
+      "count": 13
+    },
+    {
+      "error": "code=1200 msg=standard account response error(bad_request:Orders cannot be pl...",
+      "count": 10
+    },
+    {
+      "error": "下单失败: 无法创建Order对象或调用API - Order创建错误: account不能为空，无法创建订单。self.account=None, cl...",
+      "count": 10
+    },
+    {
+      "error": "Order failed",
+      "count": 7
+    },
+    {
+      "error": "订单提交后后台未查到，可能被拒或延迟，请核对后台",
+      "count": 1
+    },
+    {
+      "error": "订单提交后 8 秒内后台未查到，可能被拒或延迟，请核对后台",
+      "count": 1
+    }
+  ],
+  "updated": "2026-04-10 16:26:43"
 }

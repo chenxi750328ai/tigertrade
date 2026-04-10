@@ -3,11 +3,14 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+export TIGERTRADE_ROOT="$REPO_ROOT"
+
 echo "=========================================="
 echo "启动20小时DEMO交易策略"
 echo "=========================================="
-
-cd /home/cx/tigertrade
 
 # 确保 DEMO 可真实下单（sandbox 模式不检查，但 production 路径会用到）
 export ALLOW_REAL_TRADING=1
@@ -40,8 +43,10 @@ print('✅ account 已配置')
 # 2.5 预检期货行情权限（无权限会导致 tiger1 启动即退出、今日成交长期为 0）
 echo -e "\n[2.5/3] 预检期货行情权限..."
 python3 -c "
-import sys
-sys.path.insert(0, '/home/cx/tigertrade')
+import os, sys
+root = os.environ.get('TIGERTRADE_ROOT', '')
+if root:
+    sys.path.insert(0, root)
 from tigeropen.tiger_open_config import TigerOpenClientConfig
 from tigeropen.quote.quote_client import QuoteClient
 from src import tiger1 as t1

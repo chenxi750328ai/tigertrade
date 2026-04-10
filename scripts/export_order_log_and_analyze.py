@@ -392,12 +392,17 @@ def write_order_execution_status(stats, docs_dir):
     real_fail = stats.get("by_mode_status", {}).get(("real", "fail"), 0)
     local_reject = stats.get("local_reject_count", 0)
     api_reject = stats.get("api_reject_count", 0)
+    re_dict = stats.get("real_errors") or {}
+    top_fail_errors = [{"error": err, "count": cnt} for err, cnt in list(re_dict.items())[:12]]
     obj = {
         "real_success_count": real_ok,  # 老虎后台今日成交数；None 时前端显示 —
         "real_fail_count": real_fail,
         "local_reject_count": local_reject,
         "api_reject_count": api_reject,
         "note": "成功数=老虎后台今日成交；order_log含测试污染不展示；失败=本地风控或API被拒。",
+        "project_goal_ref": "第一目标：盈利与风控（月20%、胜率>60%等）见 docs/盈利目标和风险控制.md",
+        "fail_interpretation": "real_fail 为 order_log 中 mode=real&fail 的条数（常含历史累积+pytest）；local_reject=api_reject 为按 error 文本粗分。扭亏靠策略与执行，不单靠降 fail 数字。",
+        "top_real_fail_errors": top_fail_errors,
         "updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
     path = docs_dir / "order_execution_status.json"

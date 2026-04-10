@@ -7,9 +7,11 @@
 import sys
 import os
 import subprocess
+from pathlib import Path
 
-# 添加tigertrade目录到路径
-sys.path.insert(0, '/home/cx/tigertrade')
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 def print_section(title):
     """打印分节标题"""
@@ -116,7 +118,7 @@ def run_tests():
         print(f"\n📝 运行pytest测试: {test_file}")
         result = subprocess.run(
             ['python', '-m', 'pytest', test_file, '-v', '--tb=short'],
-            cwd='/home/cx/tigertrade',
+            cwd=str(_REPO_ROOT),
             capture_output=True,
             text=True
         )
@@ -137,7 +139,7 @@ def run_tests():
         print(f"\n📝 运行python测试: {test_file}")
         result = subprocess.run(
             ['python', test_file],
-            cwd='/home/cx/tigertrade',
+            cwd=str(_REPO_ROOT),
             capture_output=True,
             text=True
         )
@@ -154,7 +156,7 @@ def validate_directory_structure():
     """验证目录结构"""
     print_section("4. 验证目录结构")
     
-    base_dir = '/home/cx/tigertrade'
+    base_dir = str(_REPO_ROOT)
     expected_dirs = [
         'src',
         'src/strategies',

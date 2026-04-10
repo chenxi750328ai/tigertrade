@@ -2,11 +2,14 @@
 
 > **项目计划**：月度/周计划、任务项与责任者见 **[项目计划_月度周计划.md](项目计划_月度周计划.md)**。  
 > **最后更新**：2026-04-02（Leader 日/周/月对齐汇报、四月计划第七节、DFX 门禁）
+>
+> **项目第一目标（勿忘）**：**系统建设服务于盈利**，量化指标见 **[盈利目标和风险控制.md](盈利目标和风险控制.md)**（月盈利率 20%、胜率 >60%、夏普、回撤、盈亏比等）。工程与测试是保障条件，**不能替代**策略与交易结果。`order_log` 中「失败」条数往往含大量**本地风控未发 API**（如 `ALLOW_REAL_TRADING`、持仓顶格），解读见 **[API被拒根因分析与修复方案.md](API被拒根因分析与修复方案.md)**；**收益为负**须在信号、仓位、止损止盈、时段与账户配置上归因与迭代。
 
 ---
 
 ## 0. 例行心跳（定期汇报入口）
 
+- **不断档（本机进程）**：[定时例行_Leader不断档.md](定时例行_Leader不断档.md) · [Leader例行进程_能力与配置.md](Leader例行进程_能力与配置.md) — `scripts/start_leader_routine_daemon.sh` 一键起后台；`leader_routine_tick.sh` 可配 `LEADER_ROUTINE_PROFILE` / `LEADER_ROUTINE_POST_HOOK` 串门禁、测试、优化与自定义任务。
 - **Leader 日计划 ↔ 周/月计划**：[例行汇报_日周月对齐_陈正霞.md](reports/例行汇报_日周月对齐_陈正霞.md)（目标与《项目计划》一致，每日填「三、四」节）
 - **最新一轮汇总**：[`docs/reports/routine_pulse_latest.md`](reports/routine_pulse_latest.md)（由 `scripts/write_routine_pulse.py` 生成）
 - **刷新并写入**：`ROUTINE_PULSE_REFRESH=1 python scripts/write_routine_pulse.py`

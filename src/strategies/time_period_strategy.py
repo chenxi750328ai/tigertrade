@@ -13,8 +13,10 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional, Tuple
 import json
 
-# 添加tigertrade目录到路径
-sys.path.insert(0, '/home/cx/tigertrade')
+# 添加仓库根目录到路径（可移植）
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 try:
     from scripts.analysis.time_period_analyzer import TimePeriodAnalyzer

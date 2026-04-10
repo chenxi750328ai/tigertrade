@@ -8,7 +8,10 @@ import pandas as pd
 import numpy as np
 import json
 import sys
-sys.path.append('/home/cx/tigertrade/scripts')
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.append(str(_REPO_ROOT / "scripts"))
 from risk_management import RiskManager
 
 def test_extreme_configs(data):
@@ -128,7 +131,7 @@ print("="*60)
 print()
 
 # 测试
-data = pd.read_csv('/home/cx/tigertrade/data/processed/test.csv')
+data = pd.read_csv(_REPO_ROOT / "data" / "processed" / "test.csv")
 results = test_extreme_configs(data)
 
 # 找最优

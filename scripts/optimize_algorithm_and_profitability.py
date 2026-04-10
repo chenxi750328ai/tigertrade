@@ -15,7 +15,9 @@ import numpy as np
 from datetime import datetime, timedelta
 import logging
 
-sys.path.insert(0, '/home/cx/tigertrade')
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
 logging.basicConfig(
     level=logging.INFO,
