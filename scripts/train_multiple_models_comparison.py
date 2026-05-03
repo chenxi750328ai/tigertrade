@@ -53,7 +53,21 @@ class ModelComparisonTrainer:
         # 查找最新的训练数据文件（优先选择数据量大的）
         data_files = [f for f in os.listdir(self.data_dir) if f.startswith('training_data_multitimeframe_') and f.endswith('.csv')]
         if not data_files:
-            raise FileNotFoundError("未找到训练数据文件")
+            # 兜底：尝试使用 data/processed/ 下的 train.csv
+            repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            processed_train = os.path.join(repo_root, 'data', 'processed', 'train.csv')
+            if os.path.exists(processed_train):
+                print(f"⚠️  未找到 training_data_multitimeframe_*.csv，使用兜底数据: {processed_train}")
+                df = pd.read_csv(processed_train)
+                if 'current_position' not in df.columns:
+                    df['current_position'] = 0
+                print(f"数据形状: {df.shape}")
+                print(f"数据列: {df.columns.tolist()[:10]}...")
+                return df
+            raise FileNotFoundError(
+                "未找到训练数据文件（/home/cx/trading_data/training_data_multitimeframe_*.csv 为空，"
+                f"且 {processed_train} 也不存在）。请先运行 scripts/merge_recent_data_and_train.py 生成数据。"
+            )
         
         # 优先选择合并后的数据文件（merged），如果没有则选择数据量最大的文件
         merged_files = [f for f in data_files if 'merged' in f]

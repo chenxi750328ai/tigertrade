@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-10T16:26:39.913711",
+  "timestamp": "2026-04-30T16:47:13.895596",
   "algorithm_version": "2.0",
   "profitability": {
     "total_profit": -35849.5,
@@ -12,7 +12,7 @@
   "strategy_performance": {
     "moe_transformer": {
       "profitability": 0,
-      "win_rate": "—",
+      "win_rate": 98.6,
       "sharpe_ratio": 0,
       "max_drawdown": 0,
       "demo_order_success": 10038,
@@ -21,15 +21,15 @@
       "demo_success_orders_sum": 337797,
       "demo_fail_orders_sum": 5781292,
       "demo_logs_scanned": 33,
-      "today_yield_pct": "-7000.98 USD（浮动-7000.98）",
-      "return_pct": "—",
-      "num_trades": "—",
-      "avg_per_trade_pct": "—",
-      "top_per_trade_pct": "—"
+      "today_yield_pct": "-14100.98 USD（浮动-14100.98）",
+      "return_pct": 10.42,
+      "num_trades": 144,
+      "avg_per_trade_pct": 0.0,
+      "top_per_trade_pct": 0.03
     },
     "lstm": {
       "profitability": 0,
-      "win_rate": "—",
+      "win_rate": 98.6,
       "sharpe_ratio": 0,
       "max_drawdown": 0,
       "demo_order_success": 10038,
@@ -38,15 +38,15 @@
       "demo_success_orders_sum": 337797,
       "demo_fail_orders_sum": 5781292,
       "demo_logs_scanned": 33,
-      "today_yield_pct": "-7000.98 USD（浮动-7000.98）",
-      "return_pct": "—",
-      "num_trades": "—",
-      "avg_per_trade_pct": "—",
-      "top_per_trade_pct": "—"
+      "today_yield_pct": "-14100.98 USD（浮动-14100.98）",
+      "return_pct": 10.42,
+      "num_trades": 144,
+      "avg_per_trade_pct": 0.0,
+      "top_per_trade_pct": 0.03
     },
     "grid": {
       "profitability": 0,
-      "win_rate": "—",
+      "win_rate": 100.0,
       "sharpe_ratio": 0,
       "max_drawdown": 0,
       "demo_order_success": 10038,
@@ -55,15 +55,15 @@
       "demo_success_orders_sum": 337797,
       "demo_fail_orders_sum": 5781292,
       "demo_logs_scanned": 33,
-      "today_yield_pct": "-7000.98 USD（浮动-7000.98）",
-      "return_pct": "—",
-      "num_trades": "—",
-      "avg_per_trade_pct": "—",
-      "top_per_trade_pct": "—"
+      "today_yield_pct": "-14100.98 USD（浮动-14100.98）",
+      "return_pct": 29.31,
+      "num_trades": 11,
+      "avg_per_trade_pct": 2.66,
+      "top_per_trade_pct": 7.21
     },
     "boll": {
       "profitability": 0,
-      "win_rate": "—",
+      "win_rate": 50.0,
       "sharpe_ratio": 0,
       "max_drawdown": 0,
       "demo_order_success": 10038,
@@ -72,14 +72,26 @@
       "demo_success_orders_sum": 337797,
       "demo_fail_orders_sum": 5781292,
       "demo_logs_scanned": 33,
-      "today_yield_pct": "-7000.98 USD（浮动-7000.98）",
-      "return_pct": "—",
-      "num_trades": "—",
-      "avg_per_trade_pct": "—",
-      "top_per_trade_pct": "—"
+      "today_yield_pct": "-14100.98 USD（浮动-14100.98）",
+      "return_pct": 7.522877435064933,
+      "num_trades": 2,
+      "avg_per_trade_pct": 3.76,
+      "top_per_trade_pct": 8.38
     }
   },
-  "optimal_parameters": {},
+  "optimal_parameters": {
+    "grid": {
+      "source": "backtest_grid_trading_strategy_pro1",
+      "same_code_as_live": true
+    },
+    "boll": {
+      "rsi_buy": 30,
+      "rsi_sell": 60,
+      "ma_short": 5,
+      "ma_long": 30,
+      "use_or": false
+    }
+  },
   "recommendations": [
     {
       "priority": "high",
@@ -97,6 +109,6 @@
     "**日志与老虎后台不一致说明**：日志含模拟单与失败单，只有 mode=real 且 status=success 的才在老虎后台；核对规则为「DEMO 的单在老虎都能查到即通过」，老虎可更多（含人工单）。",
     "收益率/胜率：来自 API 历史订单（老虎后台可核对）",
     "DEMO：多日志汇总（同次运行，四策略共用统计；订单成功、止损止盈等）",
-    "回测未运行或 缺 data/processed/test.csv，无效果数据"
+    "回测：grid/BOLL 为参数网格回测，moe_transformer/lstm 为 test.csv 信号回测（scripts/backtest_model_strategies.py），产出 num_trades/return_pct/win_rate"
   ]
 }

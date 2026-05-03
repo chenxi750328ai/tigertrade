@@ -39,6 +39,7 @@ sqlalchemy>=2.0.0
 # 工具
 pyyaml>=6.0
 requests>=2.31.0
+yfinance>=0.2.40  # scripts/backtest_gld_options_futures_proxy.py 拉 GLD 日线
 python-dateutil>=2.8.2
 tqdm>=4.65.0
 
