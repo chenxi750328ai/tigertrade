@@ -698,11 +698,17 @@ def verify_api_connection():
     if quote_api is None:
         print(f"❌ {count_type} 环境连接失败：期货行情 quote_api 未初始化")
         return False
+    # 优先用 get_future_brief 校验；若 permission denied 则降级到 get_future_bars
+    # （DEMO 账户可能无 brief 权限但有 bars 权限，两者均可获取价格）
     try:
         quote_api.get_future_brief([symbol])
     except Exception as e:
-        print(f"❌ {count_type} 期货行情接口不可用：{e}")
-        return False
+        brief_err = str(e)
+        if "permission denied" in brief_err.lower() or "4000" in brief_err:
+            print(f"⚠️  {count_type} get_future_brief 无权限，降级用 get_future_bars 校验行情可用性")
+        else:
+            print(f"❌ {count_type} 期货行情接口不可用：{e}")
+            return False
     try:
         quote_api.get_future_bars(
             [symbol],
@@ -712,6 +718,7 @@ def verify_api_connection():
             2,
             None,
         )
+        print(f"✅ {count_type} 期货行情 K 线接口可用")
     except Exception as e:
         print(f"❌ {count_type} 期货行情 K 线接口不可用：{e}")
         return False
@@ -1330,16 +1337,33 @@ def get_kline_data(symbol, period, count=100, start_time=None, end_time=None, fr
 
                     if all_pages:
                         klines = pd.concat(all_pages, ignore_index=True)
-                    else:
-                        klines = pd.DataFrame()
+                    # 如果分页结果为空（列表为空或 concat 后 0 行），回退到 get_future_bars(-1,-1)
+                    if not all_pages or (hasattr(klines, 'empty') and klines.empty) or (hasattr(klines, '__len__') and len(klines) == 0):
+                        # 分页失败或返回空数据：改用 begin_time=-1/end_time=-1 调用 get_future_bars 尝试获取最近数据
+                        try:
+                            klines = quote_client.get_future_bars(symbol1, period_map[period], -1, -1, count, None)
+                            logger.debug("分页失败/空，回退到 get_future_bars(-1,-1)，得到 %d 行", len(klines) if klines is not None else -1)
+                        except Exception as _fb_err:
+                            logger.debug("回退 get_future_bars 也失败: %s，使用合成数据", _fb_err)
+                            return _make_synthetic_klines(count)
                 else:
-                    klines = quote_client.get_future_bars(
-                        symbol1,
-                        period_map[period],
-                        -1,
-                        -1,
-                        count,
-                        None)
+                    # 非分页路径：先用 begin/end 时间范围请求，若返回空则回退到 -1/-1
+                    klines_range = None
+                    if start_ms is not None and end_ms is not None:
+                        try:
+                            klines_range = quote_client.get_future_bars(symbol1, period_map[period], start_ms, end_ms, count, None)
+                        except Exception:
+                            pass
+                    if klines_range is not None and not (hasattr(klines_range, 'empty') and klines_range.empty) and (not hasattr(klines_range, '__len__') or len(klines_range) > 0):
+                        klines = klines_range
+                    else:
+                        klines = quote_client.get_future_bars(
+                            symbol1,
+                            period_map[period],
+                            -1,
+                            -1,
+                            count,
+                            None)
 
             # required columns we expect in the final DataFrame
             required_cols = ['open', 'high', 'low', 'close', 'volume']
